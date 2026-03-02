@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import { getAuthUser } from '@/lib/auth-helpers';
 import { deleteCached } from '@/lib/cache';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('profile');
 
 // GET: Fetch current user's profile
 export async function GET() {
@@ -19,13 +22,13 @@ export async function GET() {
 
     if (error) throw error;
 
-    console.log(`[PROFILE] GET user=${user.id.slice(0, 8)}… genres=${profile?.preferred_genres?.length ?? 0} onboarding=${profile?.onboarding_completed}`);
+    log.info('GET', { userId: user.id.slice(0, 8), genres: profile?.preferred_genres?.length ?? 0, onboarding: profile?.onboarding_completed });
 
     return NextResponse.json({ profile }, {
       headers: { 'Cache-Control': 'private, no-cache' },
     });
   } catch (error) {
-    console.error('[PROFILE] GET error:', error);
+    log.error('GET error', error);
     return NextResponse.json({ error: 'Failed to fetch profile' }, { status: 500 });
   }
 }
@@ -54,7 +57,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
 
-    console.log(`[PROFILE] PATCH user=${user.id.slice(0, 8)}… fields=${Object.keys(filteredUpdates).join(',')}`);
+    log.info('PATCH', { userId: user.id.slice(0, 8), fields: Object.keys(filteredUpdates).join(',') });
 
     // Use upsert to handle race condition where trigger hasn't created the row yet
     const { data: profile, error } = await createAdminClient()
@@ -68,7 +71,7 @@ export async function PATCH(request: NextRequest) {
 
     if (error) throw error;
 
-    console.log(`[PROFILE] Saved: genres=${profile?.preferred_genres?.length ?? 0}, onboarding=${profile?.onboarding_completed}`);
+    log.success('Saved', { genres: profile?.preferred_genres?.length ?? 0, onboarding: profile?.onboarding_completed });
 
     // Invalidate personalized discovery cache when genres or country change
     if ('preferred_genres' in filteredUpdates || 'preferred_country' in filteredUpdates) {
@@ -78,7 +81,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ profile });
   } catch (error) {
-    console.error('Error updating profile:', error);
+    log.error('PATCH error', error);
     return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
   }
 }

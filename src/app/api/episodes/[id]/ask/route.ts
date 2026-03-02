@@ -3,6 +3,9 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { buildEpisodeContext } from "@/lib/ask-ai-service";
 import { checkRateLimit, checkQuota, isAdminEmail } from "@/lib/cache";
 import { getAuthUser } from "@/lib/auth-helpers";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger('ask-ai');
 
 // Separate Gemini instance for chat (plain text, not JSON)
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
@@ -108,7 +111,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
         } catch (err) {
-          console.error("[AskAI stream error]", err);
+          log.error('Stream error', err);
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ error: "Stream interrupted" })}\n\n`)
           );
@@ -125,7 +128,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("[AskAI] Error:", error);
+    log.error('Error', error);
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },

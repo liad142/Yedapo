@@ -3,7 +3,10 @@ import { getAuthUser } from '@/lib/auth-helpers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { importYouTubeVideo } from '@/lib/youtube/video-import';
 import { requestYouTubeSummary } from '@/lib/youtube/summary';
+import { createLogger } from '@/lib/logger';
 import type { SummaryLevel } from '@/types/database';
+
+const log = createLogger('youtube');
 
 export async function POST(
   request: NextRequest,
@@ -143,7 +146,7 @@ export async function POST(
       summary: result,
     });
   } catch (err) {
-    console.error(`[YT_SUMMARY] Error for video ${videoId}:`, err);
+    log.error(`Error for video ${videoId}`, err);
     return NextResponse.json(
       { error: 'Failed to process video summary' },
       { status: 500 }

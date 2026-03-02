@@ -5,29 +5,27 @@ import { requestSummary, checkExistingSummary, getSummariesStatus } from "@/lib/
 import { getAuthUser } from "@/lib/auth-helpers";
 import { resolvePodcastLanguage } from "@/lib/language-utils";
 import { checkQuota, isAdminEmail, checkRateLimit, deleteCached, CacheKeys } from "@/lib/cache";
+import { createLogger } from "@/lib/logger";
 import type { SummaryLevel } from "@/types/database";
+
+const log = createLogger('summary');
 
 interface RouteParams {
   params: Promise<{ id: string }>;
-}
-
-function logWithTime(message: string, data?: Record<string, unknown>) {
-  const timestamp = new Date().toISOString();
-  console.log(`[API /summaries ${timestamp}] ${message}`, data ? JSON.stringify(data) : '');
 }
 
 // GET /api/episodes/:id/summaries - Get both summary levels with statuses
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    logWithTime('GET request received', { episodeId: id });
+    log.info('GET request', { episodeId: id });
     const result = await getSummariesStatus(id);
-    logWithTime('GET request completed', { episodeId: id });
+    log.info('GET completed', { episodeId: id });
     return NextResponse.json(result, {
       headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
     });
   } catch (error) {
-    console.error('Error fetching summaries:', error);
+    log.error('Error fetching summaries', error);
     return NextResponse.json({ error: 'Failed to fetch summaries' }, { status: 500 });
   }
 }
@@ -69,13 +67,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Invalid level. Must be "quick" or "deep".' }, { status: 400 });
     }
 
-    logWithTime('POST request received', { episodeId: id, level });
+    log.info('POST request', { episodeId: id, level });
 
     // Invalidate stale insights cache so polling picks up new generation state
     await deleteCached(CacheKeys.insightsStatus(id, 'en')).catch(() => {});
 
     // Get episode with podcast info - language comes from RSS feed
-    logWithTime('Fetching episode and podcast from DB...');
+    log.info('Fetching episode and podcast from DB...');
     const { data: episode, error: episodeError } = await supabase
       .from('episodes')
       .select(`
@@ -88,7 +86,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (episodeError || !episode) {
-      logWithTime('Episode not found', { episodeId: id, error: episodeError });
+      log.warn('Episode not found', { episodeId: id });
       return NextResponse.json({ error: 'Episode not found' }, { status: 404 });
     }
 
@@ -101,8 +99,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       ? { podcastTitle: podcastData.title, episodeTitle: episode.title }
       : undefined;
 
-    logWithTime('Episode found, checking existing summary...', {
-      audioUrl: episode.audio_url?.substring(0, 50) + '...',
+    log.info('Episode found, checking existing summary...', {
       transcriptUrl: episode.transcript_url ? 'YES (FREE!)' : 'NO',
       hasAppleMetadata: !!metadata,
       language
@@ -111,7 +108,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Quick check: if summary already exists and is ready/in-progress, return immediately
     const existing = await checkExistingSummary(id, level, language || 'en');
     if (existing) {
-      logWithTime('Returning existing summary status', { status: existing.status });
+      log.info('Returning existing summary status', { status: existing.status });
       return NextResponse.json({ episodeId: id, level, ...existing });
     }
 
@@ -151,34 +148,32 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               }, { onConflict: 'user_id,summary_id', ignoreDuplicates: true });
           }
         } catch (err) {
-          logWithTime('Failed to record user_summary (non-blocking)', { error: String(err) });
+          log.warn('Failed to record user_summary (non-blocking)', { error: String(err) });
         }
       }
-      logWithTime('Background generation completed', {
+      log.success('Background generation completed', {
         episodeId: id,
         level,
         status: result.status,
         totalDurationMs: Date.now() - startTime,
-        totalDurationSec: ((Date.now() - startTime) / 1000).toFixed(1)
       });
     }).catch((err) => {
-      logWithTime('Background generation FAILED', { episodeId: id, level, error: String(err) });
+      log.error('Background generation FAILED', { episodeId: id, level, error: String(err) });
     });
 
     // Return immediately — the summary record was created by requestSummary's
     // initial upsert, so polling will find it with status "transcribing"
-    logWithTime('POST returning immediately (background generation started)', { episodeId: id, level });
+    log.info('POST returning immediately (background generation started)', { episodeId: id, level });
     return NextResponse.json({
       episodeId: id,
       level,
       status: 'transcribing',
     });
   } catch (error) {
-    logWithTime('POST request FAILED', {
+    log.error('POST request FAILED', {
       error: error instanceof Error ? error.message : String(error),
       totalDurationMs: Date.now() - startTime
     });
-    console.error('Error requesting summary:', error);
     return NextResponse.json({ error: 'Failed to request summary' }, { status: 500 });
   }
 }

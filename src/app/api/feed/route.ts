@@ -6,6 +6,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFeed } from '@/lib/rsshub-db';
 import { getAuthUser } from '@/lib/auth-helpers';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('feed');
 
 export async function GET(request: NextRequest) {
   const user = await getAuthUser();
@@ -21,7 +24,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20', 10);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
-    console.log(`[FEED] user=${user.id.slice(0, 8)}… sourceType=${sourceType} mode=${mode} limit=${limit} offset=${offset}`);
+    log.info('Fetching', { userId: user.id.slice(0, 8), sourceType, mode, limit, offset });
 
     const items = await getFeed({
       userId: user.id,
@@ -32,7 +35,7 @@ export async function GET(request: NextRequest) {
       offset,
     });
 
-    console.log(`[FEED] Returned ${items.length} items (hasMore=${items.length === limit})`);
+    log.success('Returned items', { count: items.length, hasMore: items.length === limit });
 
     return NextResponse.json({
       success: true,
@@ -43,7 +46,7 @@ export async function GET(request: NextRequest) {
       headers: { 'Cache-Control': 'private, no-cache' },
     });
   } catch (error) {
-    console.error('[FEED] Error:', error);
+    log.error('Error', error);
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : 'Failed to get feed',

@@ -1,7 +1,7 @@
 import { createLogger } from "@/lib/logger";
 import type { DiarizedTranscript, Utterance } from "@/types/deepgram";
 
-const logWithTime = createLogger('APPLE-TRANSCRIPTS');
+const log = createLogger('podcast');
 
 const APPLE_BEARER_TOKEN = process.env.APPLE_PODCASTS_BEARER_TOKEN;
 
@@ -40,7 +40,7 @@ export async function searchAppleEpisode(
   url.searchParams.set('entity', 'podcastEpisode');
   url.searchParams.set('limit', '5');
 
-  logWithTime('Searching iTunes API for episode', {
+  log.info('Searching iTunes API for episode', {
     podcastTitle: podcastTitle.substring(0, 50),
     episodeTitle: episodeTitle.substring(0, 50),
   });
@@ -52,7 +52,7 @@ export async function searchAppleEpisode(
     });
 
     if (!response.ok) {
-      logWithTime('iTunes search failed', { status: response.status });
+      log.info('iTunes search failed', { status: response.status });
       return null;
     }
 
@@ -60,25 +60,25 @@ export async function searchAppleEpisode(
     const results: AppleSearchResult[] = data.results || [];
 
     if (results.length === 0) {
-      logWithTime('No iTunes results found');
+      log.info('No iTunes results found');
       return null;
     }
 
     // Find best match by title similarity
     const match = findBestMatch(results, podcastTitle, episodeTitle);
     if (match) {
-      logWithTime('Found Apple episode match', {
+      log.info('Found Apple episode match', {
         trackId: match.trackId,
         trackName: match.trackName.substring(0, 60),
       });
       return match.trackId;
     }
 
-    logWithTime('No suitable match found in iTunes results');
+    log.info('No suitable match found in iTunes results');
     return null;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    logWithTime('iTunes search error', { error: errorMsg });
+    log.info('iTunes search error', { error: errorMsg });
     return null;
   }
 }
@@ -155,13 +155,13 @@ export async function fetchAppleTranscript(
   appleEpisodeId: number
 ): Promise<string | null> {
   if (!APPLE_BEARER_TOKEN) {
-    logWithTime('No Apple bearer token configured, skipping');
+    log.info('No Apple bearer token configured, skipping');
     return null;
   }
 
   const url = `https://amp-api.podcasts.apple.com/v1/catalog/us/podcast-episodes/${appleEpisodeId}/transcripts?fields=ttmlToken,ttmlAssetUrls&l=en-US&with=entitlements`;
 
-  logWithTime('Fetching Apple transcript metadata', { episodeId: appleEpisodeId });
+  log.info('Fetching Apple transcript metadata', { episodeId: appleEpisodeId });
 
   try {
     const response = await fetch(url, {
@@ -174,17 +174,17 @@ export async function fetchAppleTranscript(
     });
 
     if (response.status === 401 || response.status === 403) {
-      logWithTime('Apple bearer token expired or invalid', { status: response.status });
+      log.info('Apple bearer token expired or invalid', { status: response.status });
       return null;
     }
 
     if (response.status === 404) {
-      logWithTime('No transcript available for this Apple episode');
+      log.info('No transcript available for this Apple episode');
       return null;
     }
 
     if (!response.ok) {
-      logWithTime('Apple transcript API error', { status: response.status });
+      log.info('Apple transcript API error', { status: response.status });
       return null;
     }
 
@@ -195,7 +195,7 @@ export async function fetchAppleTranscript(
     const ttmlUrl = attrs?.ttmlAssetUrls?.ttml;
 
     if (!ttmlUrl) {
-      logWithTime('No TTML URL in Apple response', {
+      log.info('No TTML URL in Apple response', {
         hasData: !!data?.data?.length,
         hasAttrs: !!attrs,
         keys: attrs ? Object.keys(attrs) : [],
@@ -203,7 +203,7 @@ export async function fetchAppleTranscript(
       return null;
     }
 
-    logWithTime('Got TTML URL, fetching transcript...', { urlLength: ttmlUrl.length });
+    log.info('Got TTML URL, fetching transcript...', { urlLength: ttmlUrl.length });
 
     // Fetch the actual TTML file from Apple's CDN
     const ttmlResponse = await fetch(ttmlUrl, {
@@ -214,22 +214,22 @@ export async function fetchAppleTranscript(
     });
 
     if (!ttmlResponse.ok) {
-      logWithTime('Failed to fetch TTML file', { status: ttmlResponse.status });
+      log.info('Failed to fetch TTML file', { status: ttmlResponse.status });
       return null;
     }
 
     const ttml = await ttmlResponse.text();
 
     if (ttml && ttml.length > 100) {
-      logWithTime('Apple TTML fetched', { ttmlLength: ttml.length });
+      log.info('Apple TTML fetched', { ttmlLength: ttml.length });
       return ttml;
     }
 
-    logWithTime('Apple TTML too short', { length: ttml?.length });
+    log.info('Apple TTML too short', { length: ttml?.length });
     return null;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    logWithTime('Apple transcript fetch error', { error: errorMsg });
+    log.info('Apple transcript fetch error', { error: errorMsg });
     return null;
   }
 }
@@ -474,7 +474,7 @@ export function parseTtmlToDiarized(ttml: string): DiarizedTranscript | null {
   const fullText = finalUtterances.map(u => u.text).join(' ');
   const duration = finalUtterances[finalUtterances.length - 1].end || finalUtterances[finalUtterances.length - 1].start;
 
-  logWithTime('parseTtmlToDiarized result', {
+  log.info('parseTtmlToDiarized result', {
     rawUtterances: utterances.length,
     afterSplit: finalUtterances.length,
     speakerCount: speakerIds.size,
@@ -514,7 +514,7 @@ export async function getAppleTranscript(
   // Try structured diarized parsing first
   const diarized = parseTtmlToDiarized(ttml);
   if (diarized && diarized.utterances.length > 0) {
-    logWithTime('Parsed Apple TTML to diarized transcript', {
+    log.info('Parsed Apple TTML to diarized transcript', {
       utterances: diarized.utterances.length,
       speakerCount: diarized.speakerCount,
       duration: diarized.duration,
@@ -525,7 +525,7 @@ export async function getAppleTranscript(
   // Fallback to plain text parsing
   const text = parseTtmlToText(ttml);
   if (text && text.length > 100) {
-    logWithTime('Fell back to plain text TTML parsing', { textLength: text.length });
+    log.info('Fell back to plain text TTML parsing', { textLength: text.length });
     return { text, diarized: null, provider: 'apple-podcasts' };
   }
 

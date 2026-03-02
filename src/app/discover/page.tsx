@@ -11,6 +11,9 @@ import { BrandShelf } from '@/components/discovery/BrandShelf';
 import { CuriosityFeed } from '@/components/discovery/CuriosityFeed';
 import { UnifiedFeed } from '@/components/discovery/UnifiedFeed';
 import { ApplePodcast } from '@/components/ApplePodcastCard';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('discover');
 
 interface DailyMixEpisode {
   id: string;
@@ -120,7 +123,7 @@ export default function DiscoverPage() {
     allPodcastsRef.current = [];
     if (user) setIsLoadingPersonalized(true);
 
-    console.log(`[DISCOVER] Loading… user=${user?.id?.slice(0, 8) ?? 'guest'} country=${country}`);
+    log.info('Loading...', { userId: user?.id?.slice(0, 8) ?? 'guest', country });
 
     // 1) Daily Mix (independent, pass country for language filtering)
     const dailyMixPromise = fetch(`/api/discover/daily-mix?country=${country.toLowerCase()}`)
@@ -135,7 +138,7 @@ export default function DiscoverPage() {
         );
       })
       .catch((err) => {
-        console.error('[DISCOVER] Daily mix error:', err);
+        log.error('Daily mix error', err);
         if (!cancelled) setDailyMixEpisodes([]);
       })
       .finally(() => {
@@ -169,7 +172,7 @@ export default function DiscoverPage() {
           allPodcasts = [...allPodcasts, ...uniqueUs];
         }
 
-        console.log(`[DISCOVER] Top podcasts loaded: ${allPodcasts.length}`);
+        log.success('Top podcasts loaded', { count: allPodcasts.length });
         setTopPodcasts(allPodcasts);
         setIsLoadingPodcasts(false);
         allPodcastsRef.current = allPodcasts;
@@ -197,7 +200,7 @@ export default function DiscoverPage() {
         setFeedPage(1);
         setIsLoadingFeed(false);
       } catch (error) {
-        console.error('Error fetching discover data:', error);
+        log.error('Error fetching discover data', error);
         if (!cancelled) {
           setIsLoadingPodcasts(false);
           setIsLoadingFeed(false);
@@ -213,15 +216,15 @@ export default function DiscoverPage() {
             const data = await response.json();
             if (!cancelled) {
               if (data.personalized && data.sections) {
-                console.log(`[DISCOVER] Personalized: ${data.sections.length} sections`);
+                log.success('Personalized sections loaded', { count: data.sections.length });
                 setPersonalizedSections(data.sections);
               } else {
-                console.log('[DISCOVER] No personalized sections');
+                log.info('No personalized sections');
                 setPersonalizedSections([]);
               }
             }
           } catch (error) {
-            console.error('Error fetching personalized feed:', error);
+            log.error('Error fetching personalized feed', error);
             if (!cancelled) setPersonalizedSections([]);
           } finally {
             if (!cancelled) setIsLoadingPersonalized(false);
@@ -270,7 +273,7 @@ export default function DiscoverPage() {
       });
       setFeedPage(page + 1);
     } catch (error) {
-      console.error('Error loading more feed:', error);
+      log.error('Error loading more feed', error);
     } finally {
       isLoadingMoreFeed.current = false;
     }

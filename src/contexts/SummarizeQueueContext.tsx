@@ -4,6 +4,9 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import posthog from 'posthog-js';
 import type { QueueItem, QueueItemState, SummarizeQueueContextValue } from '@/types/queue';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('queue');
 
 const SummarizeQueueContext = createContext<SummarizeQueueContextValue | null>(null);
 
@@ -37,13 +40,6 @@ function withJitter(intervalMs: number): number {
   return Math.max(1000, Math.round(intervalMs + jitter));
 }
 
-const isDev = process.env.NODE_ENV === 'development';
-
-function logQueue(message: string, data?: Record<string, unknown>) {
-  if (isDev) {
-    console.log(`[QUEUE ${new Date().toISOString()}] ${message}`, data ? JSON.stringify(data) : '');
-  }
-}
 
 export function SummarizeQueueProvider({ children }: { children: React.ReactNode }) {
   const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -63,7 +59,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
 
       if (wasHidden && tabVisibleRef.current && pendingPollRef.current) {
         // Tab became visible again and we have a pending poll — resume immediately
-        logQueue('Tab visible again, resuming poll');
+        log.info('Tab visible again, resuming poll');
         const { episodeId, pollCount, startTime } = pendingPollRef.current;
         pendingPollRef.current = null;
         pollLoop(episodeId, pollCount, startTime);
@@ -154,17 +150,17 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
     const poll = async () => {
       // Pause polling when tab is hidden — save the state and resume on visibility
       if (!tabVisibleRef.current) {
-        logQueue('Tab hidden, pausing poll', { episodeId, pollCount });
+        log.info('Tab hidden, pausing poll', { episodeId, pollCount });
         pendingPollRef.current = { episodeId, pollCount, startTime };
         return;
       }
 
       pollCount++;
       const elapsedMs = Date.now() - startTime;
-      logQueue('Polling status...', { episodeId, pollCount, elapsedMs });
+      log.debug('Polling status', { episodeId, pollCount, elapsedMs });
 
       if (elapsedMs > MAX_POLL_DURATION_MS) {
-        logQueue('Polling TIMEOUT - giving up', { episodeId, pollCount, elapsedMs });
+        log.error('Polling TIMEOUT - giving up', { episodeId, pollCount, elapsedMs });
         updateQueueItem(episodeId, { state: 'failed', error: 'Processing timed out' });
         setStats(prev => ({ ...prev, failed: prev.failed + 1 }));
         finishProcessing();
@@ -173,11 +169,11 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
       }
 
       const state = await pollStatus(episodeId);
-      logQueue('Poll result', { episodeId, state, totalDurationMs: elapsedMs });
+      log.debug('Poll result', { episodeId, state, durationMs: elapsedMs });
       updateQueueItem(episodeId, { state });
 
       if (state === 'ready') {
-        logQueue('Processing COMPLETE', { episodeId, totalDurationMs: elapsedMs });
+        log.success('Processing complete', { episodeId, durationMs: elapsedMs });
         setStats(prev => ({ ...prev, completed: prev.completed + 1 }));
         finishProcessing();
         processNext();
@@ -185,15 +181,15 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
       }
 
       if (state === 'failed') {
-        logQueue('Processing FAILED', { episodeId, totalDurationMs: elapsedMs });
+        log.error('Processing failed', { episodeId, durationMs: elapsedMs });
         setQueue(currentQueue => {
           const item = currentQueue.find(i => i.episodeId === episodeId);
           if (item && item.retryCount < MAX_RETRIES) {
-            logQueue('Retrying...', { episodeId, retryCount: item.retryCount + 1 });
+            log.warn('Retrying', { episodeId, retryCount: item.retryCount + 1 });
             updateQueueItem(episodeId, { retryCount: item.retryCount + 1, state: 'transcribing' });
             setTimeout(() => startProcessingEpisode(episodeId), RETRY_DELAY);
           } else {
-            logQueue('Max retries reached', { episodeId });
+            log.error('Max retries reached', { episodeId });
             setStats(prev => ({ ...prev, failed: prev.failed + 1 }));
             finishProcessing();
             processNext();
@@ -204,7 +200,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
       }
 
       const nextInterval = getNextPollInterval(state);
-      logQueue('Scheduling next poll', { episodeId, nextInterval });
+      log.debug('Scheduling next poll', { episodeId, nextInterval });
       pollingRef.current = setTimeout(poll, nextInterval);
     };
 
@@ -217,37 +213,28 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
     setProcessingId(episodeId);
     updateQueueItem(episodeId, { state: 'transcribing' });
 
-    logQueue('Starting processing', { episodeId });
+    log.info('Starting processing', { episodeId });
     const startTime = Date.now();
 
     try {
-      logQueue('Sending POST request to start summarization...', { episodeId });
+      log.info('Sending POST to start summarization', { episodeId });
       const res = await fetch(`/api/episodes/${episodeId}/summaries`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ level: 'deep' })
       });
 
-      logQueue('POST request returned', {
-        episodeId,
-        ok: res.ok,
-        status: res.status,
-        durationMs: Date.now() - startTime
-      });
+      log.info('POST returned', { episodeId, ok: res.ok, status: res.status, durationMs: Date.now() - startTime });
 
       if (!res.ok) throw new Error('Failed to start processing');
 
       const responseData = await res.json();
-      logQueue('POST response data', { episodeId, responseData });
+      log.debug('POST response data', { episodeId, responseData });
 
       // Use shared poll loop
       pollLoop(episodeId, 0, startTime);
     } catch (err) {
-      logQueue('POST request FAILED', {
-        episodeId,
-        error: err instanceof Error ? err.message : String(err),
-        durationMs: Date.now() - startTime
-      });
+      log.error('POST request failed', { episodeId, error: err instanceof Error ? err.message : String(err), durationMs: Date.now() - startTime });
       setQueue(currentQueue => {
         const item = currentQueue.find(i => i.episodeId === episodeId);
         if (item && item.retryCount < MAX_RETRIES) {
@@ -287,7 +274,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
       return [...filtered, newItem];
     });
 
-    logQueue('Resuming polling (no POST)', { episodeId });
+    log.info('Resuming polling (no POST)', { episodeId });
 
     // Use shared poll loop — no POST, start polling directly
     pollLoop(episodeId, 0, Date.now());

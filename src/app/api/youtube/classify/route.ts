@@ -4,6 +4,9 @@ import { fetchChannelTopics } from '@/lib/youtube/api';
 import { extractGenresFromTopicCategories, extractGenresFromTopicIds } from '@/lib/youtube/topic-genre-map';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { APPLE_PODCAST_GENRES } from '@/types/apple-podcasts';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('yt-classify');
 
 /**
  * Gemini fallback classifier for channels that lack YouTube topic data.
@@ -15,7 +18,7 @@ async function classifyWithGemini(
 ): Promise<Record<string, string[]>> {
   const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
   if (!apiKey) {
-    console.error('[YT_CLASSIFY] GOOGLE_GEMINI_API_KEY not set, skipping Gemini fallback');
+    log.error('GOOGLE_GEMINI_API_KEY not set, skipping Gemini fallback');
     return {};
   }
 
@@ -65,7 +68,7 @@ Example format:
     const parsed = JSON.parse(text) as Record<string, string[]>;
     return parsed;
   } catch (err) {
-    console.error('[YT_CLASSIFY] Gemini classification failed:', err);
+    log.error('Gemini classification failed', err);
     return {};
   }
 }
@@ -92,7 +95,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  console.log(`[YT_CLASSIFY] Classifying ${channels.length} channels against ${genres.length} genres`);
+  log.info('Classifying channels', { channelCount: channels.length, genreCount: genres.length });
 
   const selectedGenres = genres;
   const channelIds = channels.map((ch) => ch.channelId);
@@ -123,7 +126,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  console.log(`[YT_CLASSIFY] YouTube topics classified ${classified} channels, ${unclassified.length} unclassified`);
+  log.info('YouTube topics classified', { classified, unclassified: unclassified.length });
 
   // Fall back to Gemini for unclassified channels
   if (unclassified.length > 0) {
@@ -134,9 +137,9 @@ export async function POST(request: NextRequest) {
           classifications[channelId] = genreIds;
         }
       }
-      console.log(`[YT_CLASSIFY] Gemini classified ${Object.keys(geminiResults).length} additional channels`);
+      log.success('Gemini classified additional channels', { count: Object.keys(geminiResults).length });
     } catch (err) {
-      console.error('[YT_CLASSIFY] Gemini fallback error:', err);
+      log.error('Gemini fallback error', err);
       // Leave unclassified channels with empty arrays
     }
   }

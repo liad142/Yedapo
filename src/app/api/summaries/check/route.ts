@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('summary');
 
 interface CheckSummariesRequest {
   audioUrls: string[];
@@ -19,9 +22,8 @@ export async function POST(request: NextRequest) {
     const body: CheckSummariesRequest = await request.json();
     const { audioUrls } = body;
 
-    console.log('[SUMMARIES CHECK] Request received', {
+    log.info('Check request received', {
       audioUrlCount: audioUrls?.length,
-      sampleUrls: audioUrls?.slice(0, 3).map(u => u.substring(0, 60))
     });
 
     if (!audioUrls || !Array.isArray(audioUrls) || audioUrls.length === 0) {
@@ -47,14 +49,13 @@ export async function POST(request: NextRequest) {
       .select('id, audio_url')
       .in('audio_url', audioUrls);
 
-    console.log('[SUMMARIES CHECK] Episodes lookup', { 
+    log.info('Episodes lookup', {
       queriedUrls: audioUrls.length,
       foundEpisodes: episodes?.length || 0,
-      episodeIds: episodes?.map(e => e.id).slice(0, 5) // Log first 5
     });
 
     if (episodesError) {
-      console.error('Error fetching episodes:', episodesError);
+      log.error('Error fetching episodes', episodesError);
       return NextResponse.json(
         { error: 'Database error' },
         { status: 500 }
@@ -83,18 +84,13 @@ export async function POST(request: NextRequest) {
       .select('episode_id, level, status')
       .in('episode_id', episodeIds);
 
-    console.log('[SUMMARIES CHECK] Summaries lookup', {
+    log.info('Summaries lookup', {
       episodeIds: episodeIds.length,
       foundSummaries: summaries?.length || 0,
-      summaryDetails: summaries?.map(s => ({ 
-        episode_id: s.episode_id.substring(0, 8),
-        level: s.level,
-        status: s.status 
-      }))
     });
 
     if (summariesError) {
-      console.error('Error fetching summaries:', summariesError);
+      log.error('Error fetching summaries', summariesError);
       return NextResponse.json(
         { error: 'Database error' },
         { status: 500 }
@@ -147,7 +143,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ availability });
   } catch (error) {
-    console.error('Error in summaries check:', error);
+    log.error('Error in summaries check', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

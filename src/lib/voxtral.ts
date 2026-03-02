@@ -2,7 +2,7 @@ import { Mistral } from '@mistralai/mistralai';
 import type { DiarizedTranscript, Utterance } from '@/types/deepgram';
 import { createLogger } from '@/lib/logger';
 
-const logWithTime = createLogger('VOXTRAL');
+const log = createLogger('deepgram');
 
 const client = new Mistral({
   apiKey: process.env.MISTRAL_API_KEY!,
@@ -33,7 +33,7 @@ async function withRetry<T>(
       if (error?.statusCode >= 400 && error?.statusCode < 500) throw error;
       if (attempt < maxRetries) {
         const delay = baseDelayMs * Math.pow(2, attempt);
-        logWithTime(`Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+        log.info(`Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
@@ -58,7 +58,7 @@ export async function transcribeWithVoxtral(
   audioUrl: string,
   language: string
 ): Promise<DiarizedTranscript> {
-  logWithTime('transcribeWithVoxtral started', {
+  log.info('transcribeWithVoxtral started', {
     audioUrl: audioUrl.substring(0, 100) + '...',
     language,
   });
@@ -66,7 +66,7 @@ export async function transcribeWithVoxtral(
   const startTime = Date.now();
 
   const result = await withRetry(async () => {
-    logWithTime('Calling Mistral audio.transcriptions.complete()...');
+    log.info('Calling Mistral audio.transcriptions.complete()...');
     const response = await client.audio.transcriptions.complete({
       model: 'voxtral-mini-latest',
       fileUrl: audioUrl,
@@ -97,7 +97,7 @@ export async function transcribeWithVoxtral(
   const detectedLanguage = (result as any).language || language;
   const speakerSet = new Set(utterances.map(u => u.speaker));
 
-  logWithTime('transcribeWithVoxtral completed', {
+  log.info('transcribeWithVoxtral completed', {
     durationMs: duration,
     segmentCount: segments.length,
     utteranceCount: utterances.length,

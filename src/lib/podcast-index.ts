@@ -6,6 +6,7 @@
 
 import crypto from 'crypto';
 import { getCached, setCached, CacheKeys, CacheTTL } from '@/lib/cache';
+import { createLogger } from '@/lib/logger';
 import type {
   PodcastIndexFeed,
   PodcastIndexEpisode,
@@ -15,6 +16,8 @@ import type {
   PodcastIndexPodcastResponse,
 } from '@/types/podcast-index';
 import type { Podcast, PodcastEpisode } from '@/types/podcast';
+
+const log = createLogger('podcast');
 
 const PI_BASE_URL = 'https://api.podcastindex.org/api/1.0';
 
@@ -150,7 +153,7 @@ export async function getPodcastByFeedId(feedId: string): Promise<Podcast | null
     if ((error as Error).message === 'Unauthorized') {
       return null;
     }
-    console.error(`[PodcastIndex] Failed to fetch podcast by feedId ${feedId}:`, error);
+    log.error(`Failed to fetch podcast by feedId ${feedId}`, error);
     return null;
   }
 }
@@ -172,7 +175,7 @@ export async function getPodcastByItunesId(itunesId: string): Promise<Podcast | 
     if ((error as Error).message === 'Unauthorized') {
       return null;
     }
-    console.error(`[PodcastIndex] Failed to fetch podcast by itunesId ${itunesId}:`, error);
+    log.error(`Failed to fetch podcast by itunesId ${itunesId}`, error);
     return null;
   }
 }

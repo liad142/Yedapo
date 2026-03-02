@@ -15,7 +15,7 @@ import { triggerPendingNotifications } from "@/lib/notifications/trigger";
 import { createLogger } from "@/lib/logger";
 import { extractYouTubeVideoId } from "@/lib/youtube/utils";
 
-const logWithTime = createLogger('INSIGHTS-SERVICE');
+const log = createLogger('insights');
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
 
@@ -49,7 +49,7 @@ async function generateInsightsWithFallback(prompt: string): Promise<{ text: str
   let lastError: Error | null = null;
   for (const modelId of INSIGHTS_MODELS) {
     try {
-      logWithTime(`Trying model ${modelId}...`);
+      log.info(`Trying model ${modelId}...`);
       const model = getInsightsModel(modelId);
       const result = await withTimeout(model.generateContent(prompt), TIMEOUT_MS, `insights ${modelId}`);
       return { text: result.response.text(), modelUsed: modelId };
@@ -61,7 +61,7 @@ async function generateInsightsWithFallback(prompt: string): Promise<{ text: str
         lastError.message.includes('overloaded') ||
         lastError.message.includes('high demand') ||
         lastError.message.includes('Timeout');
-      logWithTime(`Model ${modelId} failed: ${lastError.message.substring(0, 120)}`);
+      log.info(`Model ${modelId} failed: ${lastError.message.substring(0, 120)}`);
       if (!isRetryable) throw lastError;
     }
   }
@@ -142,7 +142,7 @@ export async function generateInsights(
     const fullPrompt = systemPrompt + "\n\n" + INSIGHTS_PROMPT + transcriptText.substring(0, 100000);
 
     const { text, modelUsed } = await generateInsightsWithFallback(fullPrompt);
-    logWithTime('Insights generated', { modelUsed });
+    log.info('Insights generated', { modelUsed });
 
     // Parse and validate the response
     const rawContent = JSON.parse(text);
@@ -171,7 +171,7 @@ export async function generateInsights(
     try {
       await triggerPendingNotifications(episodeId);
     } catch (notifError) {
-      logWithTime('Notification trigger failed (non-blocking)', { episodeId, error: String(notifError) });
+      log.info('Notification trigger failed (non-blocking)', { episodeId, error: String(notifError) });
     }
 
     return { status: 'ready', content };

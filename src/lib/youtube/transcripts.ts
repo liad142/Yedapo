@@ -1,4 +1,7 @@
 import { YoutubeTranscript } from 'youtube-transcript-plus';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('yt-transcript');
 
 export interface YouTubeTranscriptResult {
   text: string;
@@ -70,7 +73,7 @@ async function fetchPlayerFromPage(videoId: string): Promise<Record<string, unkn
     });
 
     if (!res.ok) {
-      console.error(`[YT_INNERTUBE] Watch page returned ${res.status} for ${videoId}`);
+      log.error(`Watch page returned ${res.status}`, { videoId });
       return null;
     }
 
@@ -78,14 +81,14 @@ async function fetchPlayerFromPage(videoId: string): Promise<Record<string, unkn
     const data = extractJsonFromHtml(html, 'ytInitialPlayerResponse');
 
     if (data) {
-      console.log(`[YT_INNERTUBE] Watch page scrape succeeded for ${videoId}`);
+      log.success('Watch page scrape succeeded', { videoId });
       return data;
     }
 
-    console.warn(`[YT_INNERTUBE] ytInitialPlayerResponse not found in page HTML for ${videoId}`);
+    log.warn('ytInitialPlayerResponse not found in page HTML', { videoId });
     return null;
   } catch (err) {
-    console.error(`[YT_INNERTUBE] Watch page scrape failed for ${videoId}:`, err);
+    log.error('Watch page scrape failed', { videoId, error: String(err) });
     return null;
   }
 }
@@ -113,12 +116,12 @@ function decodeEntities(text: string): string {
  */
 export async function fetchYouTubeTranscript(videoId: string): Promise<YouTubeTranscriptResult | null> {
   try {
-    console.log(`[YT_TRANSCRIPT] Fetching transcript for ${videoId} via youtube-transcript-plus`);
+    log.info('Fetching transcript via youtube-transcript-plus', { videoId });
 
     const segments = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'en' });
 
     if (!segments || segments.length === 0) {
-      console.warn(`[YT_TRANSCRIPT] No transcript segments for ${videoId}`);
+      log.warn('No transcript segments', { videoId });
       return null;
     }
 
@@ -130,20 +133,20 @@ export async function fetchYouTubeTranscript(videoId: string): Promise<YouTubeTr
       .trim();
 
     if (!fullText) {
-      console.warn(`[YT_TRANSCRIPT] Empty transcript text for ${videoId}`);
+      log.warn('Empty transcript text', { videoId });
       return null;
     }
 
-    console.log(`[YT_TRANSCRIPT] Got ${segments.length} segments, ${fullText.length} chars for ${videoId}`);
+    log.success('Got transcript', { segments: segments.length, chars: fullText.length, videoId });
     return { text: fullText, language };
   } catch (err) {
     // Try without language preference as fallback
     try {
-      console.warn(`[YT_TRANSCRIPT] English failed, trying default language for ${videoId}`);
+      log.warn('English failed, trying default language', { videoId });
       const segments = await YoutubeTranscript.fetchTranscript(videoId);
 
       if (!segments || segments.length === 0) {
-        console.warn(`[YT_TRANSCRIPT] No transcript segments (fallback) for ${videoId}`);
+        log.warn('No transcript segments (fallback)', { videoId });
         return null;
       }
 
@@ -156,11 +159,11 @@ export async function fetchYouTubeTranscript(videoId: string): Promise<YouTubeTr
 
       if (!fullText) return null;
 
-      console.log(`[YT_TRANSCRIPT] Got ${segments.length} segments (${language}) for ${videoId}`);
+      log.success('Got transcript (fallback)', { segments: segments.length, language, videoId });
       return { text: fullText, language };
     } catch (fallbackErr) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error(`[YT_TRANSCRIPT] Failed to fetch transcript for ${videoId}: ${errorMsg}`);
+      log.error('Failed to fetch transcript', { videoId, error: errorMsg });
       return null;
     }
   }
@@ -168,12 +171,12 @@ export async function fetchYouTubeTranscript(videoId: string): Promise<YouTubeTr
 
 /**
  * Parse chapter timestamps from a YouTube video description.
- * Valid chapters: ≥3 timestamp lines, first must start at 0:00.
+ * Valid chapters: >=3 timestamp lines, first must start at 0:00.
  * Pattern: `MM:SS Title` or `H:MM:SS Title` with optional dash separator.
  */
 function parseChaptersFromDescription(description: string): { title: string; startSeconds: number }[] {
   const lines = description.split('\n');
-  const chapterRegex = /^\s*(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\s*[-–—]?\s*(.+)/;
+  const chapterRegex = /^\s*(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\s*[-\u2013\u2014]?\s*(.+)/;
   const matches: { title: string; startSeconds: number }[] = [];
 
   for (const line of lines) {
@@ -190,7 +193,7 @@ function parseChaptersFromDescription(description: string): { title: string; sta
     }
   }
 
-  // Valid chapters: ≥3 entries AND first starts at 0:00
+  // Valid chapters: >=3 entries AND first starts at 0:00
   if (matches.length >= 3 && matches[0].startSeconds === 0) {
     return matches;
   }
@@ -214,7 +217,7 @@ function parseLinksFromDescription(description: string): { url: string; text: st
     // Try to get contextual text from the line
     const line = lines.find(l => l.includes(url));
     const text = line
-      ? line.replace(url, '').replace(/[-–—:|\s]+/g, ' ').trim() || url
+      ? line.replace(url, '').replace(/[-\u2013\u2014:|\s]+/g, ' ').trim() || url
       : url;
 
     links.push({ url, text });
@@ -231,13 +234,13 @@ export async function fetchYouTubeMetadata(videoId: string): Promise<YouTubeMeta
   try {
     const playerData = await fetchPlayerFromPage(videoId);
     if (!playerData) {
-      console.error(`[YT_METADATA] Watch page scrape failed for ${videoId}`);
+      log.error('Watch page scrape failed', { videoId });
       return null;
     }
 
     const videoDetails = (playerData as Record<string, unknown>)?.videoDetails as Record<string, unknown> | undefined;
     if (!videoDetails) {
-      console.warn(`[YT_METADATA] No videoDetails for ${videoId}`);
+      log.warn('No videoDetails', { videoId });
       return null;
     }
 
@@ -265,7 +268,7 @@ export async function fetchYouTubeMetadata(videoId: string): Promise<YouTubeMeta
       storyboardSpec,
     };
   } catch (err) {
-    console.error(`[YT_METADATA] Failed to fetch metadata for ${videoId}:`, err);
+    log.error('Failed to fetch metadata', { videoId, error: String(err) });
     return null;
   }
 }

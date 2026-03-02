@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('auth');
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -29,17 +32,17 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    console.log('[AUTH_CALLBACK] Exchanging code for session…');
+    log.info('Exchanging code for session...');
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     let redirectUrl = `${origin}/discover`;
 
     if (error) {
-      console.error('[AUTH_CALLBACK] Session exchange error:', error.message);
+      log.error('Session exchange error', { message: error.message });
     }
 
     if (!error && data?.user) {
-      console.log(`[AUTH_CALLBACK] User authenticated: ${data.user.email} (${data.user.id.slice(0, 8)}…)`);
+      log.success('User authenticated', { email: data.user.email, userId: data.user.id.slice(0, 8) });
       const admin = createAdminClient();
 
       // Store provider tokens for YouTube API access
@@ -62,7 +65,7 @@ export async function GET(request: NextRequest) {
               { onConflict: 'user_id,provider' }
             );
         } catch (err) {
-          console.error('[AUTH_CALLBACK] Failed to store provider tokens:', err);
+          log.error('Failed to store provider tokens', err);
         }
       }
 
@@ -76,7 +79,7 @@ export async function GET(request: NextRequest) {
       redirectUrl = shouldOnboard
         ? `${origin}/onboarding`
         : `${origin}${next}`;
-      console.log(`[AUTH_CALLBACK] Onboarding=${shouldOnboard ? 'needed' : 'done'} → redirect to ${redirectUrl}`);
+      log.info('Redirecting', { onboarding: shouldOnboard ? 'needed' : 'done', redirectUrl });
     }
 
     const response = NextResponse.redirect(redirectUrl);

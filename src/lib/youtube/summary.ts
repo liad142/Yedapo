@@ -3,7 +3,10 @@ import { fetchYouTubeTranscript } from './transcripts';
 import { generateSummaryForLevel } from '@/lib/summary-service';
 import { generateInsights } from '@/lib/insights-service';
 import { ensureYouTubeMetadata } from './metadata';
+import { createLogger } from '@/lib/logger';
 import type { SummaryLevel, SummaryStatus } from '@/types/database';
+
+const log = createLogger('youtube');
 
 /**
  * Request a summary for a YouTube video.
@@ -150,9 +153,9 @@ export async function requestYouTubeSummary(
             { onConflict: 'episode_id,level,language' }
           );
           const r = await generateSummaryForLevel(episodeId, 'deep', bgTranscript, language, undefined, bgContext);
-          console.log(`[YT_SUMMARY] Deep summary completed for ${episodeId}: ${r.status}`);
+          log.success(`Deep summary completed for ${episodeId}`, { status: r.status });
         } catch (e) {
-          console.error(`[YT_SUMMARY] Deep summary failed for ${episodeId}:`, e);
+          log.error(`Deep summary failed for ${episodeId}`, e);
         }
       })();
     }
@@ -166,9 +169,9 @@ export async function requestYouTubeSummary(
             { onConflict: 'episode_id,level,language' }
           );
           const r = await generateInsights(episodeId, bgTranscript, language);
-          console.log(`[YT_SUMMARY] Insights completed for ${episodeId}: ${r.status}`);
+          log.success(`Insights completed for ${episodeId}`, { status: r.status });
         } catch (e) {
-          console.error(`[YT_SUMMARY] Insights failed for ${episodeId}:`, e);
+          log.error(`Insights failed for ${episodeId}`, e);
         }
       })();
     }

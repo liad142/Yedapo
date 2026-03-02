@@ -16,6 +16,9 @@ import { SummarizeButton } from "@/components/SummarizeButton";
 import { InlinePlayButton } from "@/components/PlayButton";
 import type { Podcast } from "@/types/database";
 import { ArrowLeft, Mic2, Calendar, Globe, Rss, Clock, FileText, Loader2 } from "lucide-react";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger('podcast');
 
 interface Episode {
   id: string;
@@ -86,11 +89,10 @@ export default function PodcastPage() {
           : null;
         setAppleId(resolvedAppleId);
 
-        console.log('[PodcastPage] Loading episodes', {
+        log.info('Loading episodes', {
           podcastId,
           isApplePodcast,
           appleId: resolvedAppleId,
-          rss_feed_url: podcastData.rss_feed_url
         });
 
         // 3. Fetch episodes
@@ -99,16 +101,16 @@ export default function PodcastPage() {
           try {
             const response = await fetch(`/api/apple/podcasts/${resolvedAppleId}/episodes?limit=50&offset=0`);
             if (!response.ok) {
-              console.error('[PodcastPage] Apple API error:', response.status);
+              log.error('Apple API error', { status: response.status });
               throw new Error('Failed to fetch from Apple');
             }
             const data = await response.json();
-            console.log('[PodcastPage] Apple episodes loaded:', data.episodes?.length);
+            log.success('Apple episodes loaded', { count: data.episodes?.length });
             setEpisodes(data.episodes || []);
             setHasMore(data.hasMore ?? false);
             setTotalCount(data.totalCount ?? data.episodes?.length ?? 0);
           } catch (appleErr) {
-            console.error('[PodcastPage] Apple fetch failed, trying local DB:', appleErr);
+            log.warn('Apple fetch failed, trying local DB', { error: String(appleErr) });
             // Fallback to local DB
             await fetchLocalEpisodes(podcastData);
           }
@@ -118,7 +120,7 @@ export default function PodcastPage() {
         }
 
       } catch (err) {
-        console.error("[PodcastPage] Error loading podcast:", err);
+        log.error('Error loading podcast', err);
         setError("Failed to load podcast");
         setIsLoading(false);
       } finally {
@@ -134,12 +136,12 @@ export default function PodcastPage() {
         .order('published_at', { ascending: false });
 
       if (dbError) {
-        console.error('[PodcastPage] DB episodes error:', dbError);
+        log.error('DB episodes error', dbError);
         setEpisodes([]);
         return;
       }
 
-      console.log('[PodcastPage] Local episodes loaded:', dbEpisodes?.length);
+      log.success('Local episodes loaded', { count: dbEpisodes?.length });
 
       const mappedEpisodes: Episode[] = (dbEpisodes || []).map((ep: any) => ({
         id: ep.id,
@@ -172,7 +174,7 @@ export default function PodcastPage() {
       setHasMore(data.hasMore ?? false);
       setTotalCount(data.totalCount ?? totalCount);
     } catch (err) {
-      console.error('Error loading more episodes:', err);
+      log.error('Error loading more episodes', err);
     } finally {
       setIsLoadingMore(false);
     }
@@ -220,7 +222,7 @@ export default function PodcastPage() {
         }
         setSummaryAvailability(availabilityMap);
       } catch (err) {
-        console.error('Error checking summaries:', err);
+        log.error('Error checking summaries', err);
       }
     }
 
@@ -293,7 +295,7 @@ export default function PodcastPage() {
 
       addToQueue(episodeId);
     } catch (err) {
-      console.error('Error importing episode:', err);
+      log.error('Error importing episode', err);
     } finally {
       setImportingEpisodeId(null);
     }

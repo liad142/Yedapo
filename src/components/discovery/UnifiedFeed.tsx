@@ -9,6 +9,9 @@ import { Loader2 } from 'lucide-react';
 import posthog from 'posthog-js';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('feed');
 
 type FilterType = 'all' | 'youtube' | 'podcast';
 
@@ -46,25 +49,25 @@ export function UnifiedFeed() {
       offset: String(offset),
     });
 
-    console.log(`[FEED_UI] Fetching: sourceType=${sourceType} offset=${offset} append=${append}`);
+    log.info('Fetching', { sourceType, offset, append });
 
     try {
       const res = await fetch(`/api/feed?${params}`);
       if (!res.ok) {
-        console.error(`[FEED_UI] API error: ${res.status} ${res.statusText}`);
+        log.error('API error', { status: res.status, statusText: res.statusText });
         return;
       }
 
       const data = await res.json();
       const newItems: FeedItemRaw[] = data.items || [];
 
-      console.log(`[FEED_UI] Received ${newItems.length} items (hasMore=${data.hasMore})`);
+      log.success('Received items', { count: newItems.length, hasMore: data.hasMore });
 
       setItems(prev => append ? [...prev, ...newItems] : newItems);
       setHasMore(newItems.length === PAGE_SIZE);
       offsetRef.current = offset + newItems.length;
     } catch (err) {
-      console.error('[FEED_UI] Error fetching feed:', err);
+      log.error('Error fetching feed', err);
     }
   }, [user]);
 

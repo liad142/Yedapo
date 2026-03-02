@@ -3,6 +3,9 @@ import { supabase } from "@/lib/supabase";
 import { fetchPodcastFeed } from "@/lib/rss";
 import { getPodcastById } from "@/lib/apple-podcasts";
 import { getAuthUser } from "@/lib/auth-helpers";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger('add-podcast');
 
 // Block SSRF: reject private/reserved IP ranges
 const PRIVATE_IP_PATTERNS = [
@@ -111,7 +114,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (podcastError) {
-        console.error("Error inserting Apple podcast:", podcastError);
+        log.error('Error inserting Apple podcast', podcastError);
         return NextResponse.json(
           { error: "Failed to save podcast" },
           { status: 500 }
@@ -135,7 +138,7 @@ export async function POST(request: NextRequest) {
     // Insert podcast into Supabase
     // Use language extracted from RSS feed, fallback to 'en' if not found
     const podcastLanguage = parsedPodcast.language || "en";
-    console.log(`[ADD-PODCAST] Extracted language from RSS: ${podcastLanguage}`);
+    log.info('Extracted language from RSS', { language: podcastLanguage });
     
     const { data: podcast, error: podcastError } = await supabase
       .from("podcasts")
@@ -151,7 +154,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (podcastError) {
-      console.error("Error inserting podcast:", podcastError);
+      log.error('Error inserting podcast', podcastError);
       return NextResponse.json(
         { error: "Failed to save podcast" },
         { status: 500 }
@@ -177,7 +180,7 @@ export async function POST(request: NextRequest) {
       .select();
 
     if (episodesError) {
-      console.error("Error inserting episodes:", episodesError);
+      log.error('Error inserting episodes', episodesError);
       // Podcast was created but episodes failed - still return podcast
       return NextResponse.json({
         id: podcast.id,
@@ -196,7 +199,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("Error adding podcast:", error);
+    log.error('Error adding podcast', error);
 
     if (error instanceof Error && error.message.includes("fetch")) {
       return NextResponse.json(

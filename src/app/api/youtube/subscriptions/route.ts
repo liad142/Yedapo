@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth-helpers';
 import { fetchUserSubscriptions } from '@/lib/youtube/api';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('youtube');
 
 export async function GET() {
   const user = await getAuthUser();
@@ -9,12 +12,12 @@ export async function GET() {
   }
 
   try {
-    console.log(`[YT_SUBS] Fetching subscriptions for user=${user.id.slice(0, 8)}…`);
+    log.info('Fetching subscriptions', { userId: user.id.slice(0, 8) });
     const subscriptions = await fetchUserSubscriptions(user.id);
-    console.log(`[YT_SUBS] Found ${subscriptions.length} subscriptions`);
+    log.success('Found subscriptions', { count: subscriptions.length });
     return NextResponse.json({ subscriptions });
   } catch (err) {
-    console.error('[YT_SUBS] Error fetching subscriptions:', err);
+    log.error('Error fetching subscriptions', err);
     return NextResponse.json({ subscriptions: [] });
   }
 }

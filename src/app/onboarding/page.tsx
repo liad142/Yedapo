@@ -11,6 +11,9 @@ import { GenreCard } from '@/components/onboarding/GenreCard';
 import { YouTubeChannelCard } from '@/components/onboarding/YouTubeChannelCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { APPLE_PODCAST_GENRES } from '@/types/apple-podcasts';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('onboarding');
 
 type Step = 'welcome' | 'youtube' | 'genres' | 'done';
 
@@ -151,7 +154,7 @@ export default function OnboardingPage() {
       if (selectedChannels.size > 0) {
         const channelsToImport = ytChannels.filter(ch => selectedChannels.has(ch.channelId));
         posthog.capture('onboarding_step_completed', { step: 'youtube', channels_imported: channelsToImport.length, channels_available: ytChannels.length });
-        console.log(`[ONBOARDING] Importing ${channelsToImport.length} YouTube channels (background)…`);
+        log.info('Importing YouTube channels (background)', { count: channelsToImport.length });
         // Fire and forget — import runs on the server while user continues onboarding
         fetch('/api/youtube/subscriptions/import', {
           method: 'POST',
@@ -159,13 +162,13 @@ export default function OnboardingPage() {
           body: JSON.stringify({ channels: channelsToImport }),
         })
           .then(res => res.json())
-          .then(data => console.log(`[ONBOARDING] YouTube import completed:`, data))
-          .catch(err => console.error('[ONBOARDING] YouTube import error (background):', err));
+          .then(data => log.success('YouTube import completed', data))
+          .catch(err => log.error('YouTube import error (background)', err));
       }
       // Save genres and mark onboarding complete — don't wait for import
       await saveAndFinish(Array.from(selectedGenres));
     } catch (err) {
-      console.error('[ONBOARDING] Error:', err);
+      log.error('Error', err);
     } finally {
       setIsImporting(false);
     }
@@ -183,7 +186,7 @@ export default function OnboardingPage() {
 
   const saveAndFinish = async (genres: string[]) => {
     setIsSaving(true);
-    console.log(`[ONBOARDING] Saving ${genres.length} genres + completing onboarding…`);
+    log.info('Saving genres + completing onboarding', { genreCount: genres.length });
     try {
       const res = await fetch('/api/user/profile', {
         method: 'PATCH',
@@ -194,11 +197,11 @@ export default function OnboardingPage() {
         }),
       });
       const data = await res.json();
-      console.log(`[ONBOARDING] Profile saved:`, data.profile?.preferred_genres);
+      log.success('Profile saved', { genres: data.profile?.preferred_genres });
       setStep('done');
       posthog.capture('onboarding_completed');
     } catch (error) {
-      console.error('[ONBOARDING] Error saving preferences:', error);
+      log.error('Error saving preferences', error);
     } finally {
       setIsSaving(false);
     }

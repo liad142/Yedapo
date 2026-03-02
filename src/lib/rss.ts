@@ -1,4 +1,7 @@
 import Parser from "rss-parser";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger('rss');
 
 const parser = new Parser({
   customFields: {
@@ -179,7 +182,7 @@ export async function fetchPodcastFeed(rssUrl: string): Promise<{
     const textToCheck = `${feed.title || ''} ${feed.description || ''}`;
     const detectedLang = detectScriptLanguage(textToCheck);
     if (detectedLang) {
-      console.log(`[RSS] Script detection override: RSS said '${channelLanguage || 'none'}', title/description detected '${detectedLang}' for "${feed.title}"`);
+      log.info('Script detection override', { rssLang: channelLanguage || 'none', detected: detectedLang, title: feed.title });
       channelLanguage = detectedLang;
     }
   }

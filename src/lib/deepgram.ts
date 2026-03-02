@@ -5,9 +5,11 @@ import type {
   Utterance,
 } from '@/types/deepgram';
 
-const deepgram = createClient(process.env.DEEPGRAM_API_KEY!);
+import { createLogger } from "@/lib/logger";
 
-const isDev = process.env.NODE_ENV === 'development';
+const log = createLogger('deepgram');
+
+const deepgram = createClient(process.env.DEEPGRAM_API_KEY!);
 
 async function withRetry<T>(
   fn: () => Promise<T>,
@@ -24,16 +26,13 @@ async function withRetry<T>(
       if (error?.status >= 400 && error?.status < 500) throw error;
       if (attempt < maxRetries) {
         const delay = baseDelayMs * Math.pow(2, attempt);
-        console.log(`[Deepgram] Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+        log.warn(`Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
   }
   throw lastError;
 }
-
-import { createLogger } from "@/lib/logger";
-const logWithTime = createLogger('DEEPGRAM');
 
 // Audio file extensions that indicate direct URLs (no redirects needed)
 const DIRECT_AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.wav', '.ogg', '.flac', '.aac', '.opus'];
@@ -71,7 +70,7 @@ function isRemoteContentError(error: unknown): boolean {
 async function resolveAudioUrl(url: string, maxRedirects = 5): Promise<string> {
   // Skip redirect following for direct audio URLs (common case)
   if (isDirectAudioUrl(url)) {
-    logWithTime('URL appears to be direct audio, skipping redirect resolution');
+    log.info('URL appears to be direct audio, skipping redirect resolution');
     return url;
   }
 
@@ -96,7 +95,7 @@ async function resolveAudioUrl(url: string, maxRedirects = 5): Promise<string> {
       if (response.status >= 300 && response.status < 400) {
         const location = response.headers.get('location');
         if (!location) {
-          logWithTime('Redirect without location header, using current URL');
+          log.info('Redirect without location header, using current URL');
           break;
         }
 
@@ -106,11 +105,11 @@ async function resolveAudioUrl(url: string, maxRedirects = 5): Promise<string> {
           : new URL(location, currentUrl).toString();
 
         redirectCount++;
-        logWithTime(`Following redirect ${redirectCount}`, { to: currentUrl.substring(0, 80) + '...' });
+        log.info(`Following redirect ${redirectCount}`, { to: currentUrl.substring(0, 80) + '...' });
 
         // If we've resolved to a direct audio URL, stop here
         if (isDirectAudioUrl(currentUrl)) {
-          logWithTime('Resolved to direct audio URL, stopping redirect chain');
+          log.info('Resolved to direct audio URL, stopping redirect chain');
           break;
         }
       } else {
@@ -120,9 +119,9 @@ async function resolveAudioUrl(url: string, maxRedirects = 5): Promise<string> {
     } catch (error) {
       // On timeout or error, use current URL and continue
       if (error instanceof Error && error.name === 'AbortError') {
-        logWithTime('Redirect request timed out, using current URL');
+        log.info('Redirect request timed out, using current URL');
       } else {
-        logWithTime('Error resolving URL, using current', { error: String(error) });
+        log.info('Error resolving URL, using current', { error: String(error) });
       }
       break;
     } finally {
@@ -131,7 +130,7 @@ async function resolveAudioUrl(url: string, maxRedirects = 5): Promise<string> {
   }
 
   if (redirectCount > 0) {
-    logWithTime(`Resolved URL after ${redirectCount} redirects`, {
+    log.info(`Resolved URL after ${redirectCount} redirects`, {
       original: url.substring(0, 60) + '...',
       resolved: currentUrl.substring(0, 60) + '...'
     });
@@ -171,7 +170,7 @@ async function forceResolveAudioUrl(url: string, maxRedirects = 10): Promise<str
           ? location
           : new URL(location, currentUrl).toString();
         redirectCount++;
-        logWithTime(`Force-resolve redirect ${redirectCount}`, { to: currentUrl.substring(0, 80) + '...' });
+        log.info(`Force-resolve redirect ${redirectCount}`, { to: currentUrl.substring(0, 80) + '...' });
       } else {
         break;
       }
@@ -310,7 +309,7 @@ function parseDeepgramResponse(response: DeepgramResponse): DiarizedTranscript {
   // Get detected language from first channel
   const detectedLanguage = (response.results.channels?.[0] as { detected_language?: string })?.detected_language;
 
-  logWithTime('parseDeepgramResponse result', {
+  log.info('parseDeepgramResponse result', {
     hasUtterances: response.results.utterances?.length ?? 0,
     parsedUtterances: utterances.length,
     fullTextLength: fullText.length,
@@ -336,7 +335,7 @@ export async function transcribeFromUrl(
   audioUrl: string,
   language?: string // Optional: 'en', 'he', etc. If not provided, Deepgram auto-detects
 ): Promise<DiarizedTranscript> {
-  logWithTime('transcribeFromUrl started', {
+  log.info('transcribeFromUrl started', {
     audioUrl: audioUrl.substring(0, 100) + '...',
     language: language || 'auto-detect'
   });
@@ -346,10 +345,10 @@ export async function transcribeFromUrl(
 
   // ── Step 1: Try with resolved URL (optimized path) ──
   try {
-    logWithTime('Step 1: Resolving audio URL (following redirects)...');
+    log.info('Step 1: Resolving audio URL (following redirects)...');
     const resolvedUrl = await resolveAudioUrl(audioUrl);
 
-    logWithTime('Sending to Deepgram API...', config);
+    log.info('Sending to Deepgram API...', config);
 
     const { result, error } = await withRetry(() =>
       deepgram.listen.prerecorded.transcribeUrl(
@@ -363,7 +362,7 @@ export async function transcribeFromUrl(
     }
 
     const duration = Date.now() - startTime;
-    logWithTime('Step 1 succeeded', {
+    log.info('Step 1 succeeded', {
       durationMs: duration,
       audioDuration: result.metadata?.duration,
       utteranceCount: result.results?.utterances?.length || 0,
@@ -375,19 +374,19 @@ export async function transcribeFromUrl(
       // Not a remote content error — don't bother with fallbacks
       const duration = Date.now() - startTime;
       const errorMsg = step1Error instanceof Error ? step1Error.message : String(step1Error);
-      logWithTime('Step 1 FAILED (non-recoverable)', { durationMs: duration, error: errorMsg });
+      log.info('Step 1 FAILED (non-recoverable)', { durationMs: duration, error: errorMsg });
       throw new (class extends Error { name = 'TranscriptionError'; })(
         `Deepgram transcription failed: ${errorMsg}`
       );
     }
 
-    logWithTime('Step 1 FAILED with REMOTE_CONTENT_ERROR, trying Step 2 (force-resolve redirects)...');
+    log.info('Step 1 FAILED with REMOTE_CONTENT_ERROR, trying Step 2 (force-resolve redirects)...');
   }
 
   // ── Step 2: Force-resolve all redirects (even for .mp3 URLs) and retry ──
   try {
     const resolvedUrl = await forceResolveAudioUrl(audioUrl);
-    logWithTime('Step 2: Force-resolved URL', { resolved: resolvedUrl.substring(0, 100) + '...' });
+    log.info('Step 2: Force-resolved URL', { resolved: resolvedUrl.substring(0, 100) + '...' });
 
     // Only try if we got a different URL
     if (resolvedUrl !== audioUrl) {
@@ -403,7 +402,7 @@ export async function transcribeFromUrl(
       }
 
       const duration = Date.now() - startTime;
-      logWithTime('Step 2 succeeded', {
+      log.info('Step 2 succeeded', {
         durationMs: duration,
         audioDuration: result.metadata?.duration,
         utteranceCount: result.results?.utterances?.length || 0,
@@ -411,26 +410,26 @@ export async function transcribeFromUrl(
 
       return parseDeepgramResponse(result as DeepgramResponse);
     } else {
-      logWithTime('Step 2: URL unchanged after force-resolve, skipping to Step 3');
+      log.info('Step 2: URL unchanged after force-resolve, skipping to Step 3');
     }
   } catch (step2Error) {
-    logWithTime('Step 2 FAILED, trying Step 3 (download audio ourselves)...', {
+    log.info('Step 2 FAILED, trying Step 3 (download audio ourselves)...', {
       error: step2Error instanceof Error ? step2Error.message : String(step2Error),
     });
   }
 
   // ── Step 3: Download audio ourselves and send raw bytes to Deepgram ──
   try {
-    logWithTime('Step 3: Downloading audio to buffer...');
+    log.info('Step 3: Downloading audio to buffer...');
     const downloadStart = Date.now();
     const audioBuffer = await downloadAudioBuffer(audioUrl);
-    logWithTime('Step 3: Audio downloaded', {
+    log.info('Step 3: Audio downloaded', {
       durationMs: Date.now() - downloadStart,
       sizeBytes: audioBuffer.length,
       sizeMB: (audioBuffer.length / (1024 * 1024)).toFixed(1),
     });
 
-    logWithTime('Step 3: Sending audio buffer to Deepgram...');
+    log.info('Step 3: Sending audio buffer to Deepgram...');
     const { result, error } = await withRetry(() =>
       deepgram.listen.prerecorded.transcribeFile(
         audioBuffer,
@@ -443,7 +442,7 @@ export async function transcribeFromUrl(
     }
 
     const duration = Date.now() - startTime;
-    logWithTime('Step 3 succeeded', {
+    log.info('Step 3 succeeded', {
       totalDurationMs: duration,
       audioDuration: result.metadata?.duration,
       utteranceCount: result.results?.utterances?.length || 0,
@@ -453,7 +452,7 @@ export async function transcribeFromUrl(
   } catch (step3Error) {
     const duration = Date.now() - startTime;
     const errorMsg = step3Error instanceof Error ? step3Error.message : String(step3Error);
-    logWithTime('All 3 steps FAILED', { totalDurationMs: duration, error: errorMsg });
+    log.info('All 3 steps FAILED', { totalDurationMs: duration, error: errorMsg });
 
     throw new (class extends Error { name = 'TranscriptionError'; })(
       `Deepgram transcription failed after all fallbacks: ${errorMsg}`

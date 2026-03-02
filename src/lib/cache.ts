@@ -8,6 +8,9 @@
  */
 
 import { Redis } from '@upstash/redis';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('cache');
 
 // Singleton Redis client
 let redis: Redis | null = null;
@@ -16,22 +19,14 @@ function getRedis(): Redis {
   if (!redis) {
     const url = process.env.UPSTASH_REDIS_REST_URL;
     const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-    
+
     if (!url || !token) {
       throw new Error('Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN environment variables');
     }
-    
+
     redis = new Redis({ url, token });
   }
   return redis;
-}
-
-const isDev = process.env.NODE_ENV === 'development';
-
-function logCache(action: string, key: string, extra?: string) {
-  if (isDev) {
-    console.log(`[CACHE ${action}] ${key}${extra ? ` - ${extra}` : ''}`);
-  }
 }
 
 /**
@@ -43,10 +38,10 @@ export async function getCached<T>(key: string): Promise<T | null> {
     const client = getRedis();
     const cached = await client.get<T>(key);
     
-    logCache(cached ? 'HIT' : 'MISS', key);
+    log.info(cached ? 'HIT' : 'MISS', { key });
     return cached;
   } catch (error) {
-    console.error('[CACHE ERROR] Failed to get:', key, error);
+    log.error('Failed to get', { key, error: String(error) });
     return null; // Graceful fallback - don't break the app
   }
 }
@@ -65,9 +60,9 @@ export async function setCached<T>(
   try {
     const client = getRedis();
     await client.set(key, value, { ex: ttlSeconds });
-    logCache('SET', key, `TTL: ${ttlSeconds}s`);
+    log.info('SET', { key, ttlSeconds });
   } catch (error) {
-    console.error('[CACHE ERROR] Failed to set:', key, error);
+    log.error('Failed to set', { key, error: String(error) });
     // Don't throw - cache failures shouldn't break the app
   }
 }
@@ -79,9 +74,9 @@ export async function deleteCached(key: string): Promise<void> {
   try {
     const client = getRedis();
     await client.del(key);
-    logCache('DELETE', key);
+    log.info('DELETE', { key });
   } catch (error) {
-    console.error('[CACHE ERROR] Failed to delete:', key, error);
+    log.error('Failed to delete', { key, error: String(error) });
   }
 }
 
@@ -94,7 +89,7 @@ export async function hasCached(key: string): Promise<boolean> {
     const exists = await client.exists(key);
     return exists === 1;
   } catch (error) {
-    console.error('[CACHE ERROR] Failed to check existence:', key, error);
+    log.error('Failed to check existence', { key, error: String(error) });
     return false;
   }
 }
@@ -110,12 +105,12 @@ export async function getCachedMulti<T>(keys: string[]): Promise<(T | null)[]> {
     const values = await client.mget<T[]>(...keys);
     
     keys.forEach((key, i) => {
-      logCache(values[i] ? 'HIT' : 'MISS', key);
+      log.info(values[i] ? 'HIT' : 'MISS', { key });
     });
-    
+
     return values;
   } catch (error) {
-    console.error('[CACHE ERROR] Failed to mget:', keys, error);
+    log.error('Failed to mget', { keyCount: keys.length, error: String(error) });
     return keys.map(() => null);
   }
 }
@@ -218,7 +213,7 @@ export async function checkRateLimit(
 
     return count <= maxRequests;
   } catch (error) {
-    console.error('[CACHE ERROR] Rate limit check failed:', identifier, error);
+    log.error('Rate limit check failed', { identifier, error: String(error) });
     // Fail open - allow the request if Redis is down
     return true;
   }
@@ -251,7 +246,7 @@ export async function checkQuota(
     }
     return { allowed: true, used, limit: maxPerDay };
   } catch (error) {
-    console.error('[CACHE ERROR] Quota check failed:', feature, userId, error);
+    log.error('Quota check failed', { feature, userId: userId.slice(0, 8), error: String(error) });
     // Fail open — allow request if Redis is down
     return { allowed: true, used: 0, limit: maxPerDay };
   }

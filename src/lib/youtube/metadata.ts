@@ -1,6 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchYouTubeMetadata } from './transcripts';
+import { createLogger } from '@/lib/logger';
 
+const log = createLogger('youtube');
 const supabase = createAdminClient();
 
 export interface YouTubeMetadataRow {
@@ -71,7 +73,7 @@ export async function fetchPinnedComment(
     }
 
     if (!continuationToken) {
-      console.warn(`[YT_METADATA] No comment continuation token for ${videoId}`);
+      log.warn('No comment continuation token', { videoId });
       return null;
     }
 
@@ -128,7 +130,7 @@ export async function fetchPinnedComment(
 
     return null;
   } catch (err) {
-    console.error(`[YT_METADATA] Failed to fetch pinned comment for ${videoId}:`, err);
+    log.error('Failed to fetch pinned comment', { videoId, error: String(err) });
     return null;
   }
 }
@@ -163,7 +165,7 @@ export async function ensureYouTubeMetadata(
   ]);
 
   if (!metadata) {
-    console.warn(`[YT_METADATA] Failed to fetch metadata for ${videoId}`);
+    log.warn('Failed to fetch metadata', { videoId });
     return existing as YouTubeMetadataRow | null;
   }
 
@@ -185,7 +187,7 @@ export async function ensureYouTubeMetadata(
     .upsert(row, { onConflict: 'episode_id' });
 
   if (error) {
-    console.error(`[YT_METADATA] Failed to upsert metadata for ${episodeId}:`, error);
+    log.error('Failed to upsert metadata', { episodeId, error: String(error) });
     return existing as YouTubeMetadataRow | null;
   }
 

@@ -5,7 +5,7 @@ import { sendSummaryEmail } from './send-email';
 import { sendTelegramMessage } from './send-telegram';
 import type { NotificationChannel } from '@/types/notifications';
 
-const log = createLogger('NOTIFICATIONS');
+const log = createLogger('notifications');
 
 /**
  * Trigger all pending notifications for an episode.
@@ -24,16 +24,16 @@ export async function triggerPendingNotifications(episodeId: string): Promise<vo
     .eq('scheduled', true);
 
   if (error) {
-    log('Failed to query pending notifications', { episodeId, error: error.message });
+    log.error('Failed to query pending notifications', { episodeId, error: error.message });
     return;
   }
 
   if (!pending || pending.length === 0) {
-    log('No pending notifications for episode', { episodeId });
+    log.info('No pending notifications for episode', { episodeId });
     return;
   }
 
-  log('Processing pending notifications', { episodeId, count: pending.length });
+  log.info('Processing pending notifications', { episodeId, count: pending.length });
 
   // Build share content once for all notifications
   let content;
@@ -41,7 +41,7 @@ export async function triggerPendingNotifications(episodeId: string): Promise<vo
     content = await buildShareContent(episodeId);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Failed to build share content';
-    log('Failed to build share content, marking all as failed', { episodeId, error: msg });
+    log.error('Failed to build share content, marking all as failed', { episodeId, error: msg });
 
     // Mark all as failed since we can't build the content
     await supabase
@@ -81,7 +81,7 @@ export async function triggerPendingNotifications(episodeId: string): Promise<vo
           })
           .eq('id', notification.id);
 
-        log('Notification sent', { id: notification.id, channel });
+        log.success('Notification sent', { id: notification.id, channel });
       } else {
         await supabase
           .from('notification_requests')
@@ -92,7 +92,7 @@ export async function triggerPendingNotifications(episodeId: string): Promise<vo
           })
           .eq('id', notification.id);
 
-        log('Notification failed', { id: notification.id, channel, error: result.error });
+        log.warn('Notification failed', { id: notification.id, channel, error: result.error });
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unexpected error';
@@ -105,9 +105,9 @@ export async function triggerPendingNotifications(episodeId: string): Promise<vo
         })
         .eq('id', notification.id);
 
-      log('Notification error', { id: notification.id, error: msg });
+      log.error('Notification error', { id: notification.id, error: msg });
     }
   }
 
-  log('Finished processing notifications', { episodeId, processed: pending.length });
+  log.success('Finished processing notifications', { episodeId, processed: pending.length });
 }

@@ -1,4 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('token');
 
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
@@ -36,7 +39,7 @@ export async function getYouTubeAccessToken(userId: string): Promise<string | nu
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    console.error('[TOKEN_MANAGER] GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not set');
+    log.error('GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not set');
     return null;
   }
 
@@ -53,7 +56,7 @@ export async function getYouTubeAccessToken(userId: string): Promise<string | nu
     });
 
     if (!response.ok) {
-      console.error('[TOKEN_MANAGER] Token refresh failed:', response.status, await response.text());
+      log.error('Token refresh failed', { status: response.status });
       return null;
     }
 
@@ -74,7 +77,7 @@ export async function getYouTubeAccessToken(userId: string): Promise<string | nu
 
     return newAccessToken;
   } catch (err) {
-    console.error('[TOKEN_MANAGER] Token refresh error:', err);
+    log.error('Token refresh error', err);
     return null;
   }
 }

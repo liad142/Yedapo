@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth-helpers';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('admin');
 
 /**
  * Check if an email is in the admin allow-list.
  */
 const adminEmails = process.env.ADMIN_EMAILS?.split(',').map(e => e.trim().toLowerCase()) ?? [];
 if (adminEmails.length === 0) {
-  console.warn('[ADMIN] ADMIN_EMAILS env var is empty or missing. No users will have admin access.');
+  log.warn('ADMIN_EMAILS env var is empty or missing. No users will have admin access.');
 }
 
 export function isAdminEmail(email: string): boolean {

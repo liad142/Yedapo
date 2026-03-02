@@ -1,4 +1,7 @@
 import { getYouTubeAccessToken } from './token-manager';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('youtube');
 
 const YT_API_BASE = 'https://www.googleapis.com/youtube/v3';
 
@@ -43,7 +46,7 @@ export async function fetchUserSubscriptions(userId: string): Promise<YouTubeSub
     });
 
     if (!res.ok) {
-      console.error('[YT_API] Failed to fetch subscriptions:', res.status, await res.text());
+      log.error('Failed to fetch subscriptions', { status: res.status });
       break;
     }
 
@@ -75,7 +78,7 @@ export async function fetchChannelVideos(
 ): Promise<YouTubeVideo[]> {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
-    console.error('[YT_API] YOUTUBE_API_KEY not set');
+    log.error('YOUTUBE_API_KEY not set');
     return [];
   }
 
@@ -89,7 +92,7 @@ export async function fetchChannelVideos(
   );
 
   if (!channelRes.ok) {
-    console.error('[YT_API] Failed to fetch channel:', channelRes.status);
+    log.error('Failed to fetch channel', { status: channelRes.status });
     return [];
   }
 
@@ -108,7 +111,7 @@ export async function fetchChannelVideos(
   );
 
   if (!playlistRes.ok) {
-    console.error('[YT_API] Failed to fetch playlist items:', playlistRes.status);
+    log.error('Failed to fetch playlist items', { status: playlistRes.status });
     return [];
   }
 
@@ -137,7 +140,7 @@ export async function fetchChannelTopics(
 ): Promise<Record<string, { topicIds: string[]; topicCategories: string[] }>> {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
-    console.error('[YT_API] YOUTUBE_API_KEY not set');
+    log.error('YOUTUBE_API_KEY not set');
     return {};
   }
 
@@ -157,7 +160,7 @@ export async function fetchChannelTopics(
       );
 
       if (!res.ok) {
-        console.error('[YT_API] Failed to fetch channel topics:', res.status, await res.text());
+        log.error('Failed to fetch channel topics', { status: res.status });
         continue;
       }
 
@@ -170,7 +173,7 @@ export async function fetchChannelTopics(
         };
       }
     } catch (err) {
-      console.error('[YT_API] Error fetching channel topics batch:', err);
+      log.error('Error fetching channel topics batch', err);
       continue;
     }
   }

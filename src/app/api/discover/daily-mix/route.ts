@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAuthUser } from '@/lib/auth-helpers';
-import { checkRateLimit } from '@/lib/cache';
 import type { QuickSummaryContent, DeepSummaryContent } from '@/types/database';
 
 // Map country codes to primary language codes for filtering podcasts
@@ -134,13 +133,6 @@ function scoreEpisode(
 }
 
 export async function GET(request: NextRequest) {
-  // Rate limit: 10 req/min per IP
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  const rlAllowed = await checkRateLimit(`dailymix:${ip}`, 10, 60);
-  if (!rlAllowed) {
-    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
-  }
-
   const admin = createAdminClient();
   const country = request.nextUrl.searchParams.get('country')?.toLowerCase() || '';
   const limitParam = parseInt(request.nextUrl.searchParams.get('limit') || '20', 10);

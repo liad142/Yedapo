@@ -206,10 +206,13 @@ export async function checkRateLimit(
     const client = getRedis();
     const key = `ratelimit:${identifier}`;
 
-    // Atomic: SET NX creates key with TTL only if it doesn't exist
-    await client.set(key, 0, { ex: windowSeconds, nx: true });
-    // INCR is atomic - no race between read and write
+    // INCR creates key with value 1 if it doesn't exist
     const count = await client.incr(key);
+    // Ensure TTL is always set — guards against race where key loses its expiry
+    const ttl = await client.ttl(key);
+    if (ttl === -1) {
+      await client.expire(key, windowSeconds);
+    }
 
     return count <= maxRequests;
   } catch (error) {

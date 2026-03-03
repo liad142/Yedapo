@@ -26,20 +26,33 @@ interface Episode {
 interface DailyMixCarouselProps {
   episodes: Episode[];
   isLoading?: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
 }
 
-export function DailyMixCarousel({ episodes, isLoading = false }: DailyMixCarouselProps) {
+export function DailyMixCarousel({ episodes, isLoading = false, hasMore = false, onLoadMore }: DailyMixCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(null);
+  const loadMoreTriggered = useRef(false);
 
   const checkScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
     setCanScrollLeft(el.scrollLeft > 0);
+    const nearEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 300;
     setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
-  }, []);
+
+    // Trigger load more when near the right edge
+    if (nearEnd && hasMore && onLoadMore && !loadMoreTriggered.current) {
+      loadMoreTriggered.current = true;
+      onLoadMore();
+    }
+    if (!nearEnd) {
+      loadMoreTriggered.current = false;
+    }
+  }, [hasMore, onLoadMore]);
 
   useEffect(() => {
     checkScroll();
@@ -58,6 +71,14 @@ export function DailyMixCarousel({ episodes, isLoading = false }: DailyMixCarous
     if (!el) return;
     const amount = el.clientWidth * 0.8;
     el.scrollBy({ left: dir === 'left' ? -amount : amount, behavior: 'smooth' });
+    // Proactively load more when clicking the right arrow near the end
+    if (dir === 'right' && hasMore && onLoadMore) {
+      const willBeNearEnd = el.scrollLeft + amount >= el.scrollWidth - el.clientWidth - 300;
+      if (willBeNearEnd && !loadMoreTriggered.current) {
+        loadMoreTriggered.current = true;
+        onLoadMore();
+      }
+    }
   };
 
   const selectedEpisode = selectedEpisodeId

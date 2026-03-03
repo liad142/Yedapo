@@ -96,6 +96,9 @@ export default function DiscoverPage() {
   // PROGRESSIVE loading states - each section loads independently
   const [topPodcasts, setTopPodcasts] = useState<ApplePodcast[]>([]);
   const [dailyMixEpisodes, setDailyMixEpisodes] = useState<DailyMixEpisode[]>([]);
+  const [dailyMixCursor, setDailyMixCursor] = useState<string | null>(null);
+  const [hasMoreDailyMix, setHasMoreDailyMix] = useState(true);
+  const isLoadingMoreDailyMix = useRef(false);
   const [feedEpisodes, setFeedEpisodes] = useState<FeedEpisode[]>([]);
   const [isLoadingPodcasts, setIsLoadingPodcasts] = useState(true);
   const [isLoadingDailyMix, setIsLoadingDailyMix] = useState(true);
@@ -136,10 +139,15 @@ export default function DiscoverPage() {
             publishedAt: new Date(ep.publishedAt),
           }))
         );
+        setDailyMixCursor(data.nextCursor || null);
+        setHasMoreDailyMix(!!data.nextCursor);
       })
       .catch((err) => {
         log.error('Daily mix error', err);
-        if (!cancelled) setDailyMixEpisodes([]);
+        if (!cancelled) {
+          setDailyMixEpisodes([]);
+          setHasMoreDailyMix(false);
+        }
       })
       .finally(() => {
         if (!cancelled) setIsLoadingDailyMix(false);
@@ -238,6 +246,34 @@ export default function DiscoverPage() {
     return () => { cancelled = true; };
   }, [country, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const loadMoreDailyMix = useCallback(async () => {
+    if (isLoadingMoreDailyMix.current || !dailyMixCursor) return;
+    isLoadingMoreDailyMix.current = true;
+
+    try {
+      const res = await fetch(
+        `/api/discover/daily-mix?country=${country.toLowerCase()}&cursor=${encodeURIComponent(dailyMixCursor)}`
+      );
+      const data = await res.json();
+      const newEpisodes = (data.episodes || []).map((ep: any) => ({
+        ...ep,
+        publishedAt: new Date(ep.publishedAt),
+      }));
+
+      setDailyMixEpisodes(prev => {
+        const existingIds = new Set(prev.map(ep => ep.id));
+        const unique = newEpisodes.filter((ep: DailyMixEpisode) => !existingIds.has(ep.id));
+        return [...prev, ...unique];
+      });
+      setDailyMixCursor(data.nextCursor || null);
+      setHasMoreDailyMix(!!data.nextCursor);
+    } catch (error) {
+      log.error('Error loading more daily mix', error);
+    } finally {
+      isLoadingMoreDailyMix.current = false;
+    }
+  }, [country, dailyMixCursor]);
+
   const loadMoreFeed = useCallback(async (podcasts: ApplePodcast[], page: number) => {
     if (isLoadingMoreFeed.current) return;
     isLoadingMoreFeed.current = true;
@@ -299,7 +335,12 @@ export default function DiscoverPage() {
         <main className="max-w-6xl mx-auto px-4 lg:px-8 py-8">
           {/* Daily Mix - summarized episodes from DB */}
           <div className="mb-12">
-            <DailyMixCarousel episodes={dailyMixEpisodes} isLoading={isLoadingDailyMix} />
+            <DailyMixCarousel
+              episodes={dailyMixEpisodes}
+              isLoading={isLoadingDailyMix}
+              hasMore={hasMoreDailyMix}
+              onLoadMore={loadMoreDailyMix}
+            />
           </div>
 
           {/* Unified YouTube + Podcast Feed for authenticated users */}

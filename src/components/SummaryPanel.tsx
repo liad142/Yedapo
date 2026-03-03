@@ -27,6 +27,8 @@ import {
   Lock,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserPlan } from "@/hooks/useUserPlan";
+import { PaywallOverlay, PaywallList } from "@/components/PaywallOverlay";
 
 interface SummaryPanelProps {
   episodeId: string;
@@ -347,6 +349,8 @@ function DeepSummaryView({
   onChapterClick?: (seconds: number) => void;
   currentVideoTime?: number;
 }) {
+  const { cutoffs, isFree } = useUserPlan();
+
   if (['queued', 'transcribing', 'summarizing'].includes(status)) {
     return (
       <div className="text-center py-12">
@@ -395,21 +399,29 @@ function DeepSummaryView({
   return (
     <div className="space-y-6">
       {/* Comprehensive Overview */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Comprehensive Overview
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="prose prose-sm dark:prose-invert max-w-none">
-            {summary.comprehensive_overview.split('\n').map((paragraph, i) => (
-              <p key={i} className="mb-3 last:mb-0">{paragraph}</p>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {(() => {
+        const paragraphs = summary.comprehensive_overview.split('\n').filter(p => p.trim());
+        const visibleParagraphs = isFree ? paragraphs.slice(0, cutoffs.deepSummaryParagraphs) : paragraphs;
+        return (
+          <PaywallOverlay isGated={isFree && paragraphs.length > cutoffs.deepSummaryParagraphs} module="deep summary">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Comprehensive Overview
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  {visibleParagraphs.map((paragraph, i) => (
+                    <p key={i} className="mb-3 last:mb-0">{paragraph}</p>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </PaywallOverlay>
+        );
+      })()}
 
       {/* Core Concepts */}
       {summary.core_concepts && summary.core_concepts.length > 0 && (
@@ -418,21 +430,27 @@ function DeepSummaryView({
             <Lightbulb className="h-4 w-4" />
             Core Concepts
           </h3>
-          {summary.core_concepts.map((concept, i) => (
-            <Card key={i}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base text-primary">{concept.concept}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <p className="text-muted-foreground">{concept.explanation}</p>
-                {concept.quote_reference && (
-                  <blockquote className="border-l-4 border-primary/30 pl-4 italic text-sm">
-                    "{concept.quote_reference}"
-                  </blockquote>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+          <PaywallList
+            items={summary.core_concepts}
+            visibleCount={cutoffs.coreConcepts}
+            isGated={isFree}
+            module="core concepts"
+            renderItem={(concept, i) => (
+              <Card key={i}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base text-primary">{concept.concept}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <p className="text-muted-foreground">{concept.explanation}</p>
+                  {concept.quote_reference && (
+                    <blockquote className="border-l-4 border-primary/30 pl-4 italic text-sm">
+                      "{concept.quote_reference}"
+                    </blockquote>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          />
         </div>
       )}
 
@@ -443,62 +461,70 @@ function DeepSummaryView({
             <BookOpen className="h-4 w-4" />
             Episode Flow
           </h3>
-          {summary.chronological_breakdown.map((section, i) => {
-            const isActive = currentVideoTime !== undefined &&
-              section.timestamp_seconds !== undefined &&
-              section.timestamp_seconds !== null &&
-              currentVideoTime >= section.timestamp_seconds &&
-              (i === summary.chronological_breakdown!.length - 1 ||
-                currentVideoTime < (summary.chronological_breakdown![i + 1]?.timestamp_seconds ?? Infinity));
+          <PaywallList
+            items={summary.chronological_breakdown}
+            visibleCount={cutoffs.chapters}
+            isGated={isFree}
+            module="chapters"
+            renderItem={(section, i) => {
+              const isActive = currentVideoTime !== undefined &&
+                section.timestamp_seconds !== undefined &&
+                section.timestamp_seconds !== null &&
+                currentVideoTime >= section.timestamp_seconds &&
+                (i === summary.chronological_breakdown!.length - 1 ||
+                  currentVideoTime < (summary.chronological_breakdown![i + 1]?.timestamp_seconds ?? Infinity));
 
-            return (
-              <Card key={i} className={isActive ? "border-primary bg-primary/5" : undefined}>
-                <CardContent className="pt-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    {onChapterClick && section.timestamp_seconds !== undefined && section.timestamp_seconds !== null ? (
-                      <button
-                        onClick={() => onChapterClick(section.timestamp_seconds!)}
-                        className="text-xs bg-secondary hover:bg-secondary/80 px-2 py-1 rounded-md font-mono transition-colors cursor-pointer"
-                        aria-label={`Seek to ${section.timestamp_description || section.title}`}
-                      >
-                        {section.timestamp_description || section.title}
-                      </button>
-                    ) : (
-                      <Badge variant="outline" className="text-xs">
-                        {section.title || section.timestamp_description}
-                      </Badge>
-                    )}
-                    {isActive && (
-                      <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-medium">
-                        Now Playing
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm">{section.content}</p>
-                </CardContent>
-              </Card>
-            );
-          })}
+              return (
+                <Card key={i} className={isActive ? "border-primary bg-primary/5" : undefined}>
+                  <CardContent className="pt-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      {onChapterClick && section.timestamp_seconds !== undefined && section.timestamp_seconds !== null ? (
+                        <button
+                          onClick={() => onChapterClick(section.timestamp_seconds!)}
+                          className="text-xs bg-secondary hover:bg-secondary/80 px-2 py-1 rounded-md font-mono transition-colors cursor-pointer"
+                          aria-label={`Seek to ${section.timestamp_description || section.title}`}
+                        >
+                          {section.timestamp_description || section.title}
+                        </button>
+                      ) : (
+                        <Badge variant="outline" className="text-xs">
+                          {section.title || section.timestamp_description}
+                        </Badge>
+                      )}
+                      {isActive && (
+                        <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-medium">
+                          Now Playing
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm">{section.content}</p>
+                  </CardContent>
+                </Card>
+              );
+            }}
+          />
         </div>
       )}
 
-      {/* Contrarian Views */}
+      {/* Counterpoints */}
       {summary.contrarian_views && summary.contrarian_views.length > 0 && (
-        <Card className="bg-primary/5 dark:bg-primary/10 border-primary/20 dark:border-primary/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              Contrarian Views & Insights
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {summary.contrarian_views.map((view, i) => (
-                <li key={i} className="text-sm">{view}</li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+        <PaywallOverlay isGated={isFree} module="counterpoints">
+          <Card className="bg-primary/5 dark:bg-primary/10 border-primary/20 dark:border-primary/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Counterpoints
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                {summary.contrarian_views.map((view, i) => (
+                  <li key={i} className="text-sm">{view}</li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        </PaywallOverlay>
       )}
 
       {/* Actionable Takeaways */}
@@ -511,14 +537,18 @@ function DeepSummaryView({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-3">
-              {summary.actionable_takeaways.map((action, i) => (
-                <li key={i} className="flex items-start gap-2">
+            <PaywallList
+              items={summary.actionable_takeaways}
+              visibleCount={cutoffs.takeaways}
+              isGated={isFree}
+              module="takeaways"
+              renderItem={(action, i) => (
+                <div key={i} className="flex items-start gap-2 mb-3 last:mb-0">
                   <span className="text-primary font-bold">{i + 1}.</span>
                   <p className="text-sm flex-1">{typeof action === 'string' ? action : action.text}</p>
-                </li>
-              ))}
-            </ul>
+                </div>
+              )}
+            />
           </CardContent>
         </Card>
       )}

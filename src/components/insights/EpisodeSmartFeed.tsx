@@ -19,6 +19,8 @@ import { AnimatePresence } from "framer-motion";
 import type { Episode, Podcast, EpisodeInsightsResponse, DeepSummaryContent, QuickSummaryContent, ChronologicalSection, YouTubeMetadataResponse } from "@/types/database";
 import type { YouTubeEmbedRef } from "@/components/YouTubeEmbed";
 import { isYouTubeContent } from "@/lib/youtube/utils";
+import { useUserPlan } from "@/hooks/useUserPlan";
+import { PaywallOverlay } from "@/components/PaywallOverlay";
 import { DescriptionLinks } from "./DescriptionLinks";
 import { PinnedComment } from "./PinnedComment";
 import { parseStoryboardSpec, getFrameUrlForTimestamp } from "@/lib/youtube/storyboards";
@@ -31,6 +33,7 @@ interface EpisodeSmartFeedProps {
 
 export function EpisodeSmartFeed({ episode, youtubePlayerRef, videoCurrentTime }: EpisodeSmartFeedProps) {
   const { user, setShowCompactPrompt, setShowAuthModal } = useAuth();
+  const { cutoffs, isFree } = useUserPlan();
   const [data, setData] = useState<EpisodeInsightsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -418,7 +421,9 @@ export function EpisodeSmartFeed({ episode, youtubePlayerRef, videoCurrentTime }
                 transition={{ duration: 0.4, delay: 0.05 }}
                 dir={isRTL ? "rtl" : "ltr"}
               >
-                <ComprehensiveOverview text={deepContent!.comprehensive_overview} isRTL={isRTL} />
+                <PaywallOverlay isGated={isFree} module="deep summary">
+                  <ComprehensiveOverview text={deepContent!.comprehensive_overview} isRTL={isRTL} maxParagraphs={isFree ? cutoffs.deepSummaryParagraphs : undefined} />
+                </PaywallOverlay>
               </motion.section>
             )}
 
@@ -430,7 +435,9 @@ export function EpisodeSmartFeed({ episode, youtubePlayerRef, videoCurrentTime }
                 transition={{ duration: 0.4, delay: 0.1 }}
                 dir={isRTL ? "rtl" : "ltr"}
               >
-                <CoreConcepts concepts={deepContent!.core_concepts} isRTL={isRTL} />
+                <PaywallOverlay isGated={isFree && deepContent!.core_concepts.length > cutoffs.coreConcepts} module="core concepts">
+                  <CoreConcepts concepts={isFree ? deepContent!.core_concepts.slice(0, cutoffs.coreConcepts) : deepContent!.core_concepts} isRTL={isRTL} />
+                </PaywallOverlay>
               </motion.section>
             )}
 
@@ -442,15 +449,17 @@ export function EpisodeSmartFeed({ episode, youtubePlayerRef, videoCurrentTime }
                 transition={{ duration: 0.4, delay: 0.15 }}
                 dir={isRTL ? "rtl" : "ltr"}
               >
-                <EpisodeChapters
-                  sections={deepContent!.chronological_breakdown}
-                  isRTL={isRTL}
-                  episode={episode}
-                  youtubePlayerRef={youtubePlayerRef}
-                  videoCurrentTime={videoCurrentTime}
-                  creatorChapters={ytMeta?.chapters}
-                  storyboardSpec={ytMeta?.storyboard_spec ?? undefined}
-                />
+                <PaywallOverlay isGated={isFree && deepContent!.chronological_breakdown!.length > cutoffs.chapters} module="chapters">
+                  <EpisodeChapters
+                    sections={isFree ? deepContent!.chronological_breakdown!.slice(0, cutoffs.chapters) : deepContent!.chronological_breakdown}
+                    isRTL={isRTL}
+                    episode={episode}
+                    youtubePlayerRef={youtubePlayerRef}
+                    videoCurrentTime={videoCurrentTime}
+                    creatorChapters={ytMeta?.chapters}
+                    storyboardSpec={ytMeta?.storyboard_spec ?? undefined}
+                  />
+                </PaywallOverlay>
               </motion.section>
             )}
 
@@ -465,7 +474,7 @@ export function EpisodeSmartFeed({ episode, youtubePlayerRef, videoCurrentTime }
               </motion.section>
             )}
 
-            {/* ─── Section 5: Contrarian Views ─── */}
+            {/* ─── Section 5: Counterpoints ─── */}
             {isDeepReady && deepContent!.contrarian_views?.length > 0 && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
@@ -473,7 +482,9 @@ export function EpisodeSmartFeed({ episode, youtubePlayerRef, videoCurrentTime }
                 transition={{ duration: 0.4, delay: 0.2 }}
                 dir={isRTL ? "rtl" : "ltr"}
               >
-                <ContrarianViews views={deepContent!.contrarian_views} isRTL={isRTL} />
+                <PaywallOverlay isGated={isFree} module="counterpoints">
+                  <ContrarianViews views={deepContent!.contrarian_views} isRTL={isRTL} />
+                </PaywallOverlay>
               </motion.section>
             )}
 
@@ -685,12 +696,15 @@ function GuestTeaserCard({ content, isRTL }: { content: QuickSummaryContent; isR
 }
 
 /* ─── 2. Comprehensive Overview ─── */
-function ComprehensiveOverview({ text, isRTL }: { text: string; isRTL: boolean }) {
+function ComprehensiveOverview({ text, isRTL, maxParagraphs }: { text: string; isRTL: boolean; maxParagraphs?: number }) {
+  const allParagraphs = text.split('\n').filter(p => p.trim());
+  const visibleParagraphs = maxParagraphs !== undefined ? allParagraphs.slice(0, maxParagraphs) : allParagraphs;
+
   return (
     <div>
       <SectionHeader icon={FileText} label="Comprehensive Overview" isRTL={isRTL} />
       <div className={cn("prose-width", isRTL && "text-right")}>
-        {text.split('\n').filter(p => p.trim()).map((paragraph, i) => (
+        {visibleParagraphs.map((paragraph, i) => (
           <AnnotatedParagraph key={i} text={paragraph} isRTL={isRTL} />
         ))}
       </div>
@@ -1032,9 +1046,9 @@ function ContrarianViews({ views, isRTL }: { views: string[]; isRTL: boolean }) 
     <div>
       <SectionHeader
         icon={Scale}
-        label="Contrarian Views"
+        label="Counterpoints"
         iconClassName="text-red-400"
-        subtitle="Perspectives that challenge conventional thinking"
+        subtitle="Alternative perspectives worth considering"
         isRTL={isRTL}
       />
       <div className="grid gap-4">

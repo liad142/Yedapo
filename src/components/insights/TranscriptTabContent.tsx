@@ -12,10 +12,14 @@ import {
   ScrollText,
   User,
   Mic,
-  Filter
+  Filter,
+  Crown
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { TranscriptMessage } from "./TranscriptMessage";
 import { isRTLText } from "@/lib/rtl";
+import { useUserPlan } from "@/hooks/useUserPlan";
+import { PaywallOverlay } from "@/components/PaywallOverlay";
 import type { ParsedTranscriptSegment, SpeakerInfo } from "@/types/transcript";
 
 interface TranscriptTabContentProps {
@@ -29,6 +33,7 @@ export function TranscriptTabContent({
   transcriptStatus,
   isLoading
 }: TranscriptTabContentProps) {
+  const { cutoffs, isFree } = useUserPlan();
   const [searchQuery, setSearchQuery] = useState("");
   const [copied, setCopied] = useState(false);
   const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
@@ -287,18 +292,36 @@ export function TranscriptTabContent({
       {/* Header */}
       <div className="flex gap-3 p-6 border-b border-slate-200/60 dark:border-slate-800/60 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex-1 relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
-          <Input
-            type="text"
-            placeholder="Search conversation..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-12 pr-24 h-12 rounded-full border-2 border-transparent bg-slate-100 dark:bg-slate-800 focus:border-primary focus:bg-white dark:focus:bg-slate-700 transition-all"
-          />
-          {searchQuery && (
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
-              {matchCount} {matchCount === 1 ? 'result' : 'results'}
-            </span>
+          {isFree ? (
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600 pointer-events-none" size={18} />
+              <Input
+                type="text"
+                placeholder="Search conversation..."
+                disabled
+                className="pl-12 pr-32 h-12 rounded-full border-2 border-transparent bg-slate-100 dark:bg-slate-800 opacity-60 cursor-not-allowed"
+              />
+              <Badge variant="secondary" className="absolute right-4 top-1/2 -translate-y-1/2 gap-1 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800">
+                <Crown size={12} />
+                Pro
+              </Badge>
+            </div>
+          ) : (
+            <>
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
+              <Input
+                type="text"
+                placeholder="Search conversation..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-12 pr-24 h-12 rounded-full border-2 border-transparent bg-slate-100 dark:bg-slate-800 focus:border-primary focus:bg-white dark:focus:bg-slate-700 transition-all"
+              />
+              {searchQuery && (
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
+                  {matchCount} {matchCount === 1 ? 'result' : 'results'}
+                </span>
+              )}
+            </>
           )}
         </div>
 
@@ -307,7 +330,8 @@ export function TranscriptTabContent({
             variant="outline"
             size="icon"
             onClick={handleCopy}
-            title="Copy transcript"
+            disabled={isFree}
+            title={isFree ? "Upgrade to Pro to copy" : "Copy transcript"}
             className="h-12 w-12 rounded-full border-2 hover:bg-primary/5 hover:border-primary dark:hover:bg-primary/5 transition-all"
           >
             {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
@@ -317,7 +341,8 @@ export function TranscriptTabContent({
             variant="outline"
             size="icon"
             onClick={handleDownload}
-            title="Download transcript"
+            disabled={isFree}
+            title={isFree ? "Upgrade to Pro to download" : "Download transcript"}
             className="h-12 w-12 rounded-full border-2 hover:bg-primary/5 hover:border-primary dark:hover:bg-primary/5 transition-all"
           >
             <Download size={16} />
@@ -374,22 +399,52 @@ export function TranscriptTabContent({
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6 sm:p-8" ref={scrollRef}>
         <div className="max-w-4xl mx-auto space-y-6">
-          {filteredSegments.map((segment, index) => {
-            const speakerInfo = speakers.get(segment.speaker);
-            const prevSegment = index > 0 ? filteredSegments[index - 1] : null;
-            const isGrouped = prevSegment?.speaker === segment.speaker;
+          {(() => {
+            const visibleSegments = isFree
+              ? filteredSegments.slice(0, cutoffs.transcriptSegments)
+              : filteredSegments;
 
             return (
-              <TranscriptMessage
-                key={segment.id}
-                segment={segment}
-                speakerInfo={speakerInfo}
-                isGrouped={isGrouped}
-                searchQuery={searchQuery}
-                index={index}
-              />
+              <>
+                {visibleSegments.map((segment, index) => {
+                  const speakerInfo = speakers.get(segment.speaker);
+                  const prevSegment = index > 0 ? visibleSegments[index - 1] : null;
+                  const isGrouped = prevSegment?.speaker === segment.speaker;
+
+                  return (
+                    <TranscriptMessage
+                      key={segment.id}
+                      segment={segment}
+                      speakerInfo={speakerInfo}
+                      isGrouped={isGrouped}
+                      searchQuery={searchQuery}
+                      index={index}
+                    />
+                  );
+                })}
+
+                {isFree && filteredSegments.length > cutoffs.transcriptSegments && (
+                  <PaywallOverlay isGated={true} module="transcript">
+                    <div className="space-y-6">
+                      {filteredSegments.slice(cutoffs.transcriptSegments, cutoffs.transcriptSegments + 2).map((segment, index) => {
+                        const speakerInfo = speakers.get(segment.speaker);
+                        return (
+                          <TranscriptMessage
+                            key={segment.id}
+                            segment={segment}
+                            speakerInfo={speakerInfo}
+                            isGrouped={false}
+                            searchQuery={searchQuery}
+                            index={cutoffs.transcriptSegments + index}
+                          />
+                        );
+                      })}
+                    </div>
+                  </PaywallOverlay>
+                )}
+              </>
             );
-          })}
+          })()}
         </div>
       </div>
 

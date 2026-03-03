@@ -214,5 +214,18 @@ export interface PodcastWithSubscription extends Podcast {
   has_new_episodes?: boolean;
 }
 
+// User plan types
+export type { UserPlan } from '@/lib/plans';
+
+export interface UserProfile {
+  id: string;
+  display_name: string | null;
+  preferred_genres: string[] | null;
+  preferred_country: string | null;
+  onboarding_completed: boolean;
+  plan: import('@/lib/plans').UserPlan;
+  created_at: string;
+}
+
 // Re-export notification types for convenience
 export type { NotificationRequest, TelegramConnection, NotificationChannel, NotificationStatus } from './notifications';

@@ -273,15 +273,23 @@ export async function getQuotaUsage(
   }
 }
 
-/** Admin emails that bypass quotas */
-const ADMIN_EMAILS = [
-  process.env.ADMIN_EMAIL,
-].filter(Boolean) as string[];
-
-export function isAdminEmail(email: string | undefined): boolean {
-  if (!email) return false;
-  return ADMIN_EMAILS.includes(email);
+/**
+ * Plan-aware quota check.
+ * For unlimited plans (Infinity), skips Redis entirely.
+ */
+export async function checkPlanQuota(
+  userId: string,
+  feature: string,
+  maxPerDay: number
+): Promise<{ allowed: boolean; used: number; limit: number }> {
+  if (!isFinite(maxPerDay)) {
+    return { allowed: true, used: 0, limit: maxPerDay };
+  }
+  return checkQuota(userId, feature, maxPerDay);
 }
+
+/** Re-export the canonical admin check from admin.ts */
+export { isAdminEmail } from '@/lib/admin';
 
 /**
  * Get Redis health info for admin dashboard

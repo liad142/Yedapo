@@ -1,0 +1,35 @@
+/**
+ * Server-side helper to resolve a user's plan from user_profiles.
+ * Returns 'free' on error. Admins resolve to 'power'.
+ */
+
+import { createAdminClient } from '@/lib/supabase/admin';
+import { isAdminEmail } from '@/lib/cache';
+import { createLogger } from '@/lib/logger';
+import type { UserPlan } from '@/lib/plans';
+
+const log = createLogger('user-plan');
+
+export async function getUserPlan(userId: string, email?: string): Promise<UserPlan> {
+  // Admin emails always resolve to power
+  if (email && isAdminEmail(email)) return 'power';
+
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from('user_profiles')
+      .select('plan')
+      .eq('id', userId)
+      .single();
+
+    if (error || !data?.plan) {
+      log.warn('Could not fetch plan, defaulting to free', { userId: userId.slice(0, 8), error: error?.message });
+      return 'free';
+    }
+
+    return data.plan as UserPlan;
+  } catch (err) {
+    log.error('getUserPlan failed', { userId: userId.slice(0, 8), error: String(err) });
+    return 'free';
+  }
+}

@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MiniLoadingAnimation } from "@/components/animations";
 import { cn } from "@/lib/utils";
+import { useUserPlan } from "@/hooks/useUserPlan";
+import { PaywallList } from "@/components/PaywallOverlay";
 import type { HighlightItem } from "@/types/database";
 import { Quote, Copy, Check, Sparkles, Lightbulb, AlertCircle, Star, Clock } from "lucide-react";
 
@@ -31,6 +33,7 @@ export function HighlightsTabContent({
   isGenerating,
   onGenerate
 }: HighlightsTabContentProps) {
+  const { cutoffs, isFree } = useUserPlan();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const handleCopy = async (quote: string, index: number) => {
@@ -111,8 +114,13 @@ export function HighlightsTabContent({
       </div>
 
       {/* Highlights List */}
-      <div className="space-y-4">
-        {highlights.map((highlight, i) => (
+      <PaywallList
+        items={highlights}
+        visibleCount={cutoffs.highlights}
+        isGated={isFree}
+        module="highlights"
+        className="space-y-4"
+        renderItem={(highlight, i) => (
           <div
             key={i}
             className={cn(
@@ -168,8 +176,8 @@ export function HighlightsTabContent({
               </Button>
             </div>
           </div>
-        ))}
-      </div>
+        )}
+      />
 
       {/* Legend */}
       <div className="flex items-center justify-center gap-4 pt-4 border-t text-xs text-muted-foreground">

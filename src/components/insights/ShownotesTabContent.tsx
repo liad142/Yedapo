@@ -8,6 +8,8 @@ import { MiniLoadingAnimation } from "@/components/animations";
 import { cn } from "@/lib/utils";
 import type { ShownotesSection } from "@/types/database";
 import { List, Check, Sparkles, Clock, ExternalLink, ChevronDown, ChevronRight, FileDown } from "lucide-react";
+import { useUserPlan } from "@/hooks/useUserPlan";
+import { PaywallOverlay } from "@/components/PaywallOverlay";
 
 // Detect if text is primarily RTL (Hebrew, Arabic, etc.)
 function isRTLText(text: string): boolean {
@@ -31,6 +33,7 @@ export function ShownotesTabContent({
   isGenerating,
   onGenerate
 }: ShownotesTabContentProps) {
+  const { isFree } = useUserPlan();
   const [copied, setCopied] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set([0]));
 
@@ -152,81 +155,83 @@ export function ShownotesTabContent({
       </div>
 
       {/* Sections List */}
-      <div className="flex-1 overflow-auto p-4">
-        <div className="space-y-2">
-          {shownotes.map((section, i) => {
-            const isExpanded = expandedSections.has(i);
-            return (
-              <div
-                key={i}
-                className="rounded-lg border overflow-hidden"
-              >
-                {/* Section Header */}
-                <button
-                  className={cn(
-                    "w-full flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors",
-                    isExpanded && "border-b bg-muted/30",
-                    isRTL ? "text-right flex-row-reverse" : "text-left"
-                  )}
-                  onClick={() => toggleSection(i)}
+      <PaywallOverlay isGated={isFree} module="shownotes">
+        <div className="flex-1 overflow-auto p-4">
+          <div className="space-y-2">
+            {shownotes.map((section, i) => {
+              const isExpanded = expandedSections.has(i);
+              return (
+                <div
+                  key={i}
+                  className="rounded-lg border overflow-hidden"
                 >
-                  {isExpanded ? (
-                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  ) : (
-                    <ChevronRight className={cn("h-4 w-4 shrink-0 text-muted-foreground", isRTL && "rotate-180")} />
-                  )}
-
-                  <span className="text-xs font-mono text-muted-foreground w-6 shrink-0">
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-
-                  <span className={cn("font-medium flex-1 truncate", isRTL && "text-right")}>
-                    {section.title}
-                  </span>
-
-                  {section.timestamp && (
-                    <Badge variant="secondary" className="gap-1 shrink-0">
-                      <Clock className="h-3 w-3" />
-                      {section.timestamp}
-                    </Badge>
-                  )}
-                </button>
-
-                {/* Section Content */}
-                {isExpanded && (
-                  <div className="p-4 space-y-3">
-                    <p className={cn("text-sm text-muted-foreground leading-relaxed", isRTL && "text-right")}>
-                      {section.content}
-                    </p>
-
-                    {section.links && section.links.length > 0 && (
-                      <div className="space-y-2 pt-2 border-t">
-                        <span className={cn("text-xs font-semibold text-muted-foreground", isRTL && "block text-right")}>
-                          Related Links:
-                        </span>
-                        <div className={cn("flex flex-wrap gap-2", isRTL && "justify-end")}>
-                          {section.links.map((link, j) => (
-                            <a
-                              key={j}
-                              href={link.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                              {link.label}
-                            </a>
-                          ))}
-                        </div>
-                      </div>
+                  {/* Section Header */}
+                  <button
+                    className={cn(
+                      "w-full flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors",
+                      isExpanded && "border-b bg-muted/30",
+                      isRTL ? "text-right flex-row-reverse" : "text-left"
                     )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                    onClick={() => toggleSection(i)}
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className={cn("h-4 w-4 shrink-0 text-muted-foreground", isRTL && "rotate-180")} />
+                    )}
+
+                    <span className="text-xs font-mono text-muted-foreground w-6 shrink-0">
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+
+                    <span className={cn("font-medium flex-1 truncate", isRTL && "text-right")}>
+                      {section.title}
+                    </span>
+
+                    {section.timestamp && (
+                      <Badge variant="secondary" className="gap-1 shrink-0">
+                        <Clock className="h-3 w-3" />
+                        {section.timestamp}
+                      </Badge>
+                    )}
+                  </button>
+
+                  {/* Section Content */}
+                  {isExpanded && (
+                    <div className="p-4 space-y-3">
+                      <p className={cn("text-sm text-muted-foreground leading-relaxed", isRTL && "text-right")}>
+                        {section.content}
+                      </p>
+
+                      {section.links && section.links.length > 0 && (
+                        <div className="space-y-2 pt-2 border-t">
+                          <span className={cn("text-xs font-semibold text-muted-foreground", isRTL && "block text-right")}>
+                            Related Links:
+                          </span>
+                          <div className={cn("flex flex-wrap gap-2", isRTL && "justify-end")}>
+                            {section.links.map((link, j) => (
+                              <a
+                                key={j}
+                                href={link.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                {link.label}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      </PaywallOverlay>
 
       {/* Timeline View Hint */}
       <div className="p-3 border-t text-center">

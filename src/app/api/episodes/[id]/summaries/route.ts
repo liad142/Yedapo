@@ -4,7 +4,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requestSummary, checkExistingSummary, getSummariesStatus } from "@/lib/summary-service";
 import { getAuthUser } from "@/lib/auth-helpers";
 import { resolvePodcastLanguage } from "@/lib/language-utils";
-import { checkQuota, isAdminEmail, checkRateLimit, deleteCached, CacheKeys } from "@/lib/cache";
+import { checkPlanQuota, isAdminEmail, checkRateLimit, deleteCached, CacheKeys } from "@/lib/cache";
+import { getUserPlan } from "@/lib/user-plan";
+import { PLAN_LIMITS } from "@/lib/plans";
 import { createLogger } from "@/lib/logger";
 import type { SummaryLevel } from "@/types/database";
 
@@ -50,18 +52,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Per-user daily quota (skip for admins)
-    if (!isAdmin) {
-      const quota = await checkQuota(user.id, 'summary', 5);
-      if (!quota.allowed) {
-        return NextResponse.json({
-          error: 'Daily summary limit reached',
-          limit: quota.limit,
-          used: quota.used,
-          upgrade_url: '/pricing',
-        }, { status: 429 });
-      }
-    }
+    // Fetch user's plan for dynamic quotas
+    const plan = await getUserPlan(user.id, user.email ?? undefined);
 
     const { id } = await params;
     const body = await request.json();
@@ -110,10 +102,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     // Quick check: if summary already exists and is ready/in-progress, return immediately
+    // Cached reads are FREE — no quota consumed.
     const existing = await checkExistingSummary(id, level, language || 'en');
     if (existing) {
-      log.info('Returning existing summary status', { status: existing.status });
-      return NextResponse.json({ episodeId: id, level, ...existing });
+      log.info('Returning existing summary (cached, free)', { status: existing.status });
+      return NextResponse.json({ episodeId: id, level, source: 'cached', ...existing });
+    }
+
+    // Per-user daily quota — only consumed for NEW generations (skip for admins)
+    if (!isAdmin) {
+      const quota = await checkPlanQuota(user.id, 'summary', PLAN_LIMITS[plan].summariesPerDay);
+      if (!quota.allowed) {
+        return NextResponse.json({
+          error: 'Daily summary limit reached',
+          limit: quota.limit,
+          used: quota.used,
+          upgrade_url: '/pricing',
+        }, { status: 429 });
+      }
     }
 
     // Fire off the heavy generation in the background (non-blocking)
@@ -171,6 +177,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       episodeId: id,
       level,
+      source: 'generated',
       status: 'transcribing',
     });
   } catch (error) {

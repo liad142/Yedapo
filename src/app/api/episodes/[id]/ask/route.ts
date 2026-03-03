@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { buildEpisodeContext } from "@/lib/ask-ai-service";
-import { checkRateLimit, checkQuota, isAdminEmail } from "@/lib/cache";
+import { checkRateLimit, checkPlanQuota, isAdminEmail } from "@/lib/cache";
+import { getUserPlan } from "@/lib/user-plan";
+import { PLAN_LIMITS } from "@/lib/plans";
 import { getAuthUser } from "@/lib/auth-helpers";
 import { createLogger } from "@/lib/logger";
 
@@ -30,10 +32,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    // Per-user daily quota for Ask AI (30/day for free users)
+    // Per-user daily quota for Ask AI (plan-based)
     const user = await getAuthUser();
-    if (user && !isAdminEmail(user.email)) {
-      const quota = await checkQuota(user.id, 'askai', 30);
+    if (user && !(user.email && isAdminEmail(user.email))) {
+      const plan = await getUserPlan(user.id, user.email ?? undefined);
+      const quota = await checkPlanQuota(user.id, 'askai', PLAN_LIMITS[plan].askAiPerDay);
       if (!quota.allowed) {
         return new Response(JSON.stringify({
           error: "Daily Ask AI limit reached",

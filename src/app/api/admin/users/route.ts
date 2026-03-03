@@ -13,8 +13,8 @@ export async function GET() {
     { data: profiles, count: totalUsers },
     { data: recentUsers },
   ] = await Promise.all([
-    admin.from('user_profiles').select('created_at, preferred_genres, preferred_country, onboarding_completed', { count: 'exact' }),
-    admin.from('user_profiles').select('id, display_name, created_at, onboarding_completed').order('created_at', { ascending: false }).limit(10),
+    admin.from('user_profiles').select('created_at, preferred_genres, preferred_country, onboarding_completed, plan', { count: 'exact' }),
+    admin.from('user_profiles').select('id, display_name, created_at, onboarding_completed, plan').order('created_at', { ascending: false }).limit(10),
   ]);
 
   // Limit profiles to prevent unbounded queries
@@ -65,6 +65,16 @@ export async function GET() {
     .slice(0, 10)
     .map(([label, count]) => ({ label, count }));
 
+  // Plan distribution
+  const planCounts: Record<string, number> = {};
+  allProfiles.forEach(p => {
+    const plan = (p.plan as string) || 'free';
+    planCounts[plan] = (planCounts[plan] || 0) + 1;
+  });
+  const planDistribution = Object.entries(planCounts)
+    .sort(([, a], [, b]) => b - a)
+    .map(([label, count]) => ({ label, count }));
+
   const data: UserAnalytics = {
     totalUsers: totalUsers ?? 0,
     usersThisWeek,
@@ -72,12 +82,14 @@ export async function GET() {
     signupsOverTime,
     genreDistribution,
     countryDistribution,
+    planDistribution,
     recentUsers: (recentUsers ?? []).map(u => ({
       id: u.id,
       email: '',
       display_name: u.display_name,
       created_at: u.created_at,
       onboarding_completed: u.onboarding_completed ?? false,
+      plan: (u.plan as string) || 'free',
     })),
   };
 

@@ -33,12 +33,14 @@ export interface UserAnalytics {
   signupsOverTime: TimeSeriesPoint[];
   genreDistribution: LabeledCount[];
   countryDistribution: LabeledCount[];
+  planDistribution: LabeledCount[];
   recentUsers: {
     id: string;
     email: string;
     display_name: string | null;
     created_at: string;
     onboarding_completed: boolean;
+    plan: string;
   }[];
 }
 

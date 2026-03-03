@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { PLAN_LIMITS, PLAN_META } from '@/lib/plans';
+
+export type RateLimitFeature = 'summary' | 'askAi';
 
 interface RateLimitInfo {
   limit: number;
@@ -15,6 +18,8 @@ interface UpgradeModalProps {
   open: boolean;
   onClose: () => void;
   rateLimitInfo: RateLimitInfo;
+  /** Which feature triggered the limit — customizes the upgrade message */
+  feature?: RateLimitFeature;
 }
 
 function getTimeUntilReset(): string {
@@ -31,13 +36,20 @@ function getTimeUntilReset(): string {
   return `${minutes}m`;
 }
 
-const PRO_BENEFITS = [
-  'Unlimited AI Summaries',
-  'Full YouTube Video Insights',
-  'Priority Processing Speed',
-];
+const PRO_BENEFITS = PLAN_META.pro.features;
 
-export function UpgradeModal({ open, onClose, rateLimitInfo }: UpgradeModalProps) {
+const FEATURE_COPY: Record<RateLimitFeature, { noun: string; heading: string }> = {
+  summary: {
+    noun: 'summary creations',
+    heading: "You've used all your daily summary creations",
+  },
+  askAi: {
+    noun: 'Ask AI questions',
+    heading: "You've used all your daily Ask AI questions",
+  },
+};
+
+export function UpgradeModal({ open, onClose, rateLimitInfo, feature = 'summary' }: UpgradeModalProps) {
   const [resetTime, setResetTime] = useState(getTimeUntilReset);
 
   useEffect(() => {
@@ -49,7 +61,7 @@ export function UpgradeModal({ open, onClose, rateLimitInfo }: UpgradeModalProps
 
   if (!open) return null;
 
-  const { limit } = rateLimitInfo;
+  const { limit, used } = rateLimitInfo;
 
   return (
     <>
@@ -83,7 +95,13 @@ export function UpgradeModal({ open, onClose, rateLimitInfo }: UpgradeModalProps
           {/* Heading */}
           <h3 className="text-xl font-bold mb-1.5">Upgrade to Pro</h3>
           <p className="text-sm text-muted-foreground mb-1">
-            You&apos;ve reached your daily limit of {limit} summaries.
+            {FEATURE_COPY[feature].heading}
+          </p>
+          <p className="text-xs text-muted-foreground/70 mb-1">
+            Daily limit: {limit} {FEATURE_COPY[feature].noun} &middot; {used}/{limit} used today
+          </p>
+          <p className="text-xs font-medium text-primary mb-1">
+            Pro gets {feature === 'summary' ? PLAN_LIMITS.pro.summariesPerDay : PLAN_LIMITS.pro.askAiPerDay} per day
           </p>
 
           {/* Reset timer */}

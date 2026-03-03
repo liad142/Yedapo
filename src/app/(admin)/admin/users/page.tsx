@@ -13,6 +13,21 @@ const BarChartWidget = dynamic(() => import('@/components/admin/charts/BarChartW
 const PieChartWidget = dynamic(() => import('@/components/admin/charts/PieChartWidget').then(m => ({ default: m.PieChartWidget })), { ssr: false, loading: () => <div className="h-64 animate-pulse bg-white/5 rounded-xl" /> });
 import type { UserAnalytics } from '@/types/admin';
 
+const PLAN_BADGE_COLORS: Record<string, string> = {
+  free: 'bg-zinc-500/20 text-zinc-300',
+  pro: 'bg-amber-500/20 text-amber-300',
+  power: 'bg-purple-500/20 text-purple-300',
+};
+
+function PlanBadge({ plan }: { plan: string }) {
+  const colors = PLAN_BADGE_COLORS[plan] || PLAN_BADGE_COLORS.free;
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors}`}>
+      {plan}
+    </span>
+  );
+}
+
 export default function UsersPage() {
   const [data, setData] = useState<UserAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,15 +71,25 @@ export default function UsersPage() {
         </ChartCard>
       </div>
 
-      <ChartCard title="Country Distribution">
-        <PieChartWidget data={data.countryDistribution} />
-      </ChartCard>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ChartCard title="Country Distribution">
+          <PieChartWidget data={data.countryDistribution} />
+        </ChartCard>
+        <ChartCard title="Plan Distribution">
+          <PieChartWidget data={data.planDistribution} />
+        </ChartCard>
+      </div>
 
       <h2 className="text-lg font-semibold">Recent Signups</h2>
       <DataTable
         columns={[
           { key: 'display_name', label: 'Name', render: (row) => (row.display_name as string) || '—' },
           { key: 'email', label: 'Email' },
+          {
+            key: 'plan',
+            label: 'Plan',
+            render: (row) => <PlanBadge plan={(row.plan as string) || 'free'} />,
+          },
           {
             key: 'onboarding_completed',
             label: 'Onboarded',

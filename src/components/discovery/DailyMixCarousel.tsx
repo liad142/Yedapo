@@ -20,7 +20,7 @@ interface Episode {
   audioUrl: string;
   durationSeconds: number | null;
   summaries?: { quick?: any; deep?: any };
-  summaryPreview?: { tags?: string[]; hookHeadline?: string; executiveBrief?: string };
+  summaryPreview?: { tags?: string[]; hookHeadline?: string; executiveBrief?: string; takeawayCount?: number; chapterCount?: number };
 }
 
 interface DailyMixCarouselProps {
@@ -135,6 +135,7 @@ export function DailyMixCarousel({ episodes, isLoading = false, hasMore = false,
                   publishedAt={ep.publishedAt}
                   podcastId={ep.podcastId}
                   podcastAppleId={ep.podcastAppleId}
+                  summaryPreview={ep.summaryPreview}
                   onClick={() => { posthog.capture('summary_modal_opened', { episode_id: ep.id, podcast_name: ep.podcastName }); setSelectedEpisodeId(ep.id); }}
                 />
               </div>

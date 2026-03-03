@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { EpisodeLookupProvider } from '@/contexts/EpisodeLookupContext';
 import { SemanticSearchBar } from '@/components/discovery/SemanticSearchBar';
 import { DailyMixCarousel } from '@/components/discovery/DailyMixCarousel';
+import { TodaysInsights } from '@/components/discovery/TodaysInsights';
 import { BrandShelf } from '@/components/discovery/BrandShelf';
 import { CuriosityFeed } from '@/components/discovery/CuriosityFeed';
 import { UnifiedFeed } from '@/components/discovery/UnifiedFeed';
@@ -27,6 +28,7 @@ interface DailyMixEpisode {
   audioUrl: string;
   durationSeconds: number | null;
   summaries: { quick?: any; deep?: any };
+  summaryPreview?: { tags?: string[]; hookHeadline?: string; executiveBrief?: string; takeawayCount?: number; chapterCount?: number };
 }
 
 interface FeedEpisode {
@@ -333,7 +335,7 @@ export default function DiscoverPage() {
 
         {/* Main Content */}
         <main className="max-w-6xl mx-auto px-4 lg:px-8 py-8">
-          {/* Daily Mix - summarized episodes from DB */}
+          {/* 1. Daily Mix - summarized episodes with value metrics */}
           <div className="mb-12">
             <DailyMixCarousel
               episodes={dailyMixEpisodes}
@@ -343,30 +345,37 @@ export default function DiscoverPage() {
             />
           </div>
 
-          {/* Unified YouTube + Podcast Feed for authenticated users */}
+          {/* 2. Today's Insights - visible to all users */}
+          <div className="mb-12">
+            <TodaysInsights />
+          </div>
+
+          {/* 3. For You: Value Feed - unified KnowledgeCards (auth only) */}
           {user && (
             <div className="mb-12">
               <UnifiedFeed />
             </div>
           )}
 
-          {/* Personalized Sections - for authenticated users with genre preferences */}
+          {/* 4. Because you like... - upgraded with "Best this week" */}
           {personalizedSections.length > 0 && personalizedSections.map((section) => (
             <div key={section.genreId} className="mb-12">
               <BrandShelf
                 podcasts={section.podcasts}
                 isLoading={false}
                 title={section.label}
+                genreId={section.genreId}
+                showBestThisWeek
               />
             </div>
           ))}
 
-          {/* Brand Shelf - shows as soon as top podcasts load (fastest) */}
+          {/* 5. Top Podcasts - unchanged */}
           <div className="mb-12">
             <BrandShelf podcasts={topPodcasts.slice(0, 15)} isLoading={isLoadingPodcasts} />
           </div>
 
-          {/* Curiosity Feed - shows when feed episodes are ready */}
+          {/* 6. Curiosity Feed - upgraded with value previews */}
           <div className="mb-12">
             <CuriosityFeed
               episodes={feedEpisodes}

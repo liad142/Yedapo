@@ -4,7 +4,7 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Heart } from 'lucide-react';
+import { Heart, BookOpen, Target, Clock } from 'lucide-react';
 import { DiscoverySummarizeButton } from './DiscoverySummarizeButton';
 import { PlayButton, InlinePlayButton } from '@/components/PlayButton';
 import { useSubscription } from '@/contexts/SubscriptionContext';
@@ -23,6 +23,11 @@ interface InsightCardProps {
   podcastArtist?: string;
   podcastArtwork: string;
   podcastFeedUrl?: string;
+  summaryPreview?: {
+    hookHeadline?: string;
+    takeawayCount?: number;
+    chapterCount?: number;
+  };
 }
 
 function formatDate(date: Date): string {
@@ -47,6 +52,7 @@ export const InsightCard = React.memo(function InsightCard({
   podcastArtist,
   podcastArtwork,
   podcastFeedUrl,
+  summaryPreview,
 }: InsightCardProps) {
   const { user, setShowAuthModal } = useAuth();
   const { isSubscribed, subscribe, unsubscribe } = useSubscription();
@@ -138,10 +144,34 @@ export const InsightCard = React.memo(function InsightCard({
         {title}
       </h3>
 
-      {/* Description */}
+      {/* Description / Value Preview */}
       <p className="text-body-sm text-muted-foreground line-clamp-3 mt-1">
-        {description}
+        {summaryPreview?.hookHeadline || description}
       </p>
+
+      {/* Stats row */}
+      {summaryPreview && (summaryPreview.takeawayCount || summaryPreview.chapterCount) && (
+        <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
+          {summaryPreview.takeawayCount && summaryPreview.takeawayCount > 0 && (
+            <span className="flex items-center gap-1">
+              <Target className="h-3 w-3" />
+              {summaryPreview.takeawayCount} takeaways
+            </span>
+          )}
+          {summaryPreview.chapterCount && summaryPreview.chapterCount > 0 && (
+            <span className="flex items-center gap-1">
+              <BookOpen className="h-3 w-3" />
+              {summaryPreview.chapterCount} chapters
+            </span>
+          )}
+          {duration && (
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {Math.ceil(duration / 60 / 4)} min read
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Actions: Play & Summarize */}
       <div className="mt-3 flex items-center gap-3">

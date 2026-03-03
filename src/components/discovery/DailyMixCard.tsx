@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, ArrowRight, Target, Clock } from 'lucide-react';
 
 interface DailyMixCardProps {
   title: string;
@@ -13,6 +13,14 @@ interface DailyMixCardProps {
   publishedAt: Date;
   podcastId: string;
   podcastAppleId?: string | null;
+  summaryPreview?: {
+    tags?: string[];
+    hookHeadline?: string;
+    executiveBrief?: string;
+    takeawayCount?: number;
+    chapterCount?: number;
+  };
+  hasReadProgress?: boolean;
   onClick: () => void;
 }
 
@@ -44,10 +52,26 @@ export const DailyMixCard = React.memo(function DailyMixCard({
   publishedAt,
   podcastId,
   podcastAppleId,
+  summaryPreview,
+  hasReadProgress,
   onClick,
 }: DailyMixCardProps) {
   const artwork = isValidImageUrl(podcastArtwork) ? podcastArtwork : '/placeholder-podcast.png';
   const podcastHref = podcastAppleId ? `/browse/podcast/${podcastAppleId}` : `/browse/podcast/${podcastId}`;
+
+  // Value line: prefer hookHeadline, then executiveBrief, then raw description
+  const valueLine = summaryPreview?.hookHeadline
+    || summaryPreview?.executiveBrief
+    || description;
+
+  // Stats
+  const statsItems: string[] = [];
+  if (summaryPreview?.takeawayCount && summaryPreview.takeawayCount > 0) {
+    statsItems.push(`${summaryPreview.takeawayCount} takeaways`);
+  }
+  if (summaryPreview?.chapterCount && summaryPreview.chapterCount > 0) {
+    statsItems.push(`${summaryPreview.chapterCount} chapters`);
+  }
 
   return (
     <div
@@ -98,21 +122,46 @@ export const DailyMixCard = React.memo(function DailyMixCard({
           </div>
         </div>
 
-        {/* Middle: episode title + description */}
+        {/* Middle: episode title + value line + stats */}
         <div className="flex flex-col gap-1">
           <h3 className="text-h4 text-foreground line-clamp-2 leading-snug">
             {title}
           </h3>
           <p className="text-caption text-muted-foreground line-clamp-2 leading-relaxed">
-            {description}
+            {valueLine}
           </p>
+          {statsItems.length > 0 && (
+            <div className="flex items-center gap-2.5 mt-0.5">
+              {summaryPreview?.takeawayCount && summaryPreview.takeawayCount > 0 && (
+                <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <Target className="h-2.5 w-2.5" />
+                  {summaryPreview.takeawayCount} takeaways
+                </span>
+              )}
+              {summaryPreview?.chapterCount && summaryPreview.chapterCount > 0 && (
+                <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <BookOpen className="h-2.5 w-2.5" />
+                  {summaryPreview.chapterCount} chapters
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Bottom row: read summary indicator */}
+        {/* Bottom row: CTA */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 bg-primary hover:bg-primary/90 transition-colors duration-200 rounded-full px-4 py-2 cursor-pointer">
-            <BookOpen className="h-3.5 w-3.5 text-white flex-shrink-0" />
-            <span className="text-xs font-semibold text-white tracking-wide">Read Summary</span>
+            {hasReadProgress ? (
+              <>
+                <span className="text-xs font-semibold text-white tracking-wide">Continue</span>
+                <ArrowRight className="h-3.5 w-3.5 text-white flex-shrink-0" />
+              </>
+            ) : (
+              <>
+                <BookOpen className="h-3.5 w-3.5 text-white flex-shrink-0" />
+                <span className="text-xs font-semibold text-white tracking-wide">Read Summary</span>
+              </>
+            )}
           </div>
         </div>
       </div>

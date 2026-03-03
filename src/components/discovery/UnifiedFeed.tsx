@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { VideoCard } from '@/components/VideoCard';
-import type { VideoItem } from '@/components/VideoCard';
+import { KnowledgeCard } from './KnowledgeCard';
+import type { KnowledgeCardProps } from './KnowledgeCard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2 } from 'lucide-react';
@@ -17,17 +17,57 @@ type FilterType = 'all' | 'youtube' | 'podcast';
 
 interface FeedItemRaw {
   id: string;
-  source_type: 'youtube' | 'podcast';
-  source_id: string;
+  source_type?: string;
+  sourceType: 'youtube' | 'podcast';
+  source_id?: string;
+  sourceId: string;
   title: string;
   description?: string;
   thumbnail_url?: string;
-  published_at: string;
+  thumbnailUrl?: string;
+  published_at?: string;
+  publishedAt: string;
   duration?: number;
   url: string;
   video_id?: string;
+  videoId?: string;
   episode_id?: string;
+  episodeId?: string;
   bookmarked: boolean;
+  summaryPreview?: {
+    hookHeadline?: string;
+    executiveBrief?: string;
+    tags?: string[];
+    takeawayCount?: number;
+    chapterCount?: number;
+  };
+  summaryStatus?: string;
+}
+
+function mapToKnowledgeCard(item: FeedItemRaw): KnowledgeCardProps {
+  const sourceType = (item.source_type || item.sourceType) as 'youtube' | 'podcast';
+  const sourceId = item.source_id || item.sourceId || '';
+  const publishedAt = item.published_at || item.publishedAt;
+  const videoId = item.video_id || item.videoId;
+  const episodeId = item.episode_id || item.episodeId;
+  const thumbnailUrl = item.thumbnail_url || item.thumbnailUrl || '';
+
+  return {
+    id: videoId || item.id,
+    type: sourceType,
+    title: item.title,
+    description: item.description || '',
+    sourceName: '', // Will be filled from channel data if available
+    sourceArtwork: thumbnailUrl,
+    sourceId: sourceId,
+    publishedAt,
+    duration: item.duration,
+    url: item.url,
+    summaryPreview: item.summaryPreview,
+    summaryStatus: (item.summaryStatus as 'none' | 'loading' | 'ready') || 'none',
+    bookmarked: item.bookmarked,
+    episodeId: episodeId,
+  };
 }
 
 export function UnifiedFeed() {
@@ -88,18 +128,6 @@ export function UnifiedFeed() {
     setIsLoadingMore(false);
   }, [filter, isLoadingMore, hasMore, fetchFeed]);
 
-  const mapToVideoItem = (item: FeedItemRaw): VideoItem => ({
-    videoId: item.video_id || item.id,
-    title: item.title,
-    description: item.description,
-    thumbnailUrl: item.thumbnail_url || '',
-    publishedAt: item.published_at,
-    url: item.url,
-    duration: item.duration,
-    bookmarked: item.bookmarked,
-    channelId: item.source_id,
-  });
-
   if (!user) return null;
 
   const filters: { label: string; value: FilterType }[] = [
@@ -108,10 +136,18 @@ export function UnifiedFeed() {
     { label: 'YouTube', value: 'youtube' },
   ];
 
+  // Filter items by type when a specific filter is selected
+  const filteredItems = filter === 'all'
+    ? items
+    : items.filter(item => (item.source_type || item.sourceType) === filter);
+
   return (
     <section>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-h3 text-foreground">Your Feed</h2>
+        <div>
+          <h2 className="text-h3 text-foreground">For You</h2>
+          <p className="text-body-sm text-muted-foreground">Content from your subscriptions</p>
+        </div>
         <div className="flex items-center gap-1 p-1">
           {filters.map((f) => (
             <button
@@ -131,28 +167,28 @@ export function UnifiedFeed() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="aspect-video rounded-xl" />
+        <div className="flex flex-col gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-[180px] rounded-2xl" />
           ))}
         </div>
-      ) : items.length === 0 ? (
+      ) : filteredItems.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           <p>No items in your feed yet.</p>
-          <p className="text-sm mt-1">Follow some YouTube channels to get started!</p>
+          <p className="text-sm mt-1">Follow some YouTube channels or podcasts to get started!</p>
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {items
-              .filter(item => item.source_type === 'youtube')
-              .map((item) => (
-                <VideoCard
+          <div className="flex flex-col gap-4">
+            {filteredItems.map((item) => {
+              const props = mapToKnowledgeCard(item);
+              return (
+                <KnowledgeCard
                   key={item.id}
-                  video={mapToVideoItem(item)}
-                  episodeId={item.episode_id}
+                  {...props}
                 />
-              ))}
+              );
+            })}
           </div>
 
           {hasMore && (

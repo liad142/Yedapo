@@ -1,26 +1,56 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BrandBubble } from './BrandBubble';
+import { GenreEpisodeRow } from './GenreEpisodeRow';
 import { ApplePodcast } from '@/components/ApplePodcastCard';
+import { cn } from '@/lib/utils';
 
 interface BrandShelfProps {
   podcasts: ApplePodcast[];
   isLoading?: boolean;
   title?: string;
+  genreId?: string;
+  showBestThisWeek?: boolean;
 }
 
-export function BrandShelf({ podcasts, isLoading = false, title = 'Top Podcasts' }: BrandShelfProps) {
+export function BrandShelf({
+  podcasts,
+  isLoading = false,
+  title = 'Top Podcasts',
+  genreId,
+  showBestThisWeek = false,
+}: BrandShelfProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [showEpisodes, setShowEpisodes] = useState(false);
 
   return (
     <section>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-h3 text-foreground">{title}</h2>
-        <span className="text-body-sm text-primary font-medium hover:underline cursor-pointer">
-          See All
-        </span>
+        <div className="flex items-center gap-3">
+          {showBestThisWeek && genreId && (
+            <button
+              onClick={() => setShowEpisodes(!showEpisodes)}
+              className={cn(
+                'flex items-center gap-1 text-body-sm font-medium transition-colors cursor-pointer',
+                showEpisodes ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              Best this week
+              {showEpisodes ? (
+                <ChevronUp className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5" />
+              )}
+            </button>
+          )}
+          <span className="text-body-sm text-primary font-medium hover:underline cursor-pointer">
+            See All
+          </span>
+        </div>
       </div>
       <div
         ref={scrollRef}
@@ -44,6 +74,11 @@ export function BrandShelf({ podcasts, isLoading = false, title = 'Top Podcasts'
             </div>
           ))}
       </div>
+
+      {/* Expandable episode row */}
+      {showBestThisWeek && genreId && (
+        <GenreEpisodeRow genreId={genreId} isOpen={showEpisodes} />
+      )}
     </section>
   );
 }

@@ -68,7 +68,7 @@ export function CuriosityFeed({
     <section>
       <div className="mb-4">
         <h2 className="text-h2 text-foreground">Curiosity Feed</h2>
-        <p className="text-body-sm text-muted-foreground">Discover episodes from top podcasts</p>
+        <p className="text-body-sm text-muted-foreground">High-signal episodes worth your time</p>
       </div>
 
       <div className="flex flex-col gap-4">

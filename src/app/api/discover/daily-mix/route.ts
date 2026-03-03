@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
 
   // 2. Deduplicate: keep quick for scoring, extract only lightweight display fields
   const summaryMap = new Map<string, { level: string; content: any }>();
-  const displaySummaryMap = new Map<string, { tags?: string[]; hookHeadline?: string; executiveBrief?: string }>();
+  const displaySummaryMap = new Map<string, { tags?: string[]; hookHeadline?: string; executiveBrief?: string; takeawayCount?: number; chapterCount?: number }>();
   for (const s of summaries) {
     if (!s.content_json) continue;
     // For scoring: prefer quick over deep
@@ -166,10 +166,26 @@ export async function GET(request: NextRequest) {
     // Extract lightweight display fields only (no full content_json in response)
     if (s.level === 'quick') {
       const q = s.content_json as QuickSummaryContent;
+      const existing = displaySummaryMap.get(s.episode_id);
       displaySummaryMap.set(s.episode_id, {
+        ...existing,
         tags: q.tags,
         hookHeadline: q.hook_headline,
         executiveBrief: q.executive_brief,
+      });
+    } else if (s.level === 'deep') {
+      const d = s.content_json as DeepSummaryContent;
+      const existing = displaySummaryMap.get(s.episode_id);
+      displaySummaryMap.set(s.episode_id, {
+        ...existing,
+        // Only set text fields if no quick summary exists yet
+        ...(!existing?.hookHeadline && {
+          tags: (d.core_concepts || []).map(c => c.concept),
+          executiveBrief: d.comprehensive_overview?.slice(0, 300),
+        }),
+        // Always add counts from deep summary
+        takeawayCount: d.actionable_takeaways?.length ?? 0,
+        chapterCount: d.chronological_breakdown?.length ?? 0,
       });
     } else if (!displaySummaryMap.has(s.episode_id)) {
       // Fallback to deep summary display fields if no quick exists

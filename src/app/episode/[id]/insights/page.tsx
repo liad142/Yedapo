@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import posthog from "posthog-js";
 import { Header } from "@/components/Header";
@@ -30,6 +30,14 @@ export default function EpisodeInsightsPage() {
 
   const youtubePlayerRef = useRef<YouTubeEmbedRef>(null);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
+  const lastSecondRef = useRef(0);
+  const handleTimeUpdate = useCallback((seconds: number) => {
+    const rounded = Math.floor(seconds);
+    if (rounded !== lastSecondRef.current) {
+      lastSecondRef.current = rounded;
+      setVideoCurrentTime(rounded);
+    }
+  }, []);
 
   const fetchEpisode = useCallback(async () => {
     try {
@@ -187,7 +195,7 @@ export default function EpisodeInsightsPage() {
                     ref={youtubePlayerRef}
                     videoId={youtubeVideoId}
                     title={episode.title}
-                    onTimeUpdate={setVideoCurrentTime}
+                    onTimeUpdate={handleTimeUpdate}
                   />
                 </div>
               ) : null}

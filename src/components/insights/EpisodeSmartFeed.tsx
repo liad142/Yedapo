@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, RefObject } from "react";
+import { useState, useEffect, useCallback, useMemo, memo, RefObject } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion } from "framer-motion";
 import { Loader2, Sparkles, FileText, Lightbulb, ListMusic, Scale, Play, ChevronDown, ChevronsUpDown, ChevronsDownUp, Quote, Lock } from "lucide-react";
@@ -32,7 +32,7 @@ interface EpisodeSmartFeedProps {
   videoCurrentTime?: number;
 }
 
-export function EpisodeSmartFeed({ episode, youtubePlayerRef, videoCurrentTime }: EpisodeSmartFeedProps) {
+export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtubePlayerRef, videoCurrentTime }: EpisodeSmartFeedProps) {
   const { user, setShowCompactPrompt, setShowAuthModal } = useAuth();
   const { cutoffs, isFree } = useUserPlan();
   const [data, setData] = useState<EpisodeInsightsResponse | null>(null);
@@ -731,7 +731,7 @@ function GuestTeaserCard({ content, isRTL }: { content: QuickSummaryContent; isR
       </div>
     </div>
   );
-}
+});
 
 /* ─── 2. Comprehensive Overview ─── */
 function ComprehensiveOverview({ text, isRTL, maxParagraphs, skipParagraphs, hideHeader }: { text: string; isRTL: boolean; maxParagraphs?: number; skipParagraphs?: number; hideHeader?: boolean }) {

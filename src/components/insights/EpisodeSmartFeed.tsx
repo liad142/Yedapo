@@ -23,6 +23,7 @@ import { useUserPlan } from "@/hooks/useUserPlan";
 import { PaywallOverlay } from "@/components/PaywallOverlay";
 import { DescriptionLinks } from "./DescriptionLinks";
 import { PinnedComment } from "./PinnedComment";
+import { CommentsSection } from "./CommentsSection";
 import { parseStoryboardSpec, getFrameUrlForTimestamp } from "@/lib/youtube/storyboards";
 
 interface EpisodeSmartFeedProps {
@@ -508,6 +509,15 @@ export function EpisodeSmartFeed({ episode, youtubePlayerRef, videoCurrentTime }
             </section>
           </>
         ) : null}
+
+        {/* ─── Section 8: Discussion / Comments ─── */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.25 }}
+        >
+          <CommentsSection episodeId={episode.id} />
+        </motion.section>
 
         {/* Subscription */}
         <section>

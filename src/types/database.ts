@@ -227,5 +227,36 @@ export interface UserProfile {
   created_at: string;
 }
 
+// ============================================
+// EPISODE COMMENTS TYPES
+// ============================================
+
+export interface EpisodeComment {
+  id: string;
+  episode_id: string;
+  user_id: string;
+  parent_id: string | null;
+  body: string;
+  edited_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EpisodeCommentWithAuthor extends EpisodeComment {
+  author: {
+    id: string;
+    display_name: string | null;
+    avatar_url: string | null;
+  };
+  replies?: EpisodeCommentWithAuthor[];
+}
+
+export interface EpisodeCommentsResponse {
+  comments: EpisodeCommentWithAuthor[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 // Re-export notification types for convenience
 export type { NotificationRequest, TelegramConnection, NotificationChannel, NotificationStatus } from './notifications';

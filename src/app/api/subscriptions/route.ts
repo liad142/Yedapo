@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import { getAuthUser } from '@/lib/auth-helpers';
 import { checkRateLimit } from '@/lib/cache';
+import { refreshSinglePodcastFeed } from '@/lib/rsshub-db';
 
 // GET: List all subscribed podcasts for a user
 export async function GET(request: NextRequest) {
@@ -103,6 +104,11 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    // Background: populate feed_items with recent episodes from this podcast
+    refreshSinglePodcastFeed(user.id, podcastId).catch(err =>
+      console.error('Background feed refresh failed:', err)
+    );
 
     return NextResponse.json({ subscription }, { status: 201 });
   } catch (error) {

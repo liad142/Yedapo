@@ -1,8 +1,10 @@
 /**
- * Database functions for RSSHub YouTube integration
+ * Database functions for RSSHub YouTube integration and podcast feed population
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchPodcastFeed } from '@/lib/rss';
+import { getPodcastById } from '@/lib/apple-podcasts';
 
 // Use singleton admin client for connection pooling
 function getSupabaseClient() {
@@ -162,7 +164,8 @@ export async function upsertFeedItems(items: Array<{
   userId: string;
 }>): Promise<void> {
   const supabase = getSupabaseClient();
-  const formattedItems = items.map((item) => ({
+
+  const format = (item: typeof items[0]) => ({
     source_type: item.sourceType,
     source_id: item.sourceId,
     title: item.title,
@@ -175,16 +178,33 @@ export async function upsertFeedItems(items: Array<{
     episode_id: item.episodeId,
     user_id: item.userId,
     updated_at: new Date().toISOString(),
-  }));
+  });
 
-  const { error } = await supabase
-    .from('feed_items')
-    .upsert(formattedItems, {
-      onConflict: 'user_id,source_type,video_id',
-      ignoreDuplicates: false,
-    });
+  // Split by source type — each uses a different unique constraint
+  const youtubeItems = items.filter(i => i.sourceType === 'youtube');
+  const podcastItems = items.filter(i => i.sourceType === 'podcast');
 
-  if (error) throw new Error(`Failed to upsert feed items: ${error.message}`);
+  const promises: Promise<void>[] = [];
+
+  if (youtubeItems.length > 0) {
+    promises.push(
+      Promise.resolve(
+        supabase.from('feed_items')
+          .upsert(youtubeItems.map(format), { onConflict: 'user_id,source_type,video_id', ignoreDuplicates: false })
+      ).then(({ error }) => { if (error) throw new Error(`YouTube upsert failed: ${error.message}`); })
+    );
+  }
+
+  if (podcastItems.length > 0) {
+    promises.push(
+      Promise.resolve(
+        supabase.from('feed_items')
+          .upsert(podcastItems.map(format), { onConflict: 'user_id,source_type,episode_id', ignoreDuplicates: false })
+      ).then(({ error }) => { if (error) throw new Error(`Podcast upsert failed: ${error.message}`); })
+    );
+  }
+
+  await Promise.all(promises);
 }
 
 /**
@@ -329,4 +349,155 @@ export async function getYouTubeChannelByChannelId(
 
   if (error || !data) return null;
   return data as YouTubeChannel;
+}
+
+/**
+ * Resolve the actual RSS feed URL for a podcast.
+ * Apple-sourced podcasts store "apple:ID" — resolve via Apple API to get the real feedUrl.
+ */
+async function resolveRssUrl(rssFieldValue: string): Promise<string | null> {
+  if (!rssFieldValue) return null;
+
+  if (rssFieldValue.startsWith('apple:')) {
+    const appleId = rssFieldValue.replace('apple:', '');
+    const applePodcast = await getPodcastById(appleId);
+    return applePodcast?.feedUrl || null;
+  }
+
+  return rssFieldValue;
+}
+
+/**
+ * Fetch RSS episodes and upsert them into episodes + feed_items for a single podcast.
+ */
+async function populatePodcastFeedItems(
+  userId: string,
+  podcast: { id: string; rss_feed_url: string; image_url: string | null },
+): Promise<number> {
+  const supabase = getSupabaseClient();
+
+  const rssUrl = await resolveRssUrl(podcast.rss_feed_url);
+  if (!rssUrl) return 0;
+
+  const { episodes } = await fetchPodcastFeed(rssUrl);
+  const recentEpisodes = episodes.slice(0, 10);
+
+  const feedItems = [];
+  for (const ep of recentEpisodes) {
+    if (!ep.audio_url) continue;
+
+    // Check if episode already exists
+    let { data: existing } = await supabase
+      .from('episodes')
+      .select('id')
+      .eq('podcast_id', podcast.id)
+      .eq('audio_url', ep.audio_url)
+      .single();
+
+    if (!existing) {
+      const { data: created } = await supabase
+        .from('episodes')
+        .insert({
+          podcast_id: podcast.id,
+          title: ep.title,
+          description: ep.description || null,
+          audio_url: ep.audio_url,
+          duration_seconds: ep.duration_seconds,
+          published_at: ep.published_at ? new Date(ep.published_at).toISOString() : new Date().toISOString(),
+        })
+        .select('id')
+        .single();
+      existing = created;
+    }
+
+    if (existing) {
+      feedItems.push({
+        sourceType: 'podcast' as const,
+        sourceId: podcast.id,
+        title: ep.title,
+        description: ep.description,
+        thumbnailUrl: podcast.image_url || undefined,
+        publishedAt: ep.published_at ? new Date(ep.published_at) : new Date(),
+        duration: ep.duration_seconds,
+        url: ep.audio_url,
+        episodeId: existing.id,
+        userId,
+      });
+    }
+  }
+
+  if (feedItems.length > 0) {
+    await upsertFeedItems(feedItems);
+  }
+
+  return feedItems.length;
+}
+
+/**
+ * Refresh a single podcast's episodes into feed_items for a user
+ */
+export async function refreshSinglePodcastFeed(
+  userId: string,
+  podcastId: string
+): Promise<{ episodesAdded: number }> {
+  const supabase = getSupabaseClient();
+
+  const { data: podcast } = await supabase
+    .from('podcasts')
+    .select('id, title, rss_feed_url, image_url')
+    .eq('id', podcastId)
+    .single();
+
+  if (!podcast?.rss_feed_url) return { episodesAdded: 0 };
+
+  const count = await populatePodcastFeedItems(userId, podcast);
+  return { episodesAdded: count };
+}
+
+/**
+ * Refresh all subscribed podcasts' episodes into feed_items for a user
+ */
+export async function refreshPodcastFeed(userId: string): Promise<{
+  podcastsRefreshed: number;
+  episodesAdded: number;
+  errors: string[];
+}> {
+  const supabase = getSupabaseClient();
+
+  const { data: subs } = await supabase
+    .from('podcast_subscriptions')
+    .select('podcast_id, podcasts(id, title, rss_feed_url, image_url)')
+    .eq('user_id', userId);
+
+  if (!subs || subs.length === 0) {
+    return { podcastsRefreshed: 0, episodesAdded: 0, errors: [] };
+  }
+
+  let totalEpisodes = 0;
+  const errors: string[] = [];
+
+  const results = await Promise.allSettled(
+    subs.map(async (sub) => {
+      const podcast = sub.podcasts as any;
+      if (!podcast?.rss_feed_url) return { count: 0 };
+
+      const count = await populatePodcastFeedItems(userId, podcast);
+      return { count };
+    })
+  );
+
+  for (let i = 0; i < results.length; i++) {
+    if (results[i].status === 'fulfilled') {
+      totalEpisodes += (results[i] as PromiseFulfilledResult<{ count: number }>).value.count;
+    } else {
+      const podcast = (subs[i].podcasts as any);
+      errors.push(`${podcast?.title || 'Unknown'}: ${(results[i] as PromiseRejectedResult).reason?.message || 'Unknown error'}`);
+    }
+  }
+
+  return {
+    podcastsRefreshed: subs.length - errors.length,
+    episodesAdded: totalEpisodes,
+    errors,
+  };
 }

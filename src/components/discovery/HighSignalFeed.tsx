@@ -263,12 +263,29 @@ export function HighSignalFeed({
     }
   }, [user, hydrated]);
 
+  // Track whether podcast refresh has been triggered this session
+  const podcastRefreshDone = useRef(false);
+
   // Fetch For You data only when in For You mode
   useEffect(() => {
     if (!hydrated || mode !== 'for-you' || !user) return;
     setIsForYouLoading(true);
     forYouOffsetRef.current = 0;
-    fetchForYou(0, false).finally(() => setIsForYouLoading(false));
+    fetchForYou(0, false).then(() => {
+      // Trigger podcast feed refresh in background (once per session)
+      if (!podcastRefreshDone.current) {
+        podcastRefreshDone.current = true;
+        fetch('/api/podcasts/refresh', { method: 'POST' })
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data?.episodesAdded > 0) {
+              // Re-fetch to include newly added podcast episodes
+              fetchForYou(0, false);
+            }
+          })
+          .catch(() => {}); // Silently ignore refresh errors
+      }
+    }).finally(() => setIsForYouLoading(false));
   }, [hydrated, mode, user, fetchForYou]);
 
   // --- Persist & switch mode ---

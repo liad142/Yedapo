@@ -24,6 +24,7 @@ const nextConfig = {
       { protocol: "https", hostname: "**.libsyn.com" },
       { protocol: "https", hostname: "**.podbean.com" },
       { protocol: "https", hostname: "**.transistor.fm" },
+      { protocol: "https", hostname: "**.transistorcdn.com" },
       { protocol: "https", hostname: "**.anchor.fm" },
       { protocol: "https", hostname: "**.spreaker.com" },
       { protocol: "https", hostname: "**.art19.com" },

@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Sidebar } from '@/components/Sidebar';
-import { StickyAudioPlayer } from '@/components/StickyAudioPlayer';
+import { StickyAudioPlayer } from '@/components/player';
 import { AskAIProvider } from '@/contexts/AskAIContext';
 
 // Dynamic imports for components that only appear on user interaction

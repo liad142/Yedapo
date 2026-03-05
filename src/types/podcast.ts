@@ -43,3 +43,28 @@ export interface SearchResult {
   source: 'apple' | 'podcastindex' | 'merged';
   count: number;
 }
+
+/** Episode shape used by both podcast detail pages */
+export interface PodcastDetailEpisode {
+  id: string;
+  podcastId: string;
+  title: string;
+  description: string;
+  publishedAt: string;
+  duration: number;
+  audioUrl?: string;
+  artworkUrl?: string;
+  episodeNumber?: number;
+  seasonNumber?: number;
+  isFromDb?: boolean;
+}
+
+/** Per-episode summary availability info shared across podcast pages */
+export interface SummaryAvailability {
+  audioUrl: string;
+  episodeId: string | null;
+  hasQuickSummary: boolean;
+  hasDeepSummary: boolean;
+  quickStatus: string | null;
+  deepStatus: string | null;
+}

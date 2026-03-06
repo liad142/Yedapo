@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
-  Bookmark,
+  Heart,
   BookOpen,
   Sparkles,
   ExternalLink,
@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { InlinePlayButton } from '@/components/PlayButton';
 import { DiscoverySummarizeButton } from './DiscoverySummarizeButton';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useEpisodeLookup } from '@/contexts/EpisodeLookupContext';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -143,21 +144,23 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
   summaryPreview,
   summaryStatus = 'none',
   recommendReason,
-  bookmarked = false,
   episodeId,
   audioUrl,
   podcastFeedData,
-  onSave,
   onSummarize,
 }: KnowledgeCardProps) {
   const { user, setShowAuthModal } = useAuth();
+  const { isSubscribed: checkSubscribed, subscribe, unsubscribe } = useSubscription();
   const { registerLookup, getLookupResult } = useEpisodeLookup();
   const router = useRouter();
-  const [isSaved, setIsSaved] = useState(bookmarked);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isToggling, setIsToggling] = useState(false);
   const [localSummaryStatus, setLocalSummaryStatus] = useState(summaryStatus);
   const [localEpisodeId, setLocalEpisodeId] = useState(episodeId);
   const [isImporting, setIsImporting] = useState(false);
+
+  // Subscription uses the Apple ID when available
+  const subscriptionId = sourceAppleId || sourceId;
+  const isFollowed = type === 'podcast' && checkSubscribed(subscriptionId);
 
   // For episodes without a known summary status, check via batch lookup
   // YouTube: url is the watch URL stored as audio_url in DB
@@ -209,58 +212,29 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
     };
   }, [type, audioUrl, localEpisodeId, id, title, sourceName, artwork, duration, sourceId]);
 
-  const handleSave = async (e: React.MouseEvent) => {
+  const handleFollow = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
     if (!user) {
-      setShowAuthModal(true, 'Sign in to save content to your library.');
+      setShowAuthModal(true, 'Sign up to follow your favourite podcasts and never miss an episode.');
       return;
     }
-    if (isSaving) return;
+    if (isToggling) return;
 
-    setIsSaving(true);
+    setIsToggling(true);
     try {
-      if (type === 'youtube') {
-        const res = await fetch('/api/youtube/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            videoId: id,
-            title,
-            description,
-            thumbnailUrl: sourceArtwork,
-            publishedAt,
-            channelName: sourceName,
-            url,
-            action: 'toggle',
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setIsSaved(data.bookmarked);
-          posthog.capture(data.bookmarked ? 'content_bookmarked' : 'content_unbookmarked', {
-            content_id: id,
-            type,
-            title,
-          });
-          onSave?.(id, data.bookmarked);
-        }
+      if (isFollowed) {
+        await unsubscribe(subscriptionId);
       } else {
-        // Podcast bookmark — toggle via feed_items if available
-        const newSaved = !isSaved;
-        setIsSaved(newSaved);
-        posthog.capture(newSaved ? 'content_bookmarked' : 'content_unbookmarked', {
-          content_id: id,
-          type,
-          title,
-        });
-        onSave?.(id, newSaved);
+        await subscribe(subscriptionId);
       }
-    } catch {
-      // Revert on error
+      posthog.capture(isFollowed ? 'podcast_unfollowed' : 'podcast_followed', {
+        podcast_id: subscriptionId,
+        podcast_name: sourceName,
+      });
     } finally {
-      setIsSaving(false);
+      setIsToggling(false);
     }
   };
 
@@ -410,25 +384,26 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
             <h3 className="text-h4 text-foreground line-clamp-2 leading-snug">
               {title}
             </h3>
-            {/* Save button */}
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className={cn(
-                'p-1.5 rounded-full transition-all flex-shrink-0 cursor-pointer',
-                'hover:bg-secondary',
-                isSaved && 'text-primary'
-              )}
-              aria-label={isSaved ? 'Remove bookmark' : 'Bookmark'}
-            >
-              <Bookmark
+            {/* Follow podcast */}
+            {type === 'podcast' && (
+              <button
+                onClick={handleFollow}
+                disabled={isToggling}
                 className={cn(
-                  'h-4 w-4',
-                  isSaved ? 'fill-current text-primary' : 'text-muted-foreground',
-                  isSaving && 'animate-pulse'
+                  'p-1.5 rounded-full transition-all flex-shrink-0 cursor-pointer',
+                  'hover:bg-secondary'
                 )}
-              />
-            </button>
+                aria-label={isFollowed ? 'Unfollow podcast' : 'Follow podcast'}
+              >
+                <Heart
+                  className={cn(
+                    'h-4 w-4',
+                    isFollowed ? 'fill-current text-red-500' : 'text-muted-foreground',
+                    isToggling && 'animate-pulse'
+                  )}
+                />
+              </button>
+            )}
           </div>
 
           {/* Metadata row */}
@@ -588,10 +563,7 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
             Watch
           </Button>
         ) : track ? (
-          <InlinePlayButton
-            track={track}
-            className="h-8 px-3 text-xs rounded-full bg-transparent border border-border text-foreground hover:bg-secondary"
-          />
+          <InlinePlayButton track={track} />
         ) : null}
       </div>
     </motion.article>

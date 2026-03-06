@@ -59,27 +59,29 @@ export function ExpandedPlayerView({
           className="overflow-hidden border-t border-border/30"
         >
           <div className="px-4 py-4">
-            {/* Full Progress Bar */}
-            <div className="mb-4">
-              <Slider
-                value={[progressPercentage]}
-                onValueChange={onProgressChange}
-                max={100}
-                step={0.1}
-                className="mb-2"
-                trackClassName="h-2 bg-secondary"
-                rangeClassName="bg-gradient-to-r from-primary to-blue-400"
-                thumbClassName="h-4 w-4 border-2 border-primary"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground font-mono">
-                <span>{formatTime(currentTime)}</span>
-                <span>{formatTime(duration)}</span>
+            {/* Full Progress Bar — hidden when chapters are shown (chapter scrubber is above) */}
+            {!(chapters && chapters.length > 0) && (
+              <div className="mb-4">
+                <Slider
+                  value={[progressPercentage]}
+                  onValueChange={onProgressChange}
+                  max={100}
+                  step={0.1}
+                  className="mb-2"
+                  trackClassName="h-2 bg-secondary"
+                  rangeClassName="bg-gradient-to-r from-primary to-blue-400"
+                  thumbClassName="h-4 w-4 border-2 border-primary"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground font-mono">
+                  <span>{formatTime(currentTime)}</span>
+                  <span>{formatTime(duration)}</span>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Playback Speed Options */}
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-xs text-muted-foreground mr-2">Speed:</span>
+            <div className="flex items-center justify-center gap-0.5 sm:gap-2">
+              <span className="text-[13px] sm:text-xs text-muted-foreground mr-0.5 sm:mr-2 shrink-0">Speed:</span>
               {PLAYBACK_RATES.map((rate) => (
                 <motion.button
                   key={rate}
@@ -87,7 +89,7 @@ export function ExpandedPlayerView({
                   whileTap={{ scale: 0.95 }}
                   onClick={() => onSetPlaybackRate(rate)}
                   className={cn(
-                    'px-3 py-1.5 rounded-full text-xs font-medium transition-all',
+                    'px-2 py-1 sm:px-3 sm:py-1.5 rounded-full text-[13px] sm:text-xs font-medium transition-all shrink-0',
                     playbackRate === rate
                       ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
                       : 'text-muted-foreground hover:text-foreground hover:bg-secondary'

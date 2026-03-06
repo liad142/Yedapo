@@ -294,7 +294,7 @@ function CardEpisodeItem({
               <div className="scale-90 origin-left">
                 <InlinePlayButton
                   track={{
-                    id: episode.id,
+                    id: summaryInfo?.episodeId || episode.id,
                     title: episode.title,
                     artist: podcastName,
                     artworkUrl: episode.artworkUrl || podcastArtworkUrl,
@@ -406,7 +406,7 @@ function ListEpisodeItem({
             {episode.audioUrl && (
               <InlinePlayButton
                 track={{
-                  id: episode.id,
+                  id: summaryInfo?.episodeId || episode.id,
                   title: episode.title,
                   artist: podcastName,
                   artworkUrl: episode.artworkUrl || podcastArtworkUrl,

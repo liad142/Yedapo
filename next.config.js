@@ -42,6 +42,7 @@ const nextConfig = {
       { protocol: "https", hostname: "**.cloudfront.net" },
       { protocol: "https", hostname: "**.wp.com" },
       { protocol: "https", hostname: "**.wordpress.com" },
+      { protocol: "https", hostname: "**.brightspotcdn.com" },
     ],
   },
   async headers() {

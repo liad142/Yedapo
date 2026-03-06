@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+
 
 interface AskAIContextType {
   active: boolean;
@@ -102,24 +102,27 @@ export function useActivateAskAI(episodeId: string) {
   }, [episodeId, activate, deactivate]);
 }
 
+// UUID v4 pattern
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Hook for the StickyAudioPlayer to auto-activate Ask AI and load chapters
  * when playing an episode that has a transcript/summary available.
  * Combines both checks into a single API call.
+ *
+ * If the track ID is not a Supabase UUID (e.g. Apple episode played from
+ * the browse page), we first resolve the episode via audioUrl batch-lookup.
  */
 export function usePlayerAskAI(
   episodeId: string | null,
+  audioUrl: string | null,
   onChaptersLoaded?: (chapters: { title: string; timestamp: string; timestamp_seconds: number }[]) => void
 ) {
   const { activateFromPlayer, deactivateFromPlayer } = useContext(AskAIContext);
-  const { user } = useAuth();
   const checkedRef = useRef<string | null>(null);
   // Use refs for callbacks to avoid re-triggering the effect
   const chaptersCallbackRef = useRef(onChaptersLoaded);
   chaptersCallbackRef.current = onChaptersLoaded;
-  // Track auth state in a ref to avoid re-triggering the effect
-  const userRef = useRef(user);
-  userRef.current = user;
 
   useEffect(() => {
     if (!episodeId) {
@@ -132,52 +135,72 @@ export function usePlayerAskAI(
     if (checkedRef.current === episodeId) return;
     checkedRef.current = episodeId;
 
-    const id = episodeId;
     let cancelled = false;
+
+    /** Fetch summary status for a resolved Supabase episode ID */
+    async function fetchSummaryStatus(resolvedId: string) {
+      const res = await fetch(`/api/episodes/${resolvedId}/summaries/status`);
+      if (!res.ok || cancelled) return;
+      const data = await res.json();
+      if (cancelled) return;
+
+      // If any summary or transcript is ready, activate Ask AI
+      const hasContent =
+        data?.summaries?.quick?.status === "ready" ||
+        data?.summaries?.deep?.status === "ready" ||
+        data?.transcript?.status === "ready";
+
+      if (hasContent) {
+        activateFromPlayer(resolvedId);
+      } else {
+        deactivateFromPlayer();
+      }
+
+      // Extract chapters from deep summary's chronological_breakdown
+      if (chaptersCallbackRef.current && data?.summaries?.deep?.status === "ready") {
+        const deepContent = data.summaries.deep.content;
+        const sections = deepContent?.chronological_breakdown;
+        if (sections && Array.isArray(sections)) {
+          const chapters = sections
+            .map((s: Record<string, unknown>) => ({
+              title: (s.title || s.timestamp_description || "Untitled") as string,
+              timestamp: (s.timestamp || "00:00") as string,
+              timestamp_seconds: (s.timestamp_seconds ?? 0) as number,
+            }))
+            .filter((ch: { timestamp_seconds: number; timestamp: string }) =>
+              ch.timestamp_seconds >= 0 && ch.timestamp
+            );
+
+          const hasReal = chapters.some((ch: { timestamp_seconds: number }) => ch.timestamp_seconds > 0);
+          if (hasReal && chapters.length > 0) {
+            chaptersCallbackRef.current(chapters);
+          }
+        }
+      }
+    }
 
     async function checkEpisodeData() {
       try {
-        const res = await fetch(`/api/episodes/${id}/summaries/status`);
-        if (!res.ok || cancelled) return;
-        const data = await res.json();
-        if (cancelled) return;
-
-        // If any summary or transcript is ready, activate Ask AI
-        const hasContent =
-          data?.summaries?.quick?.status === "ready" ||
-          data?.summaries?.deep?.status === "ready" ||
-          data?.transcript?.status === "ready";
-
-        if (hasContent) {
-          activateFromPlayer(id);
-        } else {
-          deactivateFromPlayer();
+        // If the track ID is already a Supabase UUID, use it directly
+        if (UUID_RE.test(episodeId!)) {
+          await fetchSummaryStatus(episodeId!);
+          return;
         }
 
-        // Extract chapters from deep summary's chronological_breakdown
-        // Only load chapters for authenticated users
-        if (userRef.current && chaptersCallbackRef.current && data?.summaries?.deep?.status === "ready") {
-          const deepContent = data.summaries.deep.content;
-          const sections = deepContent?.chronological_breakdown;
-          if (sections && Array.isArray(sections)) {
-            // Normalize and filter valid chapters
-            const chapters = sections
-              .map((s: Record<string, unknown>) => ({
-                title: (s.title || s.timestamp_description || "Untitled") as string,
-                timestamp: (s.timestamp || "00:00") as string,
-                timestamp_seconds: (s.timestamp_seconds ?? 0) as number,
-              }))
-              .filter((ch: { timestamp_seconds: number; timestamp: string }) =>
-                ch.timestamp_seconds >= 0 && ch.timestamp
-              );
+        // Otherwise resolve via audioUrl batch-lookup to get the Supabase episode ID
+        if (!audioUrl) return;
 
-            // Only use chapters if at least one has a real (non-zero) timestamp
-            const hasReal = chapters.some((ch: { timestamp_seconds: number }) => ch.timestamp_seconds > 0);
-            if (hasReal && chapters.length > 0) {
-              chaptersCallbackRef.current(chapters);
-            }
-          }
-        }
+        const lookupRes = await fetch("/api/episodes/batch-lookup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ audioUrls: [audioUrl] }),
+        });
+        if (!lookupRes.ok || cancelled) return;
+        const lookupData = await lookupRes.json();
+        const result = lookupData?.results?.[audioUrl];
+        if (!result?.episodeId || cancelled) return;
+
+        await fetchSummaryStatus(result.episodeId);
       } catch {
         // Silently fail
       }
@@ -188,7 +211,7 @@ export function usePlayerAskAI(
     return () => {
       cancelled = true;
     };
-  }, [episodeId, activateFromPlayer, deactivateFromPlayer]);
+  }, [episodeId, audioUrl, activateFromPlayer, deactivateFromPlayer]);
 }
 
 export function useAskAI() {

@@ -44,7 +44,7 @@ export function StickyAudioPlayer() {
   }, []);
 
   // Auto-activate Ask AI + load chapters when playing an episode with a summary
-  usePlayerAskAI(player?.currentTrack?.id ?? null, handleChaptersLoaded);
+  usePlayerAskAI(player?.currentTrack?.id ?? null, player?.currentTrack?.audioUrl ?? null, handleChaptersLoaded);
 
   // All hooks must be before conditional return
   const VolumeIcon = useMemo(() => {
@@ -254,11 +254,17 @@ export function StickyAudioPlayer() {
                 <SkipForward className="w-4 h-4" />
               </motion.button>
 
+              {/* Expand / Collapse toggle — glass circle */}
               <motion.button
-                whileTap={{ scale: 0.9 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={toggleExpanded}
-                className="p-1.5 rounded-full text-muted-foreground/60 hover:text-foreground transition-colors"
-                aria-label={isExpanded ? 'Minimize player' : 'Expand player'}
+                className={cn(
+                  'w-8 h-8 flex items-center justify-center rounded-full cursor-pointer transition-all duration-200 border',
+                  isExpanded
+                    ? 'bg-foreground/10 border-foreground/15 text-foreground'
+                    : 'bg-foreground/5 border-border/50 text-muted-foreground hover:bg-foreground/10 hover:border-foreground/15 hover:text-foreground'
+                )}
+                aria-label={isExpanded ? 'Collapse player' : 'Expand player'}
               >
                 {isExpanded ? (
                   <ChevronDown className="w-4 h-4" />
@@ -267,13 +273,14 @@ export function StickyAudioPlayer() {
                 )}
               </motion.button>
 
+              {/* Dismiss — minimal icon, large hit area */}
               <motion.button
-                whileTap={{ scale: 0.9 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={clearTrack}
-                className="p-1.5 rounded-full text-muted-foreground/30 hover:text-foreground transition-colors"
+                className="w-8 h-8 flex items-center justify-center cursor-pointer transition-opacity duration-200 opacity-50 hover:opacity-100"
                 aria-label="Close player"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4 text-muted-foreground" />
               </motion.button>
             </div>
           </div>

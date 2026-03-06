@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, use } from 'react';
+import { redirect } from 'next/navigation';
 import { SafeImage } from '@/components/SafeImage';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, Heart, Share2 } from 'lucide-react';
@@ -33,8 +34,17 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+// UUID v4 pattern — if the ID is a Supabase UUID, redirect to the internal podcast page
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default function PodcastPage({ params }: PageProps) {
   const { id: podcastId } = use(params);
+
+  // Supabase UUIDs should be handled by /podcast/[id], not the Apple browse page
+  if (UUID_RE.test(podcastId)) {
+    redirect(`/podcast/${podcastId}`);
+  }
+
   const { country } = useCountry();
   const { user, setShowAuthModal } = useAuth();
   const { subscribedAppleIds, subscribe, unsubscribe } = useSubscription();

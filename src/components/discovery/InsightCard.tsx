@@ -176,10 +176,7 @@ export const InsightCard = React.memo(function InsightCard({
       {/* Actions: Play & Summarize */}
       <div className="mt-3 flex items-center gap-3">
         {track && (
-          <InlinePlayButton
-            track={track}
-            className="shrink-0 h-9 px-4 rounded-full bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors shadow-none"
-          />
+          <InlinePlayButton track={track} />
         )}
         <DiscoverySummarizeButton
           externalEpisodeId={episodeId}

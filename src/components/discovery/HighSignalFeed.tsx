@@ -100,6 +100,8 @@ function mapToKnowledgeCard(item: FeedItemRaw): KnowledgeCardProps {
     publishedAt,
     duration: item.duration,
     url: item.url,
+    // For podcasts, url is the audio URL; pass it so the Play button renders
+    audioUrl: sourceType === 'podcast' ? item.url : undefined,
     summaryPreview: item.summaryPreview,
     summaryStatus: (item.summaryStatus as 'none' | 'loading' | 'ready') || 'none',
     bookmarked: item.bookmarked,

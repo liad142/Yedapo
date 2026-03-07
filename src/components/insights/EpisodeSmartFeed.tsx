@@ -468,7 +468,6 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
                       episode={episode}
                       youtubePlayerRef={youtubePlayerRef}
                       videoCurrentTime={videoCurrentTime}
-                      creatorChapters={ytMeta?.chapters}
                       storyboardSpec={ytMeta?.storyboard_spec ?? undefined}
                       hideHeader
                     />
@@ -480,7 +479,7 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
                     episode={episode}
                     youtubePlayerRef={youtubePlayerRef}
                     videoCurrentTime={videoCurrentTime}
-                    creatorChapters={ytMeta?.chapters}
+                    creatorChapters={isFree ? undefined : ytMeta?.chapters}
                     storyboardSpec={ytMeta?.storyboard_spec ?? undefined}
                   />
                 </PaywallOverlay>
@@ -842,7 +841,19 @@ function EpisodeChapters({ sections, isRTL, episode, youtubePlayerRef, videoCurr
     return parseStoryboardSpec(storyboardSpec);
   }, [storyboardSpec]);
 
-  const normalized = useMemo(() => normalizeChronologicalSections(effectiveSections), [effectiveSections]);
+  const normalized = useMemo(() => {
+    const sections = normalizeChronologicalSections(effectiveSections);
+    // Deduplicate: AI summaries sometimes repeat chapters (e.g. when creator chapters
+    // appear in both the transcript and the description context given to the model).
+    if (sections.length < 2) return sections;
+    const seen = new Set<string>();
+    return sections.filter((s) => {
+      const key = `${s.timestamp_seconds ?? ''}|${(s.title || s.timestamp_description || '').trim().toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [effectiveSections]);
   const showTimestamps = useMemo(() => hasRealTimestamps(normalized), [normalized]);
   const [expandedIndex, setExpandedIndex] = useState<number>(0);
   const [allExpanded, setAllExpanded] = useState(false);

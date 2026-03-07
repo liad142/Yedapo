@@ -197,7 +197,7 @@ export default function PodcastPage() {
         <main className="container mx-auto px-4 py-8">
           <div className="text-center py-12">
             <p className="text-destructive">{error}</p>
-            <Link href="/my-podcasts">
+            <Link href="/my-list">
               <Button variant="outline" className="mt-4">
                 Return to My Podcasts
               </Button>
@@ -214,7 +214,7 @@ export default function PodcastPage() {
       <main className="container mx-auto px-4 py-8">
         {/* Back Button */}
         <div className="mb-6">
-          <Link href="/my-podcasts">
+          <Link href="/my-list">
             <Button variant="ghost" className="-ml-2">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to My Podcasts
@@ -348,7 +348,7 @@ export default function PodcastPage() {
         ) : (
           <div className="text-center py-12">
             <p className="text-muted-foreground">Podcast not found</p>
-            <Link href="/my-podcasts">
+            <Link href="/my-list">
               <Button variant="outline" className="mt-4">
                 Return to My Podcasts
               </Button>

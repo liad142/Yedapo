@@ -37,8 +37,16 @@ export interface PodcastEpisode {
   seasonNumber?: number;
 }
 
+export interface YouTubeChannelResult {
+  id: string;
+  title: string;
+  thumbnailUrl: string;
+  description: string;
+}
+
 export interface SearchResult {
   podcasts: Podcast[];
+  channels?: YouTubeChannelResult[];
   query: string;
   source: 'apple' | 'podcastindex' | 'merged';
   count: number;

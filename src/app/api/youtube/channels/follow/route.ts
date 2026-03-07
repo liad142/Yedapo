@@ -1,6 +1,8 @@
 /**
  * POST /api/youtube/channels/follow
- * Follow a YouTube channel by URL, channel ID, or handle
+ * Follow a YouTube channel by URL, channel ID, or handle.
+ * Accepts either { input } (legacy RSSHub path) or { channelId, title, thumbnailUrl, description }
+ * for direct follow from the browse page.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -24,15 +26,6 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { input } = body;
-
-    // Validate input
-    if (!input || typeof input !== 'string') {
-      return NextResponse.json(
-        { error: 'Missing or invalid input' },
-        { status: 400 }
-      );
-    }
 
     // Rate limiting
     if (!(await checkRateLimit(user.id, 10, 60))) {
@@ -42,7 +35,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse input
+    // Direct follow path: channelId + metadata provided by the browse page
+    if (body.channelId && body.title) {
+      const dbChannel = await upsertYouTubeChannel({
+        channelId: body.channelId,
+        channelName: body.title,
+        channelUrl: `https://www.youtube.com/channel/${body.channelId}`,
+        thumbnailUrl: body.thumbnailUrl || undefined,
+        description: body.description || undefined,
+      });
+
+      await followYouTubeChannel(user.id, dbChannel.id);
+
+      return NextResponse.json({
+        success: true,
+        channel: {
+          id: dbChannel.id,
+          channelId: dbChannel.channelId,
+          channelName: dbChannel.channelName,
+          channelUrl: dbChannel.channelUrl,
+          thumbnailUrl: dbChannel.thumbnailUrl,
+        },
+      });
+    }
+
+    // Legacy path: parse input string (URL, ID, or handle)
+    const { input } = body;
+    if (!input || typeof input !== 'string') {
+      return NextResponse.json(
+        { error: 'Missing or invalid input' },
+        { status: 400 }
+      );
+    }
+
     const parsed = parseYouTubeInput(input.trim());
     if (parsed.type === 'unknown') {
       return NextResponse.json(
@@ -51,37 +76,48 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch channel feed from RSSHub
-    const { channel, videos } = await fetchYouTubeChannelFeed(parsed.value);
+    // Try RSSHub first, fall back to direct upsert
+    let dbChannel;
+    let videosAdded = 0;
 
-    // Upsert channel to DB
-    const dbChannel = await upsertYouTubeChannel({
-      channelId: channel.channelId,
-      channelName: channel.channelName,
-      channelUrl: channel.channelUrl,
-      channelHandle: channel.channelHandle,
-      thumbnailUrl: channel.thumbnailUrl,
-      description: channel.description,
-    });
+    try {
+      const { channel, videos } = await fetchYouTubeChannelFeed(parsed.value);
 
-    // Follow the channel
+      dbChannel = await upsertYouTubeChannel({
+        channelId: channel.channelId,
+        channelName: channel.channelName,
+        channelUrl: channel.channelUrl,
+        channelHandle: channel.channelHandle,
+        thumbnailUrl: channel.thumbnailUrl,
+        description: channel.description,
+      });
+
+      await upsertFeedItems(
+        videos.map((video) => ({
+          sourceType: 'youtube' as const,
+          sourceId: dbChannel.id,
+          title: video.title,
+          description: video.description,
+          thumbnailUrl: video.thumbnailUrl,
+          publishedAt: video.publishedAt,
+          duration: video.duration,
+          url: video.url,
+          videoId: video.videoId,
+          userId: user.id,
+        }))
+      );
+      videosAdded = videos.length;
+    } catch (rsshubError) {
+      console.warn('RSSHub unavailable, falling back to direct follow:', rsshubError);
+      // Fallback: just upsert the channel without feed items
+      dbChannel = await upsertYouTubeChannel({
+        channelId: parsed.value,
+        channelName: parsed.value, // Will be updated when channel page is visited
+        channelUrl: `https://www.youtube.com/channel/${parsed.value}`,
+      });
+    }
+
     await followYouTubeChannel(user.id, dbChannel.id);
-
-    // Store feed items
-    await upsertFeedItems(
-      videos.map((video) => ({
-        sourceType: 'youtube' as const,
-        sourceId: dbChannel.id,
-        title: video.title,
-        description: video.description,
-        thumbnailUrl: video.thumbnailUrl,
-        publishedAt: video.publishedAt,
-        duration: video.duration,
-        url: video.url,
-        videoId: video.videoId,
-        userId: user.id,
-      }))
-    );
 
     return NextResponse.json({
       success: true,
@@ -92,7 +128,7 @@ export async function POST(request: NextRequest) {
         channelUrl: dbChannel.channelUrl,
         thumbnailUrl: dbChannel.thumbnailUrl,
       },
-      videosAdded: videos.length,
+      videosAdded,
     });
   } catch (error) {
     console.error('Follow channel error:', error);

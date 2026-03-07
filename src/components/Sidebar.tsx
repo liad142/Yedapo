@@ -21,12 +21,12 @@ import { Button } from '@/components/ui/button';
 import { SidebarUserSection } from '@/components/auth/SidebarUserSection';
 import { useTheme } from '@/contexts/ThemeContext';
 
-const ROOT_PATHS = ['/', '/discover', '/my-podcasts', '/summaries', '/saved', '/settings', '/onboarding'];
+const ROOT_PATHS = ['/', '/discover', '/my-list', '/my-podcasts', '/summaries', '/saved', '/settings', '/onboarding'];
 
 // Navigation configuration - easy to edit
 const NAV_ITEMS = [
   { label: 'Discover', href: '/discover', icon: Compass },
-  { label: 'My Podcasts', href: '/my-podcasts', icon: Library },
+  { label: 'My List', href: '/my-list', icon: Library },
   { label: 'Summaries', href: '/summaries', icon: BookOpen },
   { label: 'Saved', href: '/saved', icon: Bookmark },
   { label: 'Settings', href: '/settings', icon: Settings },
@@ -131,9 +131,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const router = useRouter();
 
   const isActive = (href: string) => {
-    if (href === '/my-podcasts') {
-      // My Podcasts is active for both /my-podcasts and home /
-      return pathname === '/my-podcasts' || pathname === '/';
+    if (href === '/my-list') {
+      return pathname === '/my-list' || pathname === '/my-podcasts' || pathname === '/';
     }
     return pathname.startsWith(href);
   };
@@ -276,7 +275,7 @@ function MobileDrawer({
 // Mobile bottom navigation bar items (shorter labels for compact display)
 const BOTTOM_NAV_ITEMS = [
   { label: 'Discover', href: '/discover', icon: Compass },
-  { label: 'Podcasts', href: '/my-podcasts', icon: Library },
+  { label: 'My List', href: '/my-list', icon: Library },
   { label: 'Summaries', href: '/summaries', icon: BookOpen },
   { label: 'Saved', href: '/saved', icon: Bookmark },
   { label: 'Settings', href: '/settings', icon: Settings },
@@ -286,8 +285,8 @@ function MobileBottomNav() {
   const pathname = usePathname();
 
   const isActive = (href: string) => {
-    if (href === '/my-podcasts') {
-      return pathname === '/my-podcasts' || pathname === '/';
+    if (href === '/my-list') {
+      return pathname === '/my-list' || pathname === '/my-podcasts' || pathname === '/';
     }
     return pathname.startsWith(href);
   };

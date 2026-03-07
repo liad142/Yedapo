@@ -37,7 +37,7 @@ export function PaywallOverlay({
   }, [isGated, module]);
 
   // Paid users — zero wrapper overhead
-  if (!isGated) return <>{children}{teaser}</>;
+  if (!isGated) return <>{children}</>;
 
   // Legacy mode: no teaser — blur children entirely (backward compat for tab components)
   if (!teaser) {

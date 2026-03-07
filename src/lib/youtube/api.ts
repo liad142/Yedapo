@@ -12,6 +12,13 @@ export interface YouTubeSubscription {
   thumbnailUrl: string;
 }
 
+export interface YouTubeChannelSearchResult {
+  channelId: string;
+  title: string;
+  description: string;
+  thumbnailUrl: string;
+}
+
 export interface YouTubeVideo {
   videoId: string;
   title: string;
@@ -179,4 +186,43 @@ export async function fetchChannelTopics(
   }
 
   return results;
+}
+
+/**
+ * Search YouTube channels by keyword.
+ * Uses API key (public data, no user token needed).
+ */
+export async function searchYouTubeChannels(
+  term: string,
+  maxResults = 5
+): Promise<YouTubeChannelSearchResult[]> {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) {
+    log.error('YOUTUBE_API_KEY not set');
+    return [];
+  }
+
+  const res = await fetch(
+    `${YT_API_BASE}/search?${new URLSearchParams({
+      part: 'snippet',
+      type: 'channel',
+      q: term,
+      maxResults: String(maxResults),
+      key: apiKey,
+    })}`
+  );
+
+  if (!res.ok) {
+    log.error('Failed to search YouTube channels', { status: res.status });
+    return [];
+  }
+
+  const data = await res.json();
+
+  return (data.items || []).map((item: any) => ({
+    channelId: item.snippet.channelId,
+    title: item.snippet.channelTitle,
+    description: item.snippet.description || '',
+    thumbnailUrl: item.snippet.thumbnails?.default?.url || item.snippet.thumbnails?.medium?.url || '',
+  }));
 }

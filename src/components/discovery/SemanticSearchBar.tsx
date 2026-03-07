@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import posthog from 'posthog-js';
 import { useRouter } from 'next/navigation';
-import { Search, Loader2, X } from 'lucide-react';
+import { Search, Loader2, X, Youtube } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import Image from 'next/image';
@@ -18,11 +18,19 @@ interface SearchPodcast {
   itunesId?: number;
 }
 
+interface SearchChannel {
+  id: string;
+  title: string;
+  thumbnailUrl: string;
+  description: string;
+}
+
 export function SemanticSearchBar() {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<SearchPodcast[]>([]);
+  const [channels, setChannels] = useState<SearchChannel[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -44,6 +52,7 @@ export function SemanticSearchBar() {
   useEffect(() => {
     if (!query.trim()) {
       setResults([]);
+      setChannels([]);
       setShowResults(false);
       return;
     }
@@ -77,11 +86,13 @@ export function SemanticSearchBar() {
 
       const data = await res.json();
       setResults(data.podcasts || []);
+      setChannels(data.channels || []);
       posthog.capture('search_performed', { query: term });
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       console.error('Search error:', err);
       setResults([]);
+      setChannels([]);
     } finally {
       if (!controller.signal.aborted) {
         setIsSearching(false);
@@ -89,17 +100,19 @@ export function SemanticSearchBar() {
     }
   }, []);
 
+  const totalItems = results.length + channels.length;
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!showResults || results.length === 0) return;
+    if (!showResults || totalItems === 0) return;
 
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setSelectedIndex((prev) => (prev < results.length - 1 ? prev + 1 : 0));
+        setSelectedIndex((prev) => (prev < totalItems - 1 ? prev + 1 : 0));
         break;
       case 'ArrowUp':
         e.preventDefault();
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : results.length - 1));
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : totalItems - 1));
         break;
       case 'Enter':
         e.preventDefault();
@@ -107,6 +120,10 @@ export function SemanticSearchBar() {
           const podcast = results[selectedIndex];
           setShowResults(false);
           router.push(getPodcastHref(podcast));
+        } else if (selectedIndex >= results.length && selectedIndex < totalItems) {
+          const channel = channels[selectedIndex - results.length];
+          setShowResults(false);
+          router.push(`/browse/youtube/${channel.id}`);
         }
         break;
       case 'Escape':
@@ -119,6 +136,7 @@ export function SemanticSearchBar() {
   const clearSearch = () => {
     setQuery('');
     setResults([]);
+    setChannels([]);
     setShowResults(false);
     setSelectedIndex(-1);
     inputRef.current?.focus();
@@ -136,7 +154,7 @@ export function SemanticSearchBar() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          onFocus={() => results.length > 0 && setShowResults(true)}
+          onFocus={() => (results.length > 0 || channels.length > 0) && setShowResults(true)}
           className="pl-12 pr-12 h-12 text-base bg-transparent border-0 ring-0 focus-visible:ring-0 placeholder:text-muted-foreground transition-all"
         />
         {query ? (
@@ -163,36 +181,82 @@ export function SemanticSearchBar() {
                 <Loader2 className="h-5 w-5 text-primary animate-spin" />
                 <span className="text-muted-foreground">Searching...</span>
               </div>
-            ) : results.length > 0 ? (
+            ) : totalItems > 0 ? (
               <div className="py-2">
-                <div className="px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Results for &ldquo;{query}&rdquo;
-                </div>
-                {results.map((podcast, index) => (
-                  <Link
-                    key={podcast.id}
-                    href={getPodcastHref(podcast)}
-                    onClick={() => { posthog.capture('search_result_clicked', { query, podcast_id: podcast.id, podcast_title: podcast.title, result_index: index }); setShowResults(false); }}
-                    className={`flex items-center gap-3 px-4 py-3 transition-colors ${index === selectedIndex
-                      ? 'bg-secondary'
-                      : 'hover:bg-secondary/60'
-                      }`}
-                  >
-                    <div className="relative w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-muted">
-                      <Image
-                        src={podcast.artworkUrl || '/placeholder-podcast.png'}
-                        alt={podcast.title}
-                        fill
-                        className="object-cover"
-                        sizes="40px"
-                      />
+                {results.length > 0 && (
+                  <>
+                    <div className="px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Podcasts
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground truncate">{podcast.title}</p>
-                      <p className="text-sm text-muted-foreground truncate">{podcast.author}</p>
+                    {results.map((podcast, index) => (
+                      <Link
+                        key={podcast.id}
+                        href={getPodcastHref(podcast)}
+                        onClick={() => { posthog.capture('search_result_clicked', { query, podcast_id: podcast.id, podcast_title: podcast.title, result_index: index }); setShowResults(false); }}
+                        className={`flex items-center gap-3 px-4 py-3 transition-colors ${index === selectedIndex
+                          ? 'bg-secondary'
+                          : 'hover:bg-secondary/60'
+                          }`}
+                      >
+                        <div className="relative w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-muted">
+                          <Image
+                            src={podcast.artworkUrl || '/placeholder-podcast.png'}
+                            alt={podcast.title}
+                            fill
+                            className="object-cover"
+                            sizes="40px"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-foreground truncate">{podcast.title}</p>
+                          <p className="text-sm text-muted-foreground truncate">{podcast.author}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </>
+                )}
+                {channels.length > 0 && (
+                  <>
+                    {results.length > 0 && <div className="border-t border-border my-1" />}
+                    <div className="px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Youtube className="h-3.5 w-3.5 text-red-500" />
+                      YouTube Channels
                     </div>
-                  </Link>
-                ))}
+                    {channels.map((channel, index) => {
+                      const globalIndex = results.length + index;
+                      return (
+                        <Link
+                          key={channel.id}
+                          href={`/browse/youtube/${channel.id}`}
+                          onClick={() => { posthog.capture('search_channel_clicked', { query, channel_id: channel.id, channel_title: channel.title, result_index: globalIndex }); setShowResults(false); }}
+                          className={`flex items-center gap-3 px-4 py-3 transition-colors ${globalIndex === selectedIndex
+                            ? 'bg-secondary'
+                            : 'hover:bg-secondary/60'
+                            }`}
+                        >
+                          <div className="relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-muted">
+                            <Image
+                              src={channel.thumbnailUrl || '/placeholder-podcast.png'}
+                              alt={channel.title}
+                              fill
+                              className="object-cover"
+                              sizes="40px"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-foreground truncate">{channel.title}</p>
+                              <span className="flex-shrink-0 inline-flex items-center rounded bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-500">
+                                YouTube
+                              </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground truncate">{channel.description}</p>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </>
+                )}
               </div>
             ) : (
               <div className="p-6 text-center text-muted-foreground">

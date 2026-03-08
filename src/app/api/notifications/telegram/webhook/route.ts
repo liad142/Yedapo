@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             chat_id: chatId,
-            text: 'Connected to PodCatch! You will receive episode summary notifications here.',
+            text: 'Connected to Sumfi! You will receive episode summary notifications here.',
           }),
         }
       );

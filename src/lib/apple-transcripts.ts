@@ -48,7 +48,7 @@ export async function searchAppleEpisode(
   try {
     const response = await fetch(url.toString(), {
       signal: AbortSignal.timeout(10000),
-      headers: { 'User-Agent': 'PodCatch/1.0' },
+      headers: { 'User-Agent': 'Sumfi/1.0' },
     });
 
     if (!response.ok) {

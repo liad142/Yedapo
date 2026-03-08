@@ -9,7 +9,6 @@ import {
   BookOpen,
   Bookmark,
   Settings,
-  Headphones,
   Menu,
   X,
   ArrowLeft,
@@ -144,9 +143,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       {/* Brand Header */}
       <div className="px-5 pt-6 pb-4">
         <Link href="/" className="flex items-center gap-2" onClick={onNavigate}>
-          <Headphones className="h-6 w-6 text-primary" />
-          <span className="text-lg font-bold text-foreground">
-            PodCatch
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-icon.png" alt="Sumfi" className="h-7 w-auto" />
+          <span className="text-lg font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            Sumfi
           </span>
         </Link>
       </div>
@@ -363,9 +363,10 @@ export function Sidebar() {
           )}
 
           <Link href="/" className="flex items-center gap-2">
-            <Headphones className="h-6 w-6 text-primary" />
-            <span className="text-lg font-bold text-foreground">
-              PodCatch
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-icon.png" alt="Sumfi" className="h-7 w-auto" />
+            <span className="text-lg font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              Sumfi
             </span>
           </Link>
 

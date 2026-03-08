@@ -253,7 +253,7 @@ export default function OnboardingPage() {
                   <Headphones className="h-10 w-10 text-primary" />
                 </div>
                 <h1 className="text-3xl font-bold mb-3">
-                  Welcome to PodCatch, {displayName}!
+                  Welcome to Sumfi, {displayName}!
                 </h1>
                 <p className="text-muted-foreground text-lg mb-2">
                   Your AI-powered podcast companion

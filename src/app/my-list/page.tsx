@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Library, Youtube, Radio, RefreshCw, X, UserMinus } from 'lucide-react';
+import { YouTubeLogoStatic } from '@/components/YouTubeLogo';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PodcastCard } from '@/components/PodcastCard';
@@ -413,9 +414,9 @@ function YouTubeChannelCard({
             <Youtube className="h-12 w-12 text-red-500/40" />
           )}
 
-          {/* YouTube badge */}
-          <div className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm z-10">
-            YouTube
+          {/* YouTube logo */}
+          <div className="absolute top-3 left-3 bg-white/80 dark:bg-black/60 backdrop-blur-sm rounded-md px-1.5 py-0.5 z-10">
+            <YouTubeLogoStatic size="xs" />
           </div>
 
           {/* Unfollow Button */}

@@ -18,9 +18,9 @@ import {
   Clock,
   FileText,
   Brain,
-  Youtube,
   Share2,
 } from "lucide-react";
+import { YouTubeLogo } from "@/components/YouTubeLogo";
 import { SummarizeButton } from "@/components/SummarizeButton";
 import { InlinePlayButton } from "@/components/PlayButton";
 import { useAuth } from "@/contexts/AuthContext";
@@ -197,11 +197,8 @@ export default function EpisodePage() {
                         </Link>
                       )}
                       <div className="flex flex-wrap gap-2">
-                        {/* YouTube badge */}
-                        <Badge className="bg-red-600 text-white border-0 flex items-center gap-1">
-                          <Youtube className="h-3 w-3" />
-                          YouTube
-                        </Badge>
+                        {/* YouTube logo */}
+                        <YouTubeLogo videoId={youtubeVideoId} size="sm" />
                         {episode.published_at && (
                           <Badge variant="secondary" className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />

@@ -329,7 +329,7 @@ export async function getPodcastEpisodes(
         }
 
         const response = await fetch(resolvedFeedUrl, {
-          headers: { 'User-Agent': 'PodCatch/1.0' },
+          headers: { 'User-Agent': 'Sumfi/1.0' },
           // @ts-expect-error -- dispatcher is a valid undici option accepted by Node's built-in fetch
           dispatcher: largeFetchDispatcher,
         });
@@ -354,7 +354,7 @@ export async function getPodcastEpisodes(
           publishedAt: new Date(item.isoDate || item.pubDate || Date.now()),
           duration: parseDuration((item as any).duration),
           audioUrl: item.enclosure?.url,
-          artworkUrl: (item as any).itunesImage?.href || feedData.image?.url,
+          artworkUrl: (item as any).itunesImage?.$?.href || (item as any).itunes?.image || feedData.image?.url,
           episodeNumber: parseInt((item as any).episode, 10) || undefined,
           seasonNumber: parseInt((item as any).season, 10) || undefined,
         }));

@@ -23,8 +23,8 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "PodCatch - AI-Powered Podcast Summaries",
-  description: "Get AI-generated summaries, key points, and resources from any podcast episode",
+  title: "Sumfi \u2014 Know what matters",
+  description: "AI-powered insights from podcasts and YouTube \u2014 know what matters",
 };
 
 export default function RootLayout({

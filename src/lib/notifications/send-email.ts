@@ -19,7 +19,7 @@ export async function sendSummaryEmail(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const { error } = await getResend().emails.send({
-      from: 'PodCatch <notifications@podcatch.com>',
+      from: 'Sumfi <notifications@podcatch.com>',
       to,
       subject: `${content.episodeTitle} - Summary Ready`,
       react: SummaryReadyEmail(content),

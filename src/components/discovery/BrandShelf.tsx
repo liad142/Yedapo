@@ -25,6 +25,7 @@ export function BrandShelf({
 }: BrandShelfProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showEpisodes, setShowEpisodes] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   return (
     <section>
@@ -47,24 +48,26 @@ export function BrandShelf({
               )}
             </button>
           )}
-          <span className="text-body-sm text-primary font-medium hover:underline cursor-pointer">
-            See All
-          </span>
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="text-body-sm text-primary font-medium hover:underline cursor-pointer"
+          >
+            {showAll ? 'Show Less' : 'See All'}
+          </button>
         </div>
       </div>
-      <div
-        ref={scrollRef}
-        className="flex gap-4 overflow-x-auto scrollbar-hide pb-4 px-1"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-      >
-        {isLoading
-          ? Array.from({ length: 10 }).map((_, i) => (
+      {isLoading ? (
+        <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-4 px-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          {Array.from({ length: 10 }).map((_, i) => (
             <div key={i} className="flex flex-col items-center gap-2">
               <Skeleton className="w-20 h-20 rounded-full" />
               <Skeleton className="w-14 h-3" />
             </div>
-          ))
-          : podcasts.map((podcast) => (
+          ))}
+        </div>
+      ) : showAll ? (
+        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-4 pb-4 px-1">
+          {podcasts.map((podcast) => (
             <div key={podcast.id}>
               <BrandBubble
                 id={podcast.id}
@@ -73,7 +76,24 @@ export function BrandShelf({
               />
             </div>
           ))}
-      </div>
+        </div>
+      ) : (
+        <div
+          ref={scrollRef}
+          className="flex gap-4 overflow-x-auto scrollbar-hide pb-4 px-1"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {podcasts.map((podcast) => (
+            <div key={podcast.id}>
+              <BrandBubble
+                id={podcast.id}
+                name={podcast.name}
+                artworkUrl={podcast.artworkUrl}
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Expandable episode row */}
       {showBestThisWeek && genreId && (

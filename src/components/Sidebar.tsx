@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Compass,
@@ -144,7 +143,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       {/* Brand Header */}
       <div className="px-5 pt-6 pb-4">
         <Link href="/" className="flex items-center gap-2" onClick={onNavigate}>
-          <Image src="/logo-icon.png" alt="Sumfi" width={48} height={48} className="h-7 w-7" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-icon.png" alt="Sumfi" className="h-7 w-auto" />
           <span className="text-lg font-bold text-foreground">
             Sumfi
           </span>
@@ -363,7 +363,8 @@ export function Sidebar() {
           )}
 
           <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo-icon.png" alt="Sumfi" width={48} height={48} className="h-7 w-7" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-icon.png" alt="Sumfi" className="h-7 w-auto" />
             <span className="text-lg font-bold text-foreground">
               Sumfi
             </span>

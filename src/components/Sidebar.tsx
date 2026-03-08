@@ -144,7 +144,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       {/* Brand Header */}
       <div className="px-5 pt-6 pb-4">
         <Link href="/" className="flex items-center gap-2" onClick={onNavigate}>
-          <Image src="/logo-icon-48.png" alt="Sumfi" width={24} height={24} className="h-6 w-6" />
+          <Image src="/logo-icon.png" alt="Sumfi" width={48} height={48} className="h-7 w-7" />
           <span className="text-lg font-bold text-foreground">
             Sumfi
           </span>
@@ -363,7 +363,7 @@ export function Sidebar() {
           )}
 
           <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo-icon-48.png" alt="Sumfi" width={24} height={24} className="h-6 w-6" />
+            <Image src="/logo-icon.png" alt="Sumfi" width={48} height={48} className="h-7 w-7" />
             <span className="text-lg font-bold text-foreground">
               Sumfi
             </span>

@@ -19,7 +19,7 @@ export function Header() {
     <header className="sticky top-14 lg:top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center px-4">
         <Link href="/" className="flex items-center space-x-2">
-          <Image src="/logo-icon-48.png" alt="Sumfi" width={32} height={32} className="h-8 w-8" />
+          <Image src="/logo-icon.png" alt="Sumfi" width={48} height={48} className="h-8 w-8" />
           <span className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
             Sumfi
           </span>

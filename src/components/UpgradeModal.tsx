@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { PLAN_LIMITS, PLAN_META } from '@/lib/plans';
+import { getTimeUntilReset } from '@/lib/time-utils';
 
 export type RateLimitFeature = 'summary' | 'askAi';
 
@@ -20,20 +21,6 @@ interface UpgradeModalProps {
   rateLimitInfo: RateLimitInfo;
   /** Which feature triggered the limit — customizes the upgrade message */
   feature?: RateLimitFeature;
-}
-
-function getTimeUntilReset(): string {
-  const now = new Date();
-  const midnight = new Date(now);
-  midnight.setUTCDate(midnight.getUTCDate() + 1);
-  midnight.setUTCHours(0, 0, 0, 0);
-
-  const diffMs = midnight.getTime() - now.getTime();
-  const hours = Math.floor(diffMs / (1000 * 60 * 60));
-  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
 }
 
 const PRO_BENEFITS = PLAN_META.pro.features;

@@ -3,6 +3,7 @@ import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { CountryProvider } from "@/contexts/CountryContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { UsageProvider } from "@/contexts/UsageContext";
 import { SummarizeQueueProvider } from "@/contexts/SummarizeQueueContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
@@ -39,6 +40,7 @@ export default function RootLayout({
           <PostHogProvider>
             <ThemeProvider>
               <CountryProvider>
+                <UsageProvider>
                 <SummarizeQueueProvider>
                   <SubscriptionProvider>
                     <AudioPlayerProvider>
@@ -47,6 +49,7 @@ export default function RootLayout({
                     </AudioPlayerProvider>
                   </SubscriptionProvider>
                 </SummarizeQueueProvider>
+                </UsageProvider>
               </CountryProvider>
             </ThemeProvider>
           </PostHogProvider>

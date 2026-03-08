@@ -28,7 +28,9 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserPlan } from "@/hooks/useUserPlan";
+import { useUsage } from "@/contexts/UsageContext";
 import { PaywallOverlay, PaywallList } from "@/components/PaywallOverlay";
+import { getTimeUntilReset } from "@/lib/time-utils";
 
 interface SummaryPanelProps {
   episodeId: string;
@@ -42,6 +44,7 @@ type TabType = 'quick' | 'deep';
 
 export function SummaryPanel({ episodeId, episodeTitle, onClose, onChapterClick, currentVideoTime }: SummaryPanelProps) {
   const { user, setShowAuthModal } = useAuth();
+  const { usage } = useUsage();
   const [activeTab, setActiveTab] = useState<TabType>('quick');
   const [data, setData] = useState<EpisodeSummariesResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -175,6 +178,7 @@ export function SummaryPanel({ episodeId, episodeTitle, onClose, onChapterClick,
             status={quickSummary?.status || 'not_ready'}
             isGenerating={isGenerating === 'quick'}
             onGenerate={() => handleGenerate('quick')}
+            summaryUsage={usage ? usage.summary : undefined}
           />
         ) : (
           <DeepSummaryView
@@ -184,9 +188,29 @@ export function SummaryPanel({ episodeId, episodeTitle, onClose, onChapterClick,
             onGenerate={() => handleGenerate('deep')}
             onChapterClick={onChapterClick}
             currentVideoTime={currentVideoTime}
+            summaryUsage={usage ? usage.summary : undefined}
           />
         )}
       </div>
+    </div>
+  );
+}
+
+// Limit Reached Component
+function SummaryLimitReached() {
+  const resetTime = getTimeUntilReset();
+  return (
+    <div className="space-y-3">
+      <p className="text-sm font-medium text-red-500 dark:text-red-400">Daily limit reached</p>
+      <p className="text-xs text-muted-foreground">
+        Resets in {resetTime}
+      </p>
+      <Button asChild variant="outline" size="sm" className="gap-2">
+        <a href="/pricing">
+          <Sparkles className="h-3.5 w-3.5" />
+          Upgrade for more
+        </a>
+      </Button>
     </div>
   );
 }
@@ -215,12 +239,14 @@ function QuickSummaryView({
   summary,
   status,
   isGenerating,
-  onGenerate
+  onGenerate,
+  summaryUsage,
 }: {
   summary?: QuickSummaryContent;
   status: SummaryStatus;
   isGenerating: boolean;
   onGenerate: () => void;
+  summaryUsage?: { used: number; limit: number };
 }) {
   if (['queued', 'transcribing', 'summarizing'].includes(status)) {
     return (
@@ -248,6 +274,7 @@ function QuickSummaryView({
   }
 
   if (!summary || status === 'not_ready') {
+    const atLimit = summaryUsage && summaryUsage.limit !== -1 && summaryUsage.used >= summaryUsage.limit;
     return (
       <div className="text-center py-12">
         <Zap className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -255,14 +282,25 @@ function QuickSummaryView({
         <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
           Get the key points in 30 seconds. Perfect for deciding if this episode is for you.
         </p>
-        <Button onClick={onGenerate} disabled={isGenerating}>
-          {isGenerating ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Sparkles className="mr-2 h-4 w-4" />
-          )}
-          Create Quick Summary
-        </Button>
+        {atLimit ? (
+          <SummaryLimitReached />
+        ) : (
+          <>
+            <Button onClick={onGenerate} disabled={isGenerating}>
+              {isGenerating ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="mr-2 h-4 w-4" />
+              )}
+              Create Quick Summary
+            </Button>
+            {summaryUsage && summaryUsage.limit !== -1 && (
+              <p className="text-[11px] text-muted-foreground mt-2">
+                {summaryUsage.limit - summaryUsage.used} summaries left today
+              </p>
+            )}
+          </>
+        )}
       </div>
     );
   }
@@ -340,7 +378,8 @@ function DeepSummaryView({
   isGenerating,
   onGenerate,
   onChapterClick,
-  currentVideoTime
+  currentVideoTime,
+  summaryUsage,
 }: {
   summary?: DeepSummaryContent;
   status: SummaryStatus;
@@ -348,6 +387,7 @@ function DeepSummaryView({
   onGenerate: () => void;
   onChapterClick?: (seconds: number) => void;
   currentVideoTime?: number;
+  summaryUsage?: { used: number; limit: number };
 }) {
   const { cutoffs, isFree } = useUserPlan();
 
@@ -377,6 +417,7 @@ function DeepSummaryView({
   }
 
   if (!summary || status === 'not_ready') {
+    const atLimit = summaryUsage && summaryUsage.limit !== -1 && summaryUsage.used >= summaryUsage.limit;
     return (
       <div className="text-center py-12">
         <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -384,14 +425,25 @@ function DeepSummaryView({
         <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
           Get a structured breakdown with sections, resources, and actionable next steps.
         </p>
-        <Button onClick={onGenerate} disabled={isGenerating}>
-          {isGenerating ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Sparkles className="mr-2 h-4 w-4" />
-          )}
-          Generate Deep Analysis
-        </Button>
+        {atLimit ? (
+          <SummaryLimitReached />
+        ) : (
+          <>
+            <Button onClick={onGenerate} disabled={isGenerating}>
+              {isGenerating ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="mr-2 h-4 w-4" />
+              )}
+              Generate Deep Analysis
+            </Button>
+            {summaryUsage && summaryUsage.limit !== -1 && (
+              <p className="text-[11px] text-muted-foreground mt-2">
+                {summaryUsage.limit - summaryUsage.used} summaries left today
+              </p>
+            )}
+          </>
+        )}
       </div>
     );
   }

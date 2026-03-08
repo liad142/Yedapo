@@ -1,15 +1,18 @@
 'use client';
 
-import { useState } from 'react';
-import { User, LogOut, Settings, ChevronDown, Headphones, Play } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { User, LogOut, Settings, ChevronDown, Headphones, Play, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPlan } from '@/hooks/useUserPlan';
+import { useUsage } from '@/contexts/UsageContext';
 import { PLAN_META } from '@/lib/plans';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { YouTubeLogoStatic } from '@/components/YouTubeLogo';
+import { UsageMeter } from '@/components/UsageMeter';
+import { getTimeUntilReset } from '@/lib/time-utils';
 
 interface SidebarUserSectionProps {
   compact?: boolean;
@@ -18,7 +21,15 @@ interface SidebarUserSectionProps {
 export function SidebarUserSection({ compact = false }: SidebarUserSectionProps) {
   const { user, isLoading, signOut, setShowAuthModal } = useAuth();
   const { plan } = useUserPlan();
+  const { usage } = useUsage();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [resetTime, setResetTime] = useState(getTimeUntilReset);
+
+  // Keep reset timer ticking
+  useEffect(() => {
+    const interval = setInterval(() => setResetTime(getTimeUntilReset()), 60_000);
+    return () => clearInterval(interval);
+  }, []);
 
   if (isLoading) {
     return (
@@ -66,6 +77,7 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
           <YouTubeLogoStatic size="xs" />
           <span className="text-muted-foreground/30 text-[11px]">AI summaries</span>
         </div>
+        <p className="text-[11px] text-muted-foreground/60 px-1">3 free summaries/day</p>
       </div>
     );
   }
@@ -126,6 +138,20 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
           showDropdown && 'rotate-180'
         )} />
       </button>
+
+      {/* Usage meters */}
+      {usage && (
+        <div className="mt-2 space-y-1.5 px-1">
+          <UsageMeter label="Summaries" used={usage.summary.used} limit={usage.summary.limit} variant="sidebar" />
+          <UsageMeter label="Questions" used={usage.askAi.used} limit={usage.askAi.limit} variant="sidebar" />
+          {!usage.isUnlimited && (
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground/50 pt-0.5">
+              <Clock className="h-2.5 w-2.5" />
+              <span>Resets in {resetTime}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {showDropdown && (
         <>

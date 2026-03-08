@@ -34,7 +34,7 @@ function saveMessages(episodeId: string, messages: Message[]) {
   }
 }
 
-export function useAskAIChat(episodeId: string | null) {
+export function useAskAIChat(episodeId: string | null, onMessageSent?: () => void) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +124,8 @@ export function useAskAIChat(episodeId: string | null) {
           const errData = await res.json().catch(() => ({ error: "Request failed" }));
           throw new Error(errData.error || `HTTP ${res.status}`);
         }
+
+        onMessageSent?.();
 
         const reader = res.body?.getReader();
         if (!reader) throw new Error("No response stream");

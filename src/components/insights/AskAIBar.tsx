@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useAskAI } from "@/contexts/AskAIContext";
 import { useAudioPlayerSafe } from "@/contexts/AudioPlayerContext";
 import type { Track } from "@/contexts/AudioPlayerContext";
+import { useUsage } from "@/contexts/UsageContext";
 
 /**
  * Ask AI bar with two visual modes:
@@ -16,6 +17,11 @@ export function AskAIBar({ mode, track }: { mode: "standalone" | "integrated"; t
   const { active, openChat } = useAskAI();
   const player = useAudioPlayerSafe();
   const playerActive = !!(player && player.currentTrack);
+  const { usage } = useUsage();
+
+  const askAiRemaining = usage && usage.askAi.limit !== -1
+    ? Math.max(0, usage.askAi.limit - usage.askAi.used)
+    : null;
 
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -59,6 +65,11 @@ export function AskAIBar({ mode, track }: { mode: "standalone" | "integrated"; t
               <div className="flex-1 text-muted-foreground text-body-sm truncate">
                 Ask about this episode...
               </div>
+              {askAiRemaining !== null && (
+                <span className="text-[11px] text-muted-foreground/60 shrink-0 tabular-nums">
+                  {askAiRemaining} left
+                </span>
+              )}
               <Button
                 size="icon"
                 className="rounded-full w-8 h-8 bg-primary text-primary-foreground hover:bg-primary/90 shrink-0"
@@ -89,6 +100,11 @@ export function AskAIBar({ mode, track }: { mode: "standalone" | "integrated"; t
         <div className="flex-1 text-muted-foreground text-sm truncate">
           Ask anything...
         </div>
+        {askAiRemaining !== null && (
+          <span className="text-[10px] text-muted-foreground/50 shrink-0 tabular-nums mr-1">
+            {askAiRemaining} left
+          </span>
+        )}
         <MessageSquare className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
       </div>
     </div>

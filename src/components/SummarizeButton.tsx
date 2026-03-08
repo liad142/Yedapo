@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUsage } from '@/contexts/UsageContext';
+import { UsageMeter } from '@/components/UsageMeter';
 import {
   SoundWaveAnimation,
   ParticleGemAnimation,
@@ -38,6 +40,7 @@ export function SummarizeButton({ episodeId, initialStatus = 'not_ready', classN
   const router = useRouter();
   const { user, setShowCompactPrompt } = useAuth();
   const { addToQueue, resumePolling, retryEpisode, getQueueItem, getQueuePosition } = useSummarizeQueue();
+  const { usage, incrementSummary } = useUsage();
   const resumedRef = useRef(false);
 
   const queueItem = getQueueItem(episodeId);
@@ -64,6 +67,7 @@ export function SummarizeButton({ episodeId, initialStatus = 'not_ready', classN
           return;
         }
         addToQueue(episodeId);
+        incrementSummary();
         break;
       case 'ready':
         posthog.capture('summary_viewed', { episode_id: episodeId });
@@ -76,6 +80,7 @@ export function SummarizeButton({ episodeId, initialStatus = 'not_ready', classN
         }
         posthog.capture('summary_retried', { episode_id: episodeId });
         retryEpisode(episodeId);
+        incrementSummary();
         break;
       default:
         break;
@@ -84,13 +89,20 @@ export function SummarizeButton({ episodeId, initialStatus = 'not_ready', classN
 
   const renderContent = () => {
     switch (state) {
-      case 'idle':
+      case 'idle': {
+        const atLimit = usage && usage.summary.limit !== -1 && usage.summary.used >= usage.summary.limit;
         return (
-          <>
-            <Sparkles className="mr-2 h-4 w-4" />
-            Summarize
-          </>
+          <div className="flex flex-col items-center">
+            <div className="flex items-center">
+              <Sparkles className="mr-2 h-4 w-4" />
+              {atLimit ? 'Limit reached' : 'Summarize'}
+            </div>
+            {user && usage && !usage.isUnlimited && !atLimit && (
+              <UsageMeter label="" used={usage.summary.used} limit={usage.summary.limit} variant="inline" />
+            )}
+          </div>
         );
+      }
 
       case 'queued':
         return <QueuePositionIndicator position={queuePosition} />;
@@ -148,9 +160,10 @@ export function SummarizeButton({ episodeId, initialStatus = 'not_ready', classN
     }
   };
 
-  const isInteractive = ['idle', 'ready', 'failed'].includes(state);
+  const summaryAtLimit = usage && usage.summary.limit !== -1 && usage.summary.used >= usage.summary.limit;
+  const isInteractive = ['idle', 'ready', 'failed'].includes(state) && !(state === 'idle' && summaryAtLimit);
 
-  const isGradientState = state === 'idle' || state === 'ready';
+  const isGradientState = (state === 'idle' && !summaryAtLimit) || state === 'ready';
 
   return (
     <Button

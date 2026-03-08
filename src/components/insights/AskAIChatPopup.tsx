@@ -8,6 +8,7 @@ import { useAskAI } from "@/contexts/AskAIContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAudioPlayerSafe } from "@/contexts/AudioPlayerContext";
 import { useAskAIChat } from "@/hooks/useAskAIChat";
+import { useUsage } from "@/contexts/UsageContext";
 
 const SUGGESTED_QUESTIONS = [
   "What are the key takeaways?",
@@ -90,10 +91,12 @@ function formatInline(text: string): React.ReactNode {
 export function AskAIChatPopup() {
   const { chatOpen, closeChat, episodeId } = useAskAI();
   const { user, setShowAuthModal } = useAuth();
+  const { usage, incrementAskAi } = useUsage();
   const player = useAudioPlayerSafe();
   const playerActive = !!(player && player.currentTrack);
   const { messages, isStreaming, error, sendMessage, clearChat } = useAskAIChat(
-    chatOpen && user ? episodeId : null
+    chatOpen && user ? episodeId : null,
+    incrementAskAi
   );
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -149,6 +152,11 @@ export function AskAIChatPopup() {
                     <Sparkles className="h-3.5 w-3.5 text-white" />
                   </div>
                   <span className="font-semibold text-sm">Ask AI</span>
+                  {user && usage && usage.askAi.limit !== -1 && (
+                    <span className="text-[10px] text-muted-foreground/60 tabular-nums">
+                      {Math.max(0, usage.askAi.limit - usage.askAi.used)} left
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   {user && messages.length > 0 && (

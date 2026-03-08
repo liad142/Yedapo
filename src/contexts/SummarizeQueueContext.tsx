@@ -6,6 +6,7 @@ import posthog from 'posthog-js';
 import type { QueueItem, QueueItemState, SummarizeQueueContextValue } from '@/types/queue';
 import { createLogger } from '@/lib/logger';
 import { UpgradeModal } from '@/components/UpgradeModal';
+import { useUsage } from '@/contexts/UsageContext';
 
 const log = createLogger('queue');
 
@@ -43,6 +44,7 @@ function withJitter(intervalMs: number): number {
 
 
 export function SummarizeQueueProvider({ children }: { children: React.ReactNode }) {
+  const { refresh: refreshUsage } = useUsage();
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [stats, setStats] = useState({ completed: 0, failed: 0, total: 0 });
@@ -238,6 +240,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
             log.warn('Daily quota exceeded', { episodeId, limit: body.limit, used: body.used });
             setRateLimitInfo({ limit: body.limit, used: body.used });
             setShowUpgradeModal(true);
+            refreshUsage();
             updateQueueItem(episodeId, { state: 'failed', error: 'Daily limit reached' });
             setStats(prev => ({ ...prev, failed: prev.failed + 1 }));
             finishProcessing();

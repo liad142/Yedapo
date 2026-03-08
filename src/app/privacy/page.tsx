@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy - PodCatch",
-  description: "PodCatch Privacy Policy",
+  title: "Privacy Policy - Sumfi",
+  description: "Sumfi Privacy Policy",
 };
 
 export default function PrivacyPage() {

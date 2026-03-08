@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { Mail, Clock, Shield } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "DMCA & Takedown Policy - PodCatch",
-  description: "PodCatch DMCA and content takedown policy for content creators",
+  title: "DMCA & Takedown Policy - Sumfi",
+  description: "Sumfi DMCA and content takedown policy for content creators",
 };
 
 export default function DMCAPage() {
@@ -17,16 +17,16 @@ export default function DMCAPage() {
 
         <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
           <p className="text-sm text-muted-foreground leading-relaxed">
-            PodCatch respects the intellectual property rights of content creators. If you believe your
+            Sumfi respects the intellectual property rights of content creators. If you believe your
             content is being used in a way that infringes your copyright, we provide a straightforward
             process for requesting removal.
           </p>
         </div>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-foreground">How PodCatch Uses Content</h2>
+          <h2 className="text-xl font-semibold text-foreground">How Sumfi Uses Content</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            PodCatch generates AI-powered summaries, highlights, and analyses of publicly available
+            Sumfi generates AI-powered summaries, highlights, and analyses of publicly available
             podcast episodes and videos. Our AI creates transformative, original commentary designed to
             help listeners discover and preview content. We do not re-host, redistribute, or stream
             original audio or video files.
@@ -37,7 +37,7 @@ export default function DMCAPage() {
           <h2 className="text-xl font-semibold text-foreground">Filing a Takedown Request</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             If you are a copyright owner or authorized agent and wish to have content removed from
-            PodCatch, please submit a notice containing the following information:
+            Sumfi, please submit a notice containing the following information:
           </p>
 
           <div className="rounded-lg border p-4 space-y-3">
@@ -47,8 +47,8 @@ export default function DMCAPage() {
                 believe is being infringed (e.g., podcast name, episode title, URL of original content).
               </li>
               <li>
-                <strong className="text-foreground">Identification of the material on PodCatch</strong> that
-                you claim is infringing (e.g., the episode page URL on PodCatch, or the specific
+                <strong className="text-foreground">Identification of the material on Sumfi</strong> that
+                you claim is infringing (e.g., the episode page URL on Sumfi, or the specific
                 summary/transcript content).
               </li>
               <li>
@@ -120,7 +120,7 @@ export default function DMCAPage() {
             <Shield className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                If you are a podcast creator and would like your show excluded from PodCatch entirely,
+                If you are a podcast creator and would like your show excluded from Sumfi entirely,
                 you can contact us at <strong className="text-foreground">dmca@podcatch.app</strong> with
                 your show details. We will add your show to our exclusion list within 5 business days.
               </p>

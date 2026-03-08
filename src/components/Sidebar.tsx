@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Compass,
@@ -9,7 +10,6 @@ import {
   BookOpen,
   Bookmark,
   Settings,
-  Headphones,
   Menu,
   X,
   ArrowLeft,
@@ -144,9 +144,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       {/* Brand Header */}
       <div className="px-5 pt-6 pb-4">
         <Link href="/" className="flex items-center gap-2" onClick={onNavigate}>
-          <Headphones className="h-6 w-6 text-primary" />
+          <Image src="/logo-icon-48.png" alt="Sumfi" width={24} height={24} className="h-6 w-6" />
           <span className="text-lg font-bold text-foreground">
-            PodCatch
+            Sumfi
           </span>
         </Link>
       </div>
@@ -363,9 +363,9 @@ export function Sidebar() {
           )}
 
           <Link href="/" className="flex items-center gap-2">
-            <Headphones className="h-6 w-6 text-primary" />
+            <Image src="/logo-icon-48.png" alt="Sumfi" width={24} height={24} className="h-6 w-6" />
             <span className="text-lg font-bold text-foreground">
-              PodCatch
+              Sumfi
             </span>
           </Link>
 

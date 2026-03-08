@@ -15,6 +15,7 @@ import {
   upsertYouTubeChannel,
   followYouTubeChannel,
   upsertFeedItems,
+  YouTubeChannel,
 } from '@/lib/rsshub-db';
 import { getAuthUser } from '@/lib/auth-helpers';
 
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Try RSSHub first, fall back to direct upsert
-    let dbChannel;
+    let dbChannel: YouTubeChannel;
     let videosAdded = 0;
 
     try {

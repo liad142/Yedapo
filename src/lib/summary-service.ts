@@ -312,7 +312,7 @@ RULES:
 
 // DEEP summary prompt - returns DeepSummaryContent JSON
 const DEEP_PROMPT = `You are an expert Ghostwriter and Analyst with a PhD in the subject matter of the transcript.
-Your goal is to write a comprehensive "Executive Briefing" that completely substitutes the need to listen to the episode.
+Your goal is to write a comprehensive "Executive Briefing" that helps the user decide whether to listen and enhances their understanding of the episode's key ideas.
 
 Return ONLY a JSON object with this EXACT structure. Every field is MANDATORY — do NOT omit any field.
 

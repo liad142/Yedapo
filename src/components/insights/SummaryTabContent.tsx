@@ -10,6 +10,7 @@ import type { QuickSummaryContent, DeepSummaryContent, SummaryStatus } from "@/t
 import { Sparkles, CheckCircle, Clock, Loader2, RefreshCw, BookOpen, Lightbulb, Users, Tag, FileText } from "lucide-react";
 import { useUserPlan } from "@/hooks/useUserPlan";
 import { PaywallOverlay, PaywallList } from "@/components/PaywallOverlay";
+import { AiDisclosure } from "@/components/AiDisclosure";
 
 interface SummaryTabContentProps {
   summaries: {
@@ -98,6 +99,9 @@ export function SummaryTabContent({ summaries, isLoading, onGenerate }: SummaryT
           )}
         </div>
       )}
+
+      {/* AI Disclosure */}
+      {isReady && <AiDisclosure />}
 
       {/* Quick Summary Content */}
       {isReady && activeLevel === 'quick' && summaries.quick?.content && (

@@ -449,18 +449,25 @@ export function TranscriptTabContent({
       </div>
 
       {/* Footer */}
-      <div className="flex justify-center gap-8 px-6 py-4 border-t border-slate-200/60 dark:border-slate-800/60 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
-        <div className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400">
-          <Mic size={14} />
-          <span>{uniqueSpeakers.length} {uniqueSpeakers.length === 1 ? 'speaker' : 'speakers'}</span>
+      <div className="space-y-0 border-t border-slate-200/60 dark:border-slate-800/60 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
+        <div className="flex justify-center gap-8 px-6 py-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400">
+            <Mic size={14} />
+            <span>{uniqueSpeakers.length} {uniqueSpeakers.length === 1 ? 'speaker' : 'speakers'}</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400">
+            <ScrollText size={14} />
+            <span>{segments.length} segments</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400">
+            <User size={14} />
+            <span>{transcript.split(/\s+/).length.toLocaleString()} words</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400">
-          <ScrollText size={14} />
-          <span>{segments.length} segments</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400">
-          <User size={14} />
-          <span>{transcript.split(/\s+/).length.toLocaleString()} words</span>
+        <div className="px-6 py-2 border-t border-slate-100 dark:border-slate-800/40">
+          <p className="text-[11px] text-center text-slate-400 dark:text-slate-500">
+            Transcript provided for accessibility and personal reference. All content belongs to the original creators.
+          </p>
         </div>
       </div>
     </div>

@@ -8,6 +8,7 @@ import { MiniLoadingAnimation } from "@/components/animations";
 import { cn } from "@/lib/utils";
 import type { KeywordItem } from "@/types/database";
 import { Tags, Sparkles } from "lucide-react";
+import { AiDisclosure } from "@/components/AiDisclosure";
 
 // Detect if text is primarily RTL (Hebrew, Arabic, etc.)
 function isRTLText(text: string): boolean {
@@ -131,9 +132,12 @@ export function KeywordsTabContent({
             </Button>
           ))}
         </div>
-        <Badge variant="outline" className="ml-auto">
-          {keywords.length} keywords
-        </Badge>
+        <div className="flex items-center gap-2 ml-auto">
+          <AiDisclosure />
+          <Badge variant="outline">
+            {keywords.length} keywords
+          </Badge>
+        </div>
       </div>
 
       {/* Keywords Cloud */}

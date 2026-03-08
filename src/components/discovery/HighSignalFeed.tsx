@@ -229,9 +229,7 @@ export function HighSignalFeed({
   const [hasForYouMore, setHasForYouMore] = useState(true);
   const forYouOffsetRef = useRef(0);
 
-  // Infinite scroll ref
-  const loadMoreRef = useRef<HTMLDivElement>(null);
-  const isLoadingMoreRef = useRef(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // --- For You data fetching (always fetches sourceType=all, filters client-side) ---
   const fetchForYou = useCallback(async (offset: number, append: boolean) => {
@@ -346,40 +344,22 @@ export function HighSignalFeed({
   const showFilters = mode === 'for-you' && !showSignInPrompt;
 
   // --- Infinite scroll ---
-  const handleIntersect = useCallback(
-    (entries: IntersectionObserverEntry[]) => {
-      const [entry] = entries;
-      if (!entry.isIntersecting || isLoadingMoreRef.current) return;
+  const handleLoadMore = useCallback(() => {
+    if (isLoadingMore) return;
 
-      if (mode === 'for-you' && hasForYouMore && user) {
-        isLoadingMoreRef.current = true;
-        posthog.capture('feed_load_more', { mode, filter, offset: forYouOffsetRef.current });
-        fetchForYou(forYouOffsetRef.current, true).finally(() => {
-          setTimeout(() => { isLoadingMoreRef.current = false; }, 1000);
-        });
-      } else if (mode === 'curiosity' && hasCuriosityMore && !isCuriosityLoading) {
-        isLoadingMoreRef.current = true;
-        posthog.capture('feed_load_more', { mode, offset: curiosityEpisodes.length });
-        onCuriosityLoadMore();
-        setTimeout(() => { isLoadingMoreRef.current = false; }, 1000);
-      }
-    },
-    [mode, hasForYouMore, hasCuriosityMore, isCuriosityLoading, user, filter, fetchForYou, onCuriosityLoadMore, curiosityEpisodes.length]
-  );
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(handleIntersect, {
-      root: null,
-      rootMargin: '200px',
-      threshold: 0,
-    });
-
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
+    if (mode === 'for-you' && hasForYouMore && user) {
+      setIsLoadingMore(true);
+      posthog.capture('feed_load_more', { mode, filter, offset: forYouOffsetRef.current });
+      fetchForYou(forYouOffsetRef.current, true).finally(() => {
+        setIsLoadingMore(false);
+      });
+    } else if (mode === 'curiosity' && hasCuriosityMore && !isCuriosityLoading) {
+      setIsLoadingMore(true);
+      posthog.capture('feed_load_more', { mode, offset: curiosityEpisodes.length });
+      onCuriosityLoadMore();
+      setIsLoadingMore(false);
     }
-
-    return () => observer.disconnect();
-  }, [handleIntersect]);
+  }, [isLoadingMore, mode, hasForYouMore, hasCuriosityMore, isCuriosityLoading, user, filter, fetchForYou, onCuriosityLoadMore, curiosityEpisodes.length]);
 
   // --- Empty state messaging per mode ---
   const emptyMessage = mode === 'for-you'
@@ -482,10 +462,21 @@ export function HighSignalFeed({
         </div>
       )}
 
-      {/* Infinite scroll trigger */}
-      <div ref={loadMoreRef} className="h-20 flex items-center justify-center">
+      {/* Load More button */}
+      <div className="h-20 flex items-center justify-center">
         {hasMore && cards.length > 0 && !showSignInPrompt && (
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Button
+            variant="outline"
+            onClick={handleLoadMore}
+            disabled={isLoadingMore}
+            className="gap-2"
+          >
+            {isLoadingMore ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Loading...</>
+            ) : (
+              'Load More'
+            )}
+          </Button>
         )}
         {!hasMore && cards.length > 0 && (
           <p className="text-sm text-muted-foreground">You&apos;ve reached the end</p>

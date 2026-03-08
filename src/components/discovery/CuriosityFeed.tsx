@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InsightCard } from './InsightCard';
 
@@ -32,37 +33,15 @@ export function CuriosityFeed({
   hasMore = true,
   onLoadMore,
 }: CuriosityFeedProps) {
-  const loadMoreRef = useRef<HTMLDivElement>(null);
-  const isLoadingMore = useRef(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const handleIntersect = useCallback(
-    (entries: IntersectionObserverEntry[]) => {
-      const [entry] = entries;
-      if (entry.isIntersecting && hasMore && onLoadMore && !isLoadingMore.current && !isLoading) {
-        isLoadingMore.current = true;
-        onLoadMore();
-        // Reset after a delay to prevent rapid firing
-        setTimeout(() => {
-          isLoadingMore.current = false;
-        }, 1000);
-      }
-    },
-    [hasMore, onLoadMore, isLoading]
-  );
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(handleIntersect, {
-      root: null,
-      rootMargin: '200px',
-      threshold: 0,
-    });
-
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, [handleIntersect]);
+  const handleLoadMore = () => {
+    if (isLoadingMore || !onLoadMore || isLoading) return;
+    setIsLoadingMore(true);
+    onLoadMore();
+    // Reset after a short delay (parent controls actual loading state)
+    setTimeout(() => setIsLoadingMore(false), 1500);
+  };
 
   return (
     <section>
@@ -115,13 +94,24 @@ export function CuriosityFeed({
           ))}
       </div>
 
-      {/* Infinite scroll trigger */}
-      <div ref={loadMoreRef} className="h-20 flex items-center justify-center">
+      {/* Load More button */}
+      <div className="h-20 flex items-center justify-center">
         {hasMore && episodes.length > 0 && (
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Button
+            variant="outline"
+            onClick={handleLoadMore}
+            disabled={isLoadingMore}
+            className="gap-2"
+          >
+            {isLoadingMore ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Loading...</>
+            ) : (
+              'Load More'
+            )}
+          </Button>
         )}
         {!hasMore && episodes.length > 0 && (
-          <p className="text-sm text-muted-foreground">You've reached the end</p>
+          <p className="text-sm text-muted-foreground">You&apos;ve reached the end</p>
         )}
       </div>
     </section>

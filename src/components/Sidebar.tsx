@@ -145,7 +145,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <Link href="/" className="flex items-center gap-2" onClick={onNavigate}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-icon.png" alt="Sumfi" className="h-7 w-auto" />
-          <span className="text-lg font-bold text-foreground">
+          <span className="text-lg font-bold text-primary">
             Sumfi
           </span>
         </Link>

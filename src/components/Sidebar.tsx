@@ -145,7 +145,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <Link href="/" className="flex items-center gap-2" onClick={onNavigate}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-icon.png" alt="Sumfi" className="h-7 w-auto" />
-          <span className="text-lg font-bold text-primary">
+          <span className="text-lg font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
             Sumfi
           </span>
         </Link>
@@ -365,7 +365,7 @@ export function Sidebar() {
           <Link href="/" className="flex items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-icon.png" alt="Sumfi" className="h-7 w-auto" />
-            <span className="text-lg font-bold text-primary">
+            <span className="text-lg font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
               Sumfi
             </span>
           </Link>

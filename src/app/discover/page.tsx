@@ -349,17 +349,7 @@ export default function DiscoverPage() {
             <TodaysInsights />
           </div>
 
-          {/* 3. High-Signal Feed - unified For You + Curiosity */}
-          <div className="mb-12">
-            <HighSignalFeed
-              curiosityEpisodes={feedEpisodes}
-              isCuriosityLoading={isLoadingFeed}
-              hasCuriosityMore={hasMoreFeed}
-              onCuriosityLoadMore={handleLoadMore}
-            />
-          </div>
-
-          {/* 4. Because you like... - upgraded with "Best this week" */}
+          {/* 3. Because you like... - upgraded with "Best this week" */}
           {personalizedSections.length > 0 && personalizedSections.map((section) => (
             <div key={section.genreId} className="mb-12">
               <BrandShelf
@@ -372,9 +362,19 @@ export default function DiscoverPage() {
             </div>
           ))}
 
-          {/* 5. Top Podcasts - unchanged */}
+          {/* 4. Top Podcasts */}
           <div className="mb-12">
             <BrandShelf podcasts={topPodcasts.slice(0, 15)} isLoading={isLoadingPodcasts} />
+          </div>
+
+          {/* 5. High-Signal Feed - unified For You + Curiosity */}
+          <div className="mb-12">
+            <HighSignalFeed
+              curiosityEpisodes={feedEpisodes}
+              isCuriosityLoading={isLoadingFeed}
+              hasCuriosityMore={hasMoreFeed}
+              onCuriosityLoadMore={handleLoadMore}
+            />
           </div>
 
         </main>

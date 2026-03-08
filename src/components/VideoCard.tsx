@@ -5,10 +5,11 @@ import posthog from 'posthog-js';
 import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { YouTubeLogo } from '@/components/YouTubeLogo';
 import { Bookmark, Play, Clock, Calendar, ExternalLink, Sparkles, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { formatDuration as formatDurationHuman } from '@/lib/formatters';
 import { useRouter } from 'next/navigation';
 
 export interface VideoItem {
@@ -239,12 +240,10 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, episodeI
           </div>
         )}
 
-        {/* YouTube badge */}
-        <Badge 
-          className="absolute top-2 left-2 bg-red-600 text-white text-xs px-2 py-0.5"
-        >
-          YouTube
-        </Badge>
+        {/* YouTube logo */}
+        <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-sm rounded-md px-1.5 py-0.5 z-10">
+          <YouTubeLogo videoId={video.videoId} size="xs" />
+        </div>
 
         {/* Save button */}
         <Button
@@ -291,6 +290,12 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, episodeI
           <span className="flex items-center gap-1">
             <Calendar className="w-3 h-3" />
             {formatDate(video.publishedAt)}
+            {video.duration && video.duration > 0 && (
+              <>
+                <span className="text-border">&#8226;</span>
+                {formatDurationHuman(video.duration)}
+              </>
+            )}
           </span>
           <div className="flex items-center gap-1">
             {user && (

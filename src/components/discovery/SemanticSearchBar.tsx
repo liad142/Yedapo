@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import posthog from 'posthog-js';
 import { useRouter } from 'next/navigation';
-import { Search, Loader2, X, Youtube } from 'lucide-react';
+import { Search, Loader2, X } from 'lucide-react';
+import { YouTubeLogoStatic } from '@/components/YouTubeLogo';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import Image from 'next/image';
@@ -219,8 +220,8 @@ export function SemanticSearchBar() {
                   <>
                     {results.length > 0 && <div className="border-t border-border my-1" />}
                     <div className="px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                      <Youtube className="h-3.5 w-3.5 text-red-500" />
-                      YouTube Channels
+                      <YouTubeLogoStatic size="xs" />
+                      Channels
                     </div>
                     {channels.map((channel, index) => {
                       const globalIndex = results.length + index;
@@ -246,9 +247,7 @@ export function SemanticSearchBar() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <p className="font-medium text-foreground truncate">{channel.title}</p>
-                              <span className="flex-shrink-0 inline-flex items-center rounded bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-500">
-                                YouTube
-                              </span>
+                              <YouTubeLogoStatic size="xs" />
                             </div>
                             <p className="text-sm text-muted-foreground truncate">{channel.description}</p>
                           </div>

@@ -7,10 +7,10 @@ import { Header } from "@/components/Header";
 import { EpisodeSmartFeed } from "@/components/insights/EpisodeSmartFeed";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
 import type { Episode, Podcast } from "@/types/database";
-import { Clock, Calendar, ChevronRight, Share2, Youtube } from "lucide-react";
+import { Clock, Calendar, ChevronRight, Share2 } from "lucide-react";
+import { YouTubeLogo } from "@/components/YouTubeLogo";
 import { InlinePlayButton } from "@/components/PlayButton";
 import { YouTubeEmbed, type YouTubeEmbedRef } from "@/components/YouTubeEmbed";
 import { isYouTubeContent, extractYouTubeVideoId, getYouTubeThumbnail } from "@/lib/youtube/utils";
@@ -240,10 +240,7 @@ export default function EpisodeInsightsPage() {
                       </span>
                     )}
                     {isYouTube && (
-                      <Badge className="bg-red-600 text-white border-0 flex items-center gap-1 text-body-sm">
-                        <Youtube className="h-3.5 w-3.5" />
-                        YouTube
-                      </Badge>
+                      <YouTubeLogo videoId={youtubeVideoId} size="sm" />
                     )}
                   </div>
 

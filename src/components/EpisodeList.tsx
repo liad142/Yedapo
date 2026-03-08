@@ -46,40 +46,20 @@ export function EpisodeList({
 }: EpisodeListProps) {
   // --- Loading skeletons ---
   if (isLoading) {
-    if (variant === 'card') {
-      return (
-        <div className="space-y-4">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="bg-card rounded-2xl p-6 shadow-[var(--shadow-1)] border border-border">
-              <div className="flex gap-4">
-                <Skeleton className="w-12 h-12 rounded-lg shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-4 w-1/4" />
-                  <Skeleton className="h-12 w-full" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      );
-    }
-
     return (
-      <div className="space-y-2">
+      <div className="space-y-3">
         {[...Array(5)].map((_, i) => (
-          <div key={i} className="rounded-xl p-4 border border-border">
-            <div className="flex gap-5">
-              <Skeleton className="w-14 h-14 rounded-xl shrink-0" />
-              <div className="flex-1 space-y-3">
-                <Skeleton className="h-5 w-2/3" />
-                <Skeleton className="h-4 w-full" />
-                <div className="flex gap-2">
-                  <Skeleton className="h-8 w-24 rounded-full" />
-                  <Skeleton className="h-8 w-24 rounded-full" />
-                </div>
+          <div key={i} className="flex gap-4 p-4 rounded-2xl border border-border bg-card">
+            <div className="flex-1 space-y-3">
+              <Skeleton className="h-3.5 w-32" />
+              <Skeleton className="h-5 w-4/5" />
+              <Skeleton className="h-4 w-full" />
+              <div className="flex gap-2 pt-1">
+                <Skeleton className="h-9 w-20 rounded-full" />
+                <Skeleton className="h-9 w-28 rounded-full" />
               </div>
             </div>
+            <Skeleton className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl shrink-0" />
           </div>
         ))}
       </div>
@@ -88,21 +68,8 @@ export function EpisodeList({
 
   // --- Empty state ---
   if (episodes.length === 0) {
-    if (variant === 'card') {
-      return (
-        <div className="text-center py-12 bg-card rounded-2xl shadow-[var(--shadow-1)] border border-border">
-          <p className="text-muted-foreground mb-2">
-            No episodes found.
-          </p>
-          <p className="text-sm text-muted-foreground/70">
-            This might be a temporary issue. Try refreshing the page.
-          </p>
-        </div>
-      );
-    }
-
     return (
-      <div className="text-center py-20 rounded-2xl border border-border">
+      <div className="text-center py-20 rounded-2xl border border-border bg-card">
         <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mx-auto mb-4">
           <FileText className="h-8 w-8 text-muted-foreground" />
         </div>
@@ -114,30 +81,14 @@ export function EpisodeList({
 
   // --- Episode list ---
   return (
-    <div className={variant === 'card' ? 'space-y-4' : 'space-y-1'}>
+    <div className="space-y-2">
       {episodes.map((episode) => {
         const summaryInfo = getEpisodeSummaryInfo(episode);
         const hasSummary = summaryInfo?.hasQuickSummary || summaryInfo?.hasDeepSummary;
         const canNavigate = summaryInfo?.episodeId;
 
-        if (variant === 'card') {
-          return (
-            <CardEpisodeItem
-              key={episode.id}
-              episode={episode}
-              summaryInfo={summaryInfo}
-              hasSummary={hasSummary}
-              canNavigate={canNavigate}
-              podcastName={podcastName}
-              podcastArtworkUrl={podcastArtworkUrl}
-              onSummarize={onSummarize}
-              importingEpisodeId={importingEpisodeId}
-            />
-          );
-        }
-
         return (
-          <ListEpisodeItem
+          <EpisodeItem
             key={episode.id}
             episode={episode}
             summaryInfo={summaryInfo}
@@ -149,28 +100,27 @@ export function EpisodeList({
             importingEpisodeId={importingEpisodeId}
             onAuthGate={onAuthGate}
             user={user}
+            variant={variant}
           />
         );
       })}
 
       {/* Load More */}
       {hasMore && (
-        <div className={variant === 'card' ? 'mt-8 text-center' : 'mt-12 text-center pb-12'}>
+        <div className="mt-8 text-center pb-4">
           <Button
             onClick={onLoadMore}
             disabled={isLoadingMore}
             variant="outline"
-            className={variant === 'card' ? 'rounded-full px-8' : 'rounded-full px-8 h-10'}
+            className="rounded-full px-8 h-10"
           >
             {isLoadingMore ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                {variant === 'card' ? 'Loading...' : 'Loading episodes...'}
+                Loading...
               </>
             ) : (
-              variant === 'card'
-                ? `Load More (${episodes.length} of ${totalCount})`
-                : 'Load More Episodes'
+              `Load More (${episodes.length} of ${totalCount})`
             )}
           </Button>
         </div>
@@ -179,7 +129,7 @@ export function EpisodeList({
   );
 }
 
-// ---------- Card variant (subscribed /podcast/[id]) ----------
+// ---------- Unified episode item ----------
 
 interface EpisodeItemProps {
   episode: PodcastDetailEpisode;
@@ -192,128 +142,10 @@ interface EpisodeItemProps {
   importingEpisodeId: string | null;
   onAuthGate?: () => void;
   user?: any;
+  variant: 'card' | 'list';
 }
 
-function CardEpisodeItem({
-  episode,
-  summaryInfo,
-  hasSummary,
-  canNavigate,
-  podcastName,
-  podcastArtworkUrl,
-  onSummarize,
-  importingEpisodeId,
-}: EpisodeItemProps) {
-  return (
-    <div className="group bg-card rounded-2xl p-6 shadow-[var(--shadow-1)] hover:shadow-[var(--shadow-2)] transition-all duration-300 border border-border">
-      <div className="flex gap-5 items-start">
-        {/* Thumbnail */}
-        {episode.artworkUrl && (
-          <div className="relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-secondary shadow-inner hidden sm:block">
-            <SafeImage
-              src={episode.artworkUrl.replace('100x100', '200x200')}
-              alt={episode.title}
-              fill
-              className="object-cover"
-            />
-          </div>
-        )}
-
-        <div className="flex-1 min-w-0 space-y-2">
-          {/* Meta Top Line */}
-          <div className="flex items-center gap-3 text-xs font-medium text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              {formatDate(episode.publishedAt)}
-            </span>
-            {episode.duration > 0 && (
-              <span className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                {formatDuration(episode.duration)}
-              </span>
-            )}
-          </div>
-
-          {/* Title */}
-          {canNavigate ? (
-            <Link href={`/episode/${summaryInfo!.episodeId}`}>
-              <h3 className="text-lg font-bold text-foreground leading-tight group-hover:text-primary transition-colors cursor-pointer">
-                {episode.title}
-              </h3>
-            </Link>
-          ) : (
-            <h3 className="text-lg font-bold text-foreground leading-tight">
-              {episode.title}
-            </h3>
-          )}
-
-          {/* Description */}
-          <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
-            {episode.description}
-          </p>
-
-          {/* Actions */}
-          <div className="flex items-center gap-3 pt-2">
-            {episode.isFromDb || summaryInfo?.episodeId ? (
-              <SummarizeButton
-                episodeId={episode.isFromDb ? episode.id : summaryInfo!.episodeId!}
-                initialStatus={
-                  hasSummary ? 'ready' :
-                    (() => {
-                      const status = summaryInfo?.deepStatus || summaryInfo?.quickStatus;
-                      if (status === 'transcribing') return 'transcribing' as const;
-                      if (status === 'summarizing') return 'summarizing' as const;
-                      if (status === 'queued') return 'queued' as const;
-                      if (status === 'failed') return 'failed' as const;
-                      return 'not_ready' as const;
-                    })()
-                }
-              />
-            ) : (
-              <Button
-                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 border-0 rounded-full h-9 px-5"
-                size="sm"
-                onClick={() => onSummarize(episode)}
-                disabled={importingEpisodeId === episode.id}
-              >
-                {importingEpisodeId === episode.id ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                    Importing
-                  </>
-                ) : (
-                  <>
-                    <FileText className="h-3.5 w-3.5 mr-2" />
-                    Summarize
-                  </>
-                )}
-              </Button>
-            )}
-
-            {episode.audioUrl && (
-              <div className="scale-90 origin-left">
-                <InlinePlayButton
-                  track={{
-                    id: summaryInfo?.episodeId || episode.id,
-                    title: episode.title,
-                    artist: podcastName,
-                    artworkUrl: episode.artworkUrl || podcastArtworkUrl,
-                    audioUrl: episode.audioUrl,
-                    duration: episode.duration,
-                  }}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ---------- List variant (browse /browse/podcast/[id]) ----------
-
-function ListEpisodeItem({
+function EpisodeItem({
   episode,
   summaryInfo,
   hasSummary,
@@ -324,6 +156,7 @@ function ListEpisodeItem({
   importingEpisodeId,
   onAuthGate,
   user,
+  variant,
 }: EpisodeItemProps) {
   const handleSummarizeClick = (ep: PodcastDetailEpisode) => {
     if (onAuthGate && !user) {
@@ -333,91 +166,64 @@ function ListEpisodeItem({
     onSummarize(ep);
   };
 
-  return (
-    <div
-      className="group py-4 border-b border-border hover:bg-secondary rounded-xl px-4 -mx-4 transition-colors cursor-pointer"
-    >
-      <div className="flex gap-4 items-start">
-        {/* Episode Thumbnail */}
-        <div className="shrink-0 hidden sm:block">
-          <div className="w-14 h-14 rounded-lg bg-secondary border border-border overflow-hidden relative">
-            {episode.artworkUrl ? (
-              <SafeImage
-                src={episode.artworkUrl.replace('100x100', '200x200')}
-                alt={episode.title}
-                fill
-                className="object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                <FileText className="h-5 w-5" />
-              </div>
-            )}
-            {/* Summary-ready indicator */}
-            {hasSummary && (
-              <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-green-500" />
-            )}
-          </div>
-        </div>
+  const artworkSrc = episode.artworkUrl || podcastArtworkUrl;
 
-        <div className="flex-1 min-w-0">
-          {/* Meta Row */}
-          <div className="flex items-center gap-3 text-xs text-muted-foreground mb-1.5">
-            <span className="flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              {formatDate(episode.publishedAt)}
-            </span>
+  return (
+    <div className="group relative rounded-2xl hover:bg-secondary/50 transition-colors duration-200 cursor-pointer">
+      <div className="flex gap-4 p-4 items-start">
+        {/* Left: Text content */}
+        <div className="flex-1 min-w-0 space-y-1.5">
+          {/* Meta line */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>{formatDate(episode.publishedAt)}</span>
             {episode.duration > 0 && (
               <>
-                <span className="w-px h-3 bg-border" />
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {formatDuration(episode.duration)}
-                </span>
+                <span className="text-border">&#8226;</span>
+                <span>{formatDuration(episode.duration)}</span>
               </>
             )}
-            {/* Summary dot on mobile (no thumbnail) */}
             {hasSummary && (
-              <span className="sm:hidden w-2 h-2 rounded-full bg-green-500 shrink-0" />
+              <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                Summary
+              </span>
             )}
           </div>
 
           {/* Title */}
           {canNavigate ? (
             <Link href={`/episode/${summaryInfo!.episodeId}`}>
-              <h3 className="text-base font-semibold text-foreground leading-tight mb-1.5 group-hover:text-primary transition-colors line-clamp-2">
+              <h3 className="text-[15px] font-semibold text-foreground leading-snug group-hover:text-primary transition-colors line-clamp-2">
                 {episode.title}
               </h3>
             </Link>
           ) : (
-            <h3 className="text-base font-semibold text-foreground leading-tight mb-1.5 line-clamp-2">
+            <h3 className="text-[15px] font-semibold text-foreground leading-snug line-clamp-2">
               {episode.title}
             </h3>
           )}
 
           {/* Description */}
-          <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 mb-3">
+          <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
             {episode.description}
           </p>
 
-          {/* Action Bar */}
-          <div className="flex items-center gap-2">
-            {/* Play */}
+          {/* Actions */}
+          <div className="flex items-center gap-2 pt-1.5">
             {episode.audioUrl && (
               <InlinePlayButton
                 track={{
                   id: summaryInfo?.episodeId || episode.id,
                   title: episode.title,
                   artist: podcastName,
-                  artworkUrl: episode.artworkUrl || podcastArtworkUrl,
+                  artworkUrl: artworkSrc,
                   audioUrl: episode.audioUrl,
                   duration: episode.duration,
                 }}
-                className="shrink-0 px-5 text-sm"
+                className="shrink-0"
               />
             )}
 
-            {/* Summarize */}
             {(() => {
               const getInitialStatus = (): any => {
                 if (hasSummary) return 'ready';
@@ -429,10 +235,10 @@ function ListEpisodeItem({
                 return 'not_ready';
               };
 
-              if (summaryInfo?.episodeId) {
+              if (episode.isFromDb || summaryInfo?.episodeId) {
                 return (
                   <SummarizeButton
-                    episodeId={summaryInfo.episodeId}
+                    episodeId={episode.isFromDb ? episode.id : summaryInfo!.episodeId!}
                     initialStatus={getInitialStatus()}
                   />
                 );
@@ -440,15 +246,15 @@ function ListEpisodeItem({
 
               return (
                 <Button
-                  className="gap-2 rounded-full px-5 bg-primary text-primary-foreground hover:bg-primary/90 transition-all"
+                  className="gap-2 rounded-full px-5 bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm"
                   size="sm"
                   onClick={() => handleSummarizeClick(episode)}
                   disabled={importingEpisodeId === episode.id}
                 >
                   {importingEpisodeId === episode.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <Sparkles className="h-4 w-4" />
+                    <Sparkles className="h-3.5 w-3.5" />
                   )}
                   {importingEpisodeId === episode.id ? 'Importing...' : 'Summarize'}
                 </Button>
@@ -456,7 +262,29 @@ function ListEpisodeItem({
             })()}
           </div>
         </div>
+
+        {/* Right: Episode artwork */}
+        <div className="shrink-0 self-center">
+          <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-secondary shadow-sm">
+            {artworkSrc ? (
+              <SafeImage
+                src={artworkSrc.replace('100x100', '300x300')}
+                alt={episode.title}
+                fill
+                className="object-cover"
+                sizes="(min-width: 640px) 96px, 80px"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                <FileText className="h-6 w-6" />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* Subtle bottom separator */}
+      <div className="mx-4 border-b border-border/60" />
     </div>
   );
 }

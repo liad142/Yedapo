@@ -3,7 +3,8 @@
 import { useState, useEffect, use } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Youtube, Heart, Share2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Heart, Share2 } from 'lucide-react';
+import { YouTubeLogoStatic } from '@/components/YouTubeLogo';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { VideoCard, type VideoItem } from '@/components/VideoCard';
@@ -135,7 +136,7 @@ export default function YouTubeChannelPage({ params }: PageProps) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 mb-2">
             <h1 className="text-2xl font-bold text-foreground truncate">{channel.title}</h1>
-            <Youtube className="h-5 w-5 text-red-500 flex-shrink-0" />
+            <YouTubeLogoStatic size="md" />
           </div>
           {channel.description && (
             <p className="text-muted-foreground line-clamp-3 mb-4">{channel.description}</p>

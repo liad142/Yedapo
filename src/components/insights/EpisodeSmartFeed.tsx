@@ -403,14 +403,42 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
           </>
         ) : user ? (
           <>
-            {/* --- Section 1.5: Description Links (YouTube only) --- */}
-            {isYouTube && ytMeta && ytMeta.description_links.length > 0 && (
+            {/* --- Section 1.5: Description Links (YouTube only) — hidden for now --- */}
+            {/* {isYouTube && ytMeta && ytMeta.description_links.length > 0 && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.03 }}
               >
                 <DescriptionLinks links={ytMeta.description_links} isRTL={isRTL} />
+              </motion.section>
+            )} */}
+
+            {/* --- Generate Insights CTA (when only quick summary exists) --- */}
+            {!isDeepReady && !isGenerating && (
+              <motion.section
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.05 }}
+              >
+                <div className="text-center max-w-md mx-auto space-y-6 py-8">
+                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                    <Sparkles className="h-10 w-10 text-primary" />
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-bold">Unlock Episode Insights</h2>
+                    <p className="text-muted-foreground">
+                      Get the full AI analysis: deep summary, chapters, key concepts, transcript, and more.
+                    </p>
+                  </div>
+                  <Button onClick={handleGenerate} size="lg" className="gap-2">
+                    <Sparkles className="h-5 w-5" />
+                    Generate Insights
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    This may take a few minutes depending on episode length
+                  </p>
+                </div>
               </motion.section>
             )}
 
@@ -888,13 +916,15 @@ function EpisodeChapters({ sections, isRTL, episode, youtubePlayerRef, videoCurr
     const isYT = !!youtubePlayerRef;
     const time = isYT ? (videoCurrentTime ?? 0) : player?.currentTime ?? 0;
     if ((!player && !isYT) || !showTimestamps) return -1;
+    // Only highlight chapters if this episode is actually playing
+    if (!isYT && player?.currentTrack?.id !== episode.id) return -1;
     let active = -1;
     for (let i = 0; i < normalized.length; i++) {
       const sec = normalized[i].timestamp_seconds ?? 0;
       if (sec <= time) active = i;
     }
     return active;
-  }, [player?.currentTime, normalized, showTimestamps, player, youtubePlayerRef, videoCurrentTime]);
+  }, [player?.currentTime, player?.currentTrack?.id, normalized, showTimestamps, player, youtubePlayerRef, videoCurrentTime, episode.id]);
 
   const handleSeekTo = (seconds: number) => {
     if (seconds < 0) return;
@@ -1083,6 +1113,7 @@ function EpisodeChapters({ sections, isRTL, episode, youtubePlayerRef, videoCurr
 /* --- 5. Contrarian Views --- */
 /** Render text with **bold** markers as <strong> tags */
 function renderBoldMarkers(text: string) {
+  if (typeof text !== 'string') return String(text ?? '');
   const parts = text.split(/\*\*([^*]+)\*\*/g);
   return parts.map((part, i) =>
     i % 2 === 1 ? (

@@ -354,7 +354,7 @@ export async function getPodcastEpisodes(
           publishedAt: new Date(item.isoDate || item.pubDate || Date.now()),
           duration: parseDuration((item as any).duration),
           audioUrl: item.enclosure?.url,
-          artworkUrl: (item as any).itunesImage?.href || feedData.image?.url,
+          artworkUrl: (item as any).itunesImage?.$?.href || (item as any).itunes?.image || feedData.image?.url,
           episodeNumber: parseInt((item as any).episode, 10) || undefined,
           seasonNumber: parseInt((item as any).season, 10) || undefined,
         }));

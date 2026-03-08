@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { YouTubeLogo } from '@/components/YouTubeLogo';
+import { extractYouTubeVideoId } from '@/lib/youtube/utils';
 import { InlinePlayButton } from '@/components/PlayButton';
 import { DiscoverySummarizeButton } from './DiscoverySummarizeButton';
 import { useAuth } from '@/contexts/AuthContext';
@@ -423,16 +425,13 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
                 <span>{durationStr}</span>
               </>
             )}
-            <Badge
-              className={cn(
-                'ml-1 text-[10px] px-1.5 py-0 h-4 font-medium',
-                type === 'youtube'
-                  ? 'bg-red-600/10 text-red-600 border-red-600/20'
-                  : 'bg-blue-600/10 text-blue-600 border-blue-600/20'
-              )}
-            >
-              {type === 'youtube' ? 'YouTube' : 'Podcast'}
-            </Badge>
+            {type === 'youtube' ? (
+              <YouTubeLogo videoId={extractYouTubeVideoId(url)} size="xs" />
+            ) : (
+              <Badge className="ml-1 text-[10px] px-1.5 py-0 h-4 font-medium bg-blue-600/10 text-blue-600 border-blue-600/20">
+                Podcast
+              </Badge>
+            )}
           </div>
         </div>
       </div>

@@ -31,7 +31,7 @@ export function AskAIBar({ mode, track }: { mode: "standalone" | "integrated"; t
     const showPlay = !!(track && player);
 
     return (
-      <div className="fixed bottom-6 left-4 right-4 z-50 pointer-events-none flex justify-center">
+      <div className="fixed bottom-20 lg:bottom-6 left-4 right-4 z-50 pointer-events-none flex justify-center">
         <div className="pointer-events-auto w-full max-w-2xl">
           <div className="bg-card border border-border shadow-[var(--shadow-floating)] rounded-2xl flex items-center overflow-hidden">
 

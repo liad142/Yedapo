@@ -329,7 +329,7 @@ export async function getPodcastEpisodes(
         }
 
         const response = await fetch(resolvedFeedUrl, {
-          headers: { 'User-Agent': 'Sumfi/1.0' },
+          headers: { 'User-Agent': 'Yedapo/1.0' },
           // @ts-expect-error -- dispatcher is a valid undici option accepted by Node's built-in fetch
           dispatcher: largeFetchDispatcher,
         });

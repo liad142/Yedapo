@@ -37,7 +37,7 @@ const FILTER_TABS = ['all', ...STATUS_ORDER] as const;
 type FilterTab = (typeof FILTER_TABS)[number];
 
 function formatPrompt(todo: AdminTodo): string {
-  return `I want to implement a new feature for Sumfi:
+  return `I want to implement a new feature for Yedapo:
 
 **Feature:** ${todo.title}
 

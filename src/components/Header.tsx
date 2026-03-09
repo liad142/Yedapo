@@ -19,9 +19,9 @@ export function Header() {
       <div className="container mx-auto flex h-16 items-center px-4">
         <Link href="/" className="flex items-center space-x-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-icon.png" alt="Sumfi" className="h-8 w-auto" />
+          <img src="/logo-icon.png" alt="Yedapo" className="h-8 w-auto" />
           <span className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            Sumfi
+            Yedapo
           </span>
         </Link>
         <nav className="ml-auto flex items-center space-x-2">

@@ -39,7 +39,7 @@ function getAuthHeaders(): Record<string, string> {
     'X-Auth-Key': apiKey,
     'X-Auth-Date': String(now),
     'Authorization': hash,
-    'User-Agent': 'Sumfi/1.0',
+    'User-Agent': 'Yedapo/1.0',
   };
 }
 

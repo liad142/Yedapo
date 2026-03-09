@@ -64,7 +64,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <div className="flex items-center gap-2">
           <Shield className="h-7 w-7 text-primary" />
           <span className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            Sumfi Admin
+            Yedapo Admin
           </span>
         </div>
       </div>
@@ -77,7 +77,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
         >
           <Compass className="h-4 w-4" />
-          <span>Back to Sumfi</span>
+          <span>Back to Yedapo</span>
         </Link>
       </div>
 

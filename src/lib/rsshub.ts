@@ -164,7 +164,7 @@ export async function fetchYouTubeChannelFeed(
   try {
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Sumfi/1.0',
+        'User-Agent': 'Yedapo/1.0',
       },
     });
 

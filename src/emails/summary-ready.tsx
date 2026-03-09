@@ -26,7 +26,7 @@ export function SummaryReadyEmail({
         <Container style={container}>
           {/* Header */}
           <Section style={header}>
-            <Text style={logo}>Sumfi</Text>
+            <Text style={logo}>Yedapo</Text>
           </Section>
 
           {/* Episode info */}
@@ -63,7 +63,7 @@ export function SummaryReadyEmail({
           {/* Footer */}
           <Section style={footer}>
             <Text style={footerText}>
-              Sent by Sumfi &mdash; Your podcast insights companion
+              Sent by Yedapo &mdash; Your podcast insights companion
             </Text>
           </Section>
         </Container>

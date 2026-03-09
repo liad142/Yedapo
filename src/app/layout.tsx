@@ -24,7 +24,7 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Sumfi \u2014 Know what matters",
+  title: "Yedapo \u2014 Know what matters",
   description: "AI-powered insights from podcasts and YouTube \u2014 know what matters",
 };
 

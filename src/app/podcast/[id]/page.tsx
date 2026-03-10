@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase";
 import { useSummarizeQueue } from "@/contexts/SummarizeQueueContext";
 import { useSummaryAvailability } from "@/hooks/useSummaryAvailability";
 import { useEpisodeImport } from "@/hooks/useEpisodeImport";
+import { useListeningProgressBatch } from '@/hooks/useListeningProgress';
 import { formatDate } from "@/lib/formatters";
 import type { Podcast } from "@/types/database";
 import type { PodcastDetailEpisode } from "@/types/podcast";
@@ -53,6 +54,11 @@ export default function PodcastPage() {
     setSummaryAvailability,
     addToQueue
   );
+
+  const episodeIds = episodes
+    .map(ep => ep.id)
+    .filter((id): id is string => !!id && id.includes('-'));
+  const progressMap = useListeningProgressBatch(episodeIds);
 
   // Load podcast AND episodes together to avoid timing issues
   useEffect(() => {
@@ -342,6 +348,7 @@ export default function PodcastPage() {
                 totalCount={totalCount}
                 onLoadMore={handleLoadMore}
                 variant="card"
+                progressMap={progressMap}
               />
             </section>
           </div>

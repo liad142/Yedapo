@@ -247,6 +247,17 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       posthog.capture('episode_played', { episode_id: track.id, podcast_name: track.artist });
       const onCanPlay = () => {
         audio.removeEventListener('canplay', onCanPlay);
+        // Resume from saved position
+        const saved = localStorage.getItem(`lp:${track.id}`);
+        if (saved) {
+          try {
+            const { ct, d, c } = JSON.parse(saved);
+            // Only resume if not completed and has meaningful progress (>5s)
+            if (!c && ct > 5 && d > 0 && ct / d < 0.95) {
+              audio.currentTime = ct;
+            }
+          } catch {}
+        }
         audio.play().catch(() => {});
       };
       audio.addEventListener('canplay', onCanPlay);

@@ -9,9 +9,9 @@ import {
   searchPodcasts as piSearch,
   isPodcastIndexConfigured,
 } from '@/lib/podcast-index';
-import { searchYouTubeChannels } from '@/lib/youtube/api';
+import { searchYouTubeChannels, searchYouTubeVideos } from '@/lib/youtube/api';
 import type { ApplePodcast } from '@/types/apple-podcasts';
-import type { Podcast, SearchResult, YouTubeChannelResult } from '@/types/podcast';
+import type { Podcast, SearchResult, YouTubeChannelResult, YouTubeVideoResult } from '@/types/podcast';
 
 /**
  * Transform an Apple Podcast to the unified Podcast type
@@ -72,13 +72,16 @@ export async function searchPodcasts(
   const ytApiKey = !!process.env.YOUTUBE_API_KEY;
 
   // Fire all APIs in parallel
-  const [piResult, appleResult, ytResult] = await Promise.allSettled([
+  const [piResult, appleResult, ytChannelResult, ytVideoResult] = await Promise.allSettled([
     piConfigured
       ? piSearch(term, limit)
       : Promise.reject(new Error('Podcastindex not configured')),
     appleSearch(term, country, limit),
     ytApiKey
-      ? searchYouTubeChannels(term, 5)
+      ? searchYouTubeChannels(term, 3)
+      : Promise.reject(new Error('YouTube API not configured')),
+    ytApiKey
+      ? searchYouTubeVideos(term, 5)
       : Promise.reject(new Error('YouTube API not configured')),
   ]);
 
@@ -88,12 +91,23 @@ export async function searchPodcasts(
     : [];
 
   // YouTube channels
-  const ytChannels: YouTubeChannelResult[] = ytResult.status === 'fulfilled'
-    ? ytResult.value.map((ch) => ({
+  const ytChannels: YouTubeChannelResult[] = ytChannelResult.status === 'fulfilled'
+    ? ytChannelResult.value.map((ch) => ({
         id: ch.channelId,
         title: ch.title,
         thumbnailUrl: ch.thumbnailUrl,
         description: ch.description,
+      }))
+    : [];
+
+  // YouTube videos
+  const ytVideos: YouTubeVideoResult[] = ytVideoResult.status === 'fulfilled'
+    ? ytVideoResult.value.map((v) => ({
+        videoId: v.videoId,
+        title: v.title,
+        description: v.description,
+        thumbnailUrl: v.thumbnailUrl,
+        channelTitle: v.channelTitle,
       }))
     : [];
 
@@ -105,7 +119,7 @@ export async function searchPodcasts(
   // Both podcast APIs failed
   if (piPodcasts.length === 0 && applePodcasts.length === 0) {
     // If both actually errored, throw (unless YouTube has results)
-    if (piResult.status === 'rejected' && appleResult.status === 'rejected' && ytChannels.length === 0) {
+    if (piResult.status === 'rejected' && appleResult.status === 'rejected' && ytChannels.length === 0 && ytVideos.length === 0) {
       throw new Error('All search APIs failed');
     }
     // Otherwise one returned empty results - that's fine
@@ -116,6 +130,7 @@ export async function searchPodcasts(
   const result: SearchResult = {
     podcasts,
     channels: ytChannels.length > 0 ? ytChannels : undefined,
+    videos: ytVideos.length > 0 ? ytVideos : undefined,
     query: term,
     source,
     count: podcasts.length,

@@ -44,9 +44,18 @@ export interface YouTubeChannelResult {
   description: string;
 }
 
+export interface YouTubeVideoResult {
+  videoId: string;
+  title: string;
+  description: string;
+  thumbnailUrl: string;
+  channelTitle: string;
+}
+
 export interface SearchResult {
   podcasts: Podcast[];
   channels?: YouTubeChannelResult[];
+  videos?: YouTubeVideoResult[];
   query: string;
   source: 'apple' | 'podcastindex' | 'merged';
   count: number;

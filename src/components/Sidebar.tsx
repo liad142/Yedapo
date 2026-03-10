@@ -19,6 +19,9 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { SidebarUserSection } from '@/components/auth/SidebarUserSection';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useUnreadCount } from '@/hooks/useUnreadCount';
+import { NotificationBell } from '@/components/NotificationBell';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ROOT_PATHS = ['/', '/discover', '/my-list', '/my-podcasts', '/summaries', '/saved', '/settings', '/onboarding'];
 
@@ -35,9 +38,10 @@ interface NavItemProps {
   item: (typeof NAV_ITEMS)[number];
   isActive: boolean;
   onClick?: () => void;
+  badge?: number;
 }
 
-function NavItem({ item, isActive, onClick }: NavItemProps) {
+function NavItem({ item, isActive, onClick, badge }: NavItemProps) {
   const Icon = item.icon;
 
   return (
@@ -54,6 +58,11 @@ function NavItem({ item, isActive, onClick }: NavItemProps) {
     >
       <Icon className={cn('h-5 w-5 shrink-0', isActive && 'text-primary')} />
       <span className="text-sm font-medium">{item.label}</span>
+      {badge != null && badge > 0 && (
+        <span className="ml-auto bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
     </Link>
   );
 }
@@ -125,7 +134,7 @@ function MobileThemeToggle() {
   );
 }
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarContent({ onNavigate, unreadCount = 0, showBell = false }: { onNavigate?: () => void; unreadCount?: number; showBell?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -141,7 +150,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex flex-col h-full">
       {/* Brand Header */}
-      <div className="px-5 pt-6 pb-4">
+      <div className="px-5 pt-6 pb-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2" onClick={onNavigate}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-icon.png" alt="Yedapo" className="h-7 w-auto" />
@@ -149,6 +158,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             Yedapo
           </span>
         </Link>
+        {showBell && <NotificationBell />}
       </div>
 
       {/* Separator */}
@@ -175,6 +185,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             item={item}
             isActive={isActive(item.href)}
             onClick={onNavigate}
+            badge={item.href === '/my-list' ? unreadCount : undefined}
           />
         ))}
       </nav>
@@ -198,9 +209,13 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 function MobileDrawer({
   isOpen,
   onClose,
+  unreadCount = 0,
+  showBell = false,
 }: {
   isOpen: boolean;
   onClose: () => void;
+  unreadCount?: number;
+  showBell?: boolean;
 }) {
   // Handle escape key
   useEffect(() => {
@@ -266,7 +281,7 @@ function MobileDrawer({
           <X className="h-5 w-5" />
         </button>
 
-        <SidebarContent onNavigate={onClose} />
+        <SidebarContent onNavigate={onClose} unreadCount={unreadCount} showBell={showBell} />
       </div>
     </>
   );
@@ -281,7 +296,7 @@ const BOTTOM_NAV_ITEMS = [
   { label: 'Settings', href: '/settings', icon: Settings },
 ] as const;
 
-function MobileBottomNav() {
+function MobileBottomNav({ unreadCount = 0 }: { unreadCount?: number }) {
   const pathname = usePathname();
 
   const isActive = (href: string) => {
@@ -300,16 +315,24 @@ function MobileBottomNav() {
         {BOTTOM_NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);
+          const badge = item.href === '/my-list' ? unreadCount : 0;
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                'flex flex-col items-center gap-1 min-w-0 px-2',
+                'relative flex flex-col items-center gap-1 min-w-0 px-2',
                 active ? 'text-primary' : 'text-muted-foreground'
               )}
             >
-              <Icon className="h-5 w-5" />
+              <div className="relative">
+                <Icon className="h-5 w-5" />
+                {badge > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-primary text-primary-foreground text-[8px] font-bold px-1 py-0.5 rounded-full min-w-[14px] text-center leading-none">
+                    {badge > 99 ? '99+' : badge}
+                  </span>
+                )}
+              </div>
               <span className="text-[10px] font-medium leading-none">{item.label}</span>
             </Link>
           );
@@ -322,6 +345,8 @@ function MobileBottomNav() {
 export function Sidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
+  const { unreadCount } = useUnreadCount();
+  const { user } = useAuth();
 
   const closeMobileMenu = useCallback(() => {
     setIsMobileMenuOpen(false);
@@ -378,17 +403,17 @@ export function Sidebar() {
       </header>
 
       {/* Mobile Drawer */}
-      <MobileDrawer isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
+      <MobileDrawer isOpen={isMobileMenuOpen} onClose={closeMobileMenu} unreadCount={unreadCount} showBell={!!user} />
 
       {/* Mobile Bottom Navigation */}
-      <MobileBottomNav />
+      <MobileBottomNav unreadCount={unreadCount} />
 
       {/* Desktop Sidebar */}
       <aside
         className="fixed top-0 left-0 bottom-0 w-64 hidden lg:flex flex-col z-30 bg-background border-r border-border"
         aria-label="Main navigation"
       >
-        <SidebarContent />
+        <SidebarContent unreadCount={unreadCount} showBell={!!user} />
       </aside>
     </>
   );

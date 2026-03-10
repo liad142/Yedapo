@@ -4,11 +4,12 @@ import { useState, useEffect, useCallback, use } from 'react';
 import { redirect } from 'next/navigation';
 import { SafeImage } from '@/components/SafeImage';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Heart, Share2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Heart } from 'lucide-react';
 import { EpisodeList } from '@/components/EpisodeList';
 import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { NotifyToggle } from '@/components/NotifyToggle';
 import { useSummaryAvailability } from '@/hooks/useSummaryAvailability';
 import { useEpisodeImport } from '@/hooks/useEpisodeImport';
 import { Button } from '@/components/ui/button';
@@ -47,7 +48,7 @@ export default function PodcastPage({ params }: PageProps) {
 
   const { country } = useCountry();
   const { user, setShowAuthModal } = useAuth();
-  const { subscribedAppleIds, subscribe, unsubscribe } = useSubscription();
+  const { subscribedAppleIds, subscribe, unsubscribe, getNotificationPrefs, updateNotificationPrefs, getLastViewedAt } = useSubscription();
 
   // Detect if this is a Podcastindex-only podcast (pi:{feedId} format)
   const isPiPodcast = podcastId.startsWith('pi:');
@@ -209,18 +210,6 @@ export default function PodcastPage({ params }: PageProps) {
   // Helper for consistent image URL
   const imageUrl = podcast?.artworkUrl?.replace('100x100', '600x600') || '/placeholder-podcast.png';
 
-  const handleShare = async () => {
-    if (typeof navigator.share === 'function' && podcast) {
-      try {
-        await navigator.share({ title: podcast.name, url: window.location.href });
-      } catch {
-        // user cancelled
-      }
-    } else {
-      await navigator.clipboard.writeText(window.location.href);
-    }
-  };
-
   if (error && !podcast) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -299,39 +288,38 @@ export default function PodcastPage({ params }: PageProps) {
                 </p>
 
                 {/* Action Buttons */}
-                <div className="flex items-center gap-3 pt-2 justify-center md:justify-start">
-                  {/* Follow button */}
+                <div className="flex items-center gap-1 pt-2 justify-center md:justify-start">
                   {!isPiPodcast && (
                     <Button
-                      size="lg"
+                      variant="ghost"
+                      size="icon"
                       onClick={handleToggleSubscription}
                       disabled={isTogglingSubscription}
                       className={cn(
-                        'rounded-full px-8 font-semibold transition-all',
-                        isSubscribed
-                          ? 'bg-secondary text-foreground hover:bg-secondary/80'
-                          : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                        'rounded-full',
+                        isSubscribed && 'text-red-500 hover:text-red-600'
                       )}
+                      aria-label={isSubscribed ? 'Remove from library' : 'Save to library'}
                     >
                       {isTogglingSubscription ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
                       ) : (
-                        <Heart className={cn('h-5 w-5 mr-2', isSubscribed && 'fill-current')} />
+                        <Heart className={cn('h-5 w-5', isSubscribed && 'fill-current')} />
                       )}
-                      {isSubscribed ? 'Saved to Library' : 'Follow Podcast'}
                     </Button>
                   )}
 
-                  {/* Share button */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleShare}
-                    className="rounded-full"
-                    aria-label="Share podcast"
-                  >
-                    <Share2 className="h-5 w-5" />
-                  </Button>
+                  {/* Secondary actions — icon row, scales with future integrations (Notion, etc.) */}
+                  {!isPiPodcast && isSubscribed && (() => {
+                    const prefs = getNotificationPrefs(podcastId);
+                    return (
+                      <NotifyToggle
+                        enabled={prefs.notifyEnabled}
+                        channels={prefs.notifyChannels}
+                        onUpdate={(enabled, channels) => updateNotificationPrefs(podcastId, enabled, channels)}
+                      />
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -362,6 +350,7 @@ export default function PodcastPage({ params }: PageProps) {
                 variant="list"
                 onAuthGate={() => setShowAuthModal(true, 'Sign up to generate AI summaries and insights for any episode.')}
                 user={user}
+                newEpisodesSince={isSubscribed ? getLastViewedAt(podcastId) ?? undefined : undefined}
               />
             </div>
           </div>

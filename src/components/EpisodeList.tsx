@@ -26,6 +26,8 @@ interface EpisodeListProps {
   /** For browse page: auth gating on summarize button */
   onAuthGate?: () => void;
   user?: any;
+  /** ISO date string: episodes newer than this date show a "new" indicator */
+  newEpisodesSince?: string;
 }
 
 export function EpisodeList({
@@ -43,6 +45,7 @@ export function EpisodeList({
   variant = 'card',
   onAuthGate,
   user,
+  newEpisodesSince,
 }: EpisodeListProps) {
   // --- Loading skeletons ---
   if (isLoading) {
@@ -87,6 +90,10 @@ export function EpisodeList({
         const hasSummary = summaryInfo?.hasQuickSummary || summaryInfo?.hasDeepSummary;
         const canNavigate = summaryInfo?.episodeId;
 
+        const isNew = newEpisodesSince && episode.publishedAt
+          ? new Date(episode.publishedAt) > new Date(newEpisodesSince)
+          : false;
+
         return (
           <EpisodeItem
             key={episode.id}
@@ -101,6 +108,7 @@ export function EpisodeList({
             onAuthGate={onAuthGate}
             user={user}
             variant={variant}
+            isNew={isNew}
           />
         );
       })}
@@ -143,6 +151,7 @@ interface EpisodeItemProps {
   onAuthGate?: () => void;
   user?: any;
   variant: 'card' | 'list';
+  isNew?: boolean;
 }
 
 function EpisodeItem({
@@ -157,6 +166,7 @@ function EpisodeItem({
   onAuthGate,
   user,
   variant,
+  isNew,
 }: EpisodeItemProps) {
   const handleSummarizeClick = (ep: PodcastDetailEpisode) => {
     if (onAuthGate && !user) {
@@ -175,6 +185,12 @@ function EpisodeItem({
         <div className="flex-1 min-w-0 space-y-1.5">
           {/* Meta line */}
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {isNew && (
+              <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                NEW
+              </span>
+            )}
             <span>{formatDate(episode.publishedAt)}</span>
             {episode.duration > 0 && (
               <>

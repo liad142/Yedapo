@@ -3,12 +3,13 @@
 import { useState, useEffect, use } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Heart, Share2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Heart } from 'lucide-react';
 import { YouTubeLogoStatic } from '@/components/YouTubeLogo';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { VideoCard, type VideoItem } from '@/components/VideoCard';
 import { useAuth } from '@/contexts/AuthContext';
+import { NotifyToggle } from '@/components/NotifyToggle';
 
 interface ChannelInfo {
   title: string;
@@ -32,6 +33,8 @@ export default function YouTubeChannelPage({ params }: PageProps) {
   const [isFollowing, setIsFollowing] = useState(false);
   const [channelDbId, setChannelDbId] = useState<string | null>(null);
   const [isTogglingFollow, setIsTogglingFollow] = useState(false);
+  const [notifyEnabled, setNotifyEnabled] = useState(false);
+  const [notifyChannels, setNotifyChannels] = useState<string[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -92,6 +95,22 @@ export default function YouTubeChannelPage({ params }: PageProps) {
     }
   };
 
+  const handleUpdateNotifyPrefs = async (enabled: boolean, channels: string[]) => {
+    if (!channelDbId) return;
+    setNotifyEnabled(enabled);
+    setNotifyChannels(channels);
+    try {
+      await fetch(`/api/youtube/channels/${channelDbId}/notifications`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notifyEnabled: enabled, notifyChannels: channels }),
+      });
+    } catch {
+      setNotifyEnabled(!enabled);
+      setNotifyChannels([]);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -141,41 +160,33 @@ export default function YouTubeChannelPage({ params }: PageProps) {
           {channel.description && (
             <p className="text-muted-foreground line-clamp-3 mb-4">{channel.description}</p>
           )}
-          <div className="flex items-center gap-3 pt-2">
+          <div className="flex items-center gap-1 pt-2">
             <Button
-              size="lg"
+              variant="ghost"
+              size="icon"
               onClick={handleFollowToggle}
               disabled={isTogglingFollow}
               className={cn(
-                'rounded-full px-8 font-semibold transition-all',
-                isFollowing
-                  ? 'bg-secondary text-foreground hover:bg-secondary/80'
-                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                'rounded-full',
+                isFollowing && 'text-red-500 hover:text-red-600'
               )}
+              aria-label={isFollowing ? 'Remove from library' : 'Save to library'}
             >
               {isTogglingFollow ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
-                <Heart className={cn('h-5 w-5 mr-2', isFollowing && 'fill-current')} />
+                <Heart className={cn('h-5 w-5', isFollowing && 'fill-current')} />
               )}
-              {isFollowing ? 'Saved to Library' : 'Follow Channel'}
             </Button>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={async () => {
-                if (typeof navigator.share === 'function') {
-                  try { await navigator.share({ title: channel.title, url: window.location.href }); } catch {}
-                } else {
-                  await navigator.clipboard.writeText(window.location.href);
-                }
-              }}
-              className="rounded-full"
-              aria-label="Share channel"
-            >
-              <Share2 className="h-5 w-5" />
-            </Button>
+            {/* Secondary actions — icon row, scales with future integrations (Notion, etc.) */}
+            {isFollowing && channelDbId && (
+              <NotifyToggle
+                enabled={notifyEnabled}
+                channels={notifyChannels}
+                onUpdate={handleUpdateNotifyPrefs}
+              />
+            )}
           </div>
         </div>
       </div>

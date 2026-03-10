@@ -48,6 +48,20 @@ export async function POST(request: NextRequest) {
 
       await followYouTubeChannel(user.id, dbChannel.id);
 
+      // Update notification preferences if provided
+      if (typeof body.notifyEnabled === 'boolean' || Array.isArray(body.notifyChannels)) {
+        const { createAdminClient } = await import('@/lib/supabase/admin');
+        const updateData: Record<string, unknown> = {};
+        if (typeof body.notifyEnabled === 'boolean') updateData.notify_enabled = body.notifyEnabled;
+        if (Array.isArray(body.notifyChannels)) updateData.notify_channels = body.notifyChannels;
+
+        await createAdminClient()
+          .from('youtube_channel_follows')
+          .update(updateData)
+          .eq('user_id', user.id)
+          .eq('channel_id', dbChannel.id);
+      }
+
       return NextResponse.json({
         success: true,
         channel: {

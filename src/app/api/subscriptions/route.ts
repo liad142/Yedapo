@@ -22,6 +22,8 @@ export async function GET(request: NextRequest) {
         id,
         created_at,
         last_viewed_at,
+        notify_enabled,
+        notify_channels,
         podcasts (
           id,
           title,
@@ -52,6 +54,8 @@ export async function GET(request: NextRequest) {
           id: sub.id,
           created_at: sub.created_at,
           last_viewed_at: sub.last_viewed_at,
+          notify_enabled: sub.notify_enabled ?? false,
+          notify_channels: sub.notify_channels ?? [],
         },
         has_new_episodes: hasNewEpisodes,
       };
@@ -85,7 +89,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { podcastId } = await request.json();
+    const { podcastId, notifyEnabled, notifyChannels } = await request.json();
 
     if (!podcastId) {
       return NextResponse.json(
@@ -94,10 +98,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const insertData: Record<string, unknown> = {
+      user_id: user.id,
+      podcast_id: podcastId,
+    };
+    if (typeof notifyEnabled === 'boolean') insertData.notify_enabled = notifyEnabled;
+    if (Array.isArray(notifyChannels)) insertData.notify_channels = notifyChannels;
+
     const { data: subscription, error } = await createAdminClient()
       .from('podcast_subscriptions')
       .upsert(
-        { user_id: user.id, podcast_id: podcastId },
+        insertData,
         { onConflict: 'user_id,podcast_id', ignoreDuplicates: true }
       )
       .select()

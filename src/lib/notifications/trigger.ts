@@ -67,6 +67,9 @@ export async function triggerPendingNotifications(episodeId: string): Promise<vo
         result = await sendSummaryEmail(notification.recipient, content);
       } else if (channel === 'telegram') {
         result = await sendTelegramMessage(notification.recipient, content);
+      } else if (channel === 'in_app') {
+        // In-app notifications are created at detection time, not at summary completion
+        result = { success: true };
       } else {
         result = { success: false, error: `Unknown channel: ${channel}` };
       }

@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import posthog from 'posthog-js';
+import { saveListeningProgress } from '@/hooks/useListeningProgress';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Track {
   id: string;
@@ -88,8 +90,10 @@ export function useAudioPlayerSafe(): AudioPlayerContextType | null {
 }
 
 export function AudioPlayerProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioInitialized = useRef(false);
+  const lastSaveRef = useRef<number>(0);
 
   // Frequently changing state
   const [currentTime, setCurrentTime] = useState(0);
@@ -108,6 +112,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   durationRef.current = duration;
   const isPlayingRef = useRef(isPlaying);
   isPlayingRef.current = isPlaying;
+  const currentTrackRef = useRef(currentTrack);
+  currentTrackRef.current = currentTrack;
+  const userRef = useRef(user);
+  userRef.current = user;
 
   // Lazy initialize audio element only when needed
   const initializeAudio = useCallback(() => {
@@ -125,6 +133,17 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     const handleTimeUpdate = () => {
       setCurrentTime(audio.currentTime);
+      // Debounced save every 10 seconds
+      const now = Date.now();
+      if (now - lastSaveRef.current >= 10000 && currentTrackRef.current?.id) {
+        lastSaveRef.current = now;
+        saveListeningProgress(
+          currentTrackRef.current.id,
+          audio.currentTime,
+          audio.duration || 0,
+          userRef.current?.id
+        );
+      }
     };
 
     const handleLoadedMetadata = () => {
@@ -134,6 +153,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     const handleEnded = () => {
       setIsPlaying(false);
+      if (currentTrackRef.current?.id) {
+        saveListeningProgress(
+          currentTrackRef.current.id,
+          audio.duration || 0,
+          audio.duration || 0,
+          userRef.current?.id
+        );
+      }
       setCurrentTime(0);
     };
 
@@ -143,6 +170,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     const handlePause = () => {
       setIsPlaying(false);
+      if (currentTrackRef.current?.id && audio.currentTime > 0) {
+        saveListeningProgress(
+          currentTrackRef.current.id,
+          audio.currentTime,
+          audio.duration || 0,
+          userRef.current?.id
+        );
+      }
     };
 
     const handleWaiting = () => {
@@ -172,6 +207,22 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         audioRef.current.src = '';
       }
     };
+  }, []);
+
+  // Save progress on page unload
+  useEffect(() => {
+    const handleUnload = () => {
+      if (currentTrackRef.current?.id && audioRef.current) {
+        saveListeningProgress(
+          currentTrackRef.current.id,
+          audioRef.current.currentTime,
+          audioRef.current.duration || 0,
+          userRef.current?.id
+        );
+      }
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
   }, []);
 
   const loadTrack = useCallback((track: Track) => {

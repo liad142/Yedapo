@@ -101,8 +101,12 @@ export function saveListeningProgress(
 ) {
   const completed = duration > 0 && currentTime / duration >= 0.95;
 
+  // Never downgrade completed -> not completed (preserve Finished badge)
+  const existing = getLocalProgress(episodeId);
+  const isCompleted = completed || (existing?.completed ?? false);
+
   // Always save to localStorage
-  setLocalProgress(episodeId, currentTime, duration, completed);
+  setLocalProgress(episodeId, currentTime, duration, isCompleted);
 
   // Save to DB if authenticated
   if (userId) {

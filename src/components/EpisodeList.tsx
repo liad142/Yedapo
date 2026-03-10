@@ -96,11 +96,14 @@ export function EpisodeList({
   // Merge live progress for currently playing episode
   const mergedProgress = { ...progressMap };
   if (playerState?.currentTrack?.id && playerState.isPlaying) {
-    mergedProgress[playerState.currentTrack.id] = {
+    const trackId = playerState.currentTrack.id;
+    const wasCompleted = progressMap[trackId]?.completed ?? false;
+    const nowCompleted = playerState.duration > 0 && playerState.currentTime / playerState.duration >= 0.95;
+    mergedProgress[trackId] = {
       currentTime: playerState.currentTime,
       duration: playerState.duration,
       fraction: playerState.duration > 0 ? playerState.currentTime / playerState.duration : 0,
-      completed: playerState.duration > 0 && playerState.currentTime / playerState.duration >= 0.95,
+      completed: nowCompleted || wasCompleted,
     };
   }
 

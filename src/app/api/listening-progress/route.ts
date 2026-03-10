@@ -17,9 +17,25 @@ export async function POST(request: NextRequest) {
     }
 
     // Mark as completed if >= 95% through
-    const completed = duration > 0 && currentTime / duration >= 0.95;
+    const nowCompleted = duration > 0 && currentTime / duration >= 0.95;
 
-    const { error } = await createAdminClient()
+    const admin = createAdminClient();
+
+    // Never downgrade completed -> not completed (preserve Finished badge)
+    let completed = nowCompleted;
+    if (!nowCompleted) {
+      const { data: existing } = await admin
+        .from('listening_progress')
+        .select('completed')
+        .eq('user_id', user.id)
+        .eq('episode_id', episodeId)
+        .maybeSingle();
+      if (existing?.completed) {
+        completed = true;
+      }
+    }
+
+    const { error } = await admin
       .from('listening_progress')
       .upsert(
         {
@@ -28,7 +44,7 @@ export async function POST(request: NextRequest) {
           current_time_seconds: currentTime,
           duration_seconds: duration,
           completed,
-          completed_at: completed ? new Date().toISOString() : null,
+          completed_at: completed ? (nowCompleted ? new Date().toISOString() : undefined) : null,
           last_played_at: new Date().toISOString(),
         },
         { onConflict: 'user_id,episode_id' }

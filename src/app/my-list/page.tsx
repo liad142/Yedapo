@@ -424,14 +424,15 @@ function YouTubeChannelCard({
             onClick={handleUnfollow}
             disabled={isUnfollowing}
             className={cn(
-              'absolute top-3 right-3 p-2 rounded-full transition-all duration-200 z-20',
-              'bg-white/30 backdrop-blur-md border border-white/20 text-white shadow-sm',
-              'hover:bg-white/50 hover:scale-105',
-              isUnfollowing && 'opacity-50 cursor-wait'
+              'absolute top-3 right-3 p-1.5 rounded-full transition-all duration-200 z-20',
+              'bg-black/60 backdrop-blur-sm text-white',
+              'md:opacity-0 md:group-hover:opacity-100',
+              'hover:bg-black/80',
+              isUnfollowing && '!opacity-100 cursor-wait'
             )}
             aria-label="Unfollow channel"
           >
-            <X className="h-3.5 w-3.5 drop-shadow-sm" />
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
 

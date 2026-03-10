@@ -7,7 +7,6 @@ import {
   Compass,
   Library,
   BookOpen,
-  Bookmark,
   Settings,
   Menu,
   X,
@@ -23,14 +22,13 @@ import { useUnreadCount } from '@/hooks/useUnreadCount';
 import { NotificationBell } from '@/components/NotificationBell';
 import { useAuth } from '@/contexts/AuthContext';
 
-const ROOT_PATHS = ['/', '/discover', '/my-list', '/my-podcasts', '/summaries', '/saved', '/settings', '/onboarding'];
+const ROOT_PATHS = ['/', '/discover', '/my-list', '/my-podcasts', '/summaries', '/settings', '/onboarding'];
 
 // Navigation configuration - easy to edit
 const NAV_ITEMS = [
   { label: 'Discover', href: '/discover', icon: Compass },
   { label: 'My List', href: '/my-list', icon: Library },
   { label: 'Summaries', href: '/summaries', icon: BookOpen },
-  { label: 'Saved', href: '/saved', icon: Bookmark },
   { label: 'Settings', href: '/settings', icon: Settings },
 ] as const;
 
@@ -292,7 +290,6 @@ const BOTTOM_NAV_ITEMS = [
   { label: 'Discover', href: '/discover', icon: Compass },
   { label: 'My List', href: '/my-list', icon: Library },
   { label: 'Summaries', href: '/summaries', icon: BookOpen },
-  { label: 'Saved', href: '/saved', icon: Bookmark },
   { label: 'Settings', href: '/settings', icon: Settings },
 ] as const;
 

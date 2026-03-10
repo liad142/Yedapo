@@ -70,8 +70,13 @@ export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, 
     }
   }
 
+  // Link to browse page for Apple podcasts, internal page for others
+  const podcastHref = podcast.rss_feed_url?.startsWith('apple:')
+    ? `/browse/podcast/${podcast.rss_feed_url.replace('apple:', '')}`
+    : `/podcast/${podcast.id}`;
+
   return (
-    <Link href={`/podcast/${podcast.id}`} className="block h-full">
+    <Link href={podcastHref} className="block h-full">
       <div className="group h-full bg-white dark:bg-[#1e202e] dark:border dark:border-white/5 rounded-2xl overflow-hidden transition-all duration-300 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:shadow-none dark:hover:shadow-none hover:scale-[1.02]">
         <div className="relative aspect-square w-full bg-secondary">
           {imageUrl ? (

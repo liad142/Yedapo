@@ -38,7 +38,7 @@ export function StickyAudioPlayer() {
 
   const handleChaptersLoaded = useCallback((chapters: { title: string; timestamp: string; timestamp_seconds: number }[]) => {
     const p = playerRef.current;
-    if (p?.currentTrack && !p.currentTrack.chapters?.length) {
+    if (p?.currentTrack && !p.currentTrack.chapters?.length && userRef.current) {
       p.updateTrackMeta({ chapters });
     }
   }, []);
@@ -112,7 +112,7 @@ export function StickyAudioPlayer() {
         exit={{ y: 100, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className={cn(
-          'fixed bottom-5 left-4 right-4 z-[45] flex justify-center',
+          'fixed bottom-5 left-4 right-4 z-[60] flex justify-center',
           'lg:left-[17rem]' // Account for desktop sidebar
         )}
       >
@@ -139,7 +139,7 @@ export function StickyAudioPlayer() {
           )}
 
           {/* 2. Progress Bar / Chapter Scrubber — padded hit area so taps don't bleed into AskAI */}
-          {currentTrack.chapters && currentTrack.chapters.length > 0 ? (
+          {user && currentTrack.chapters && currentTrack.chapters.length > 0 ? (
             <div className="relative pt-5 pb-1 px-1 group cursor-pointer">
               <div className="relative h-2 group-hover:h-2.5 transition-all">
                 <ChapterScrubber

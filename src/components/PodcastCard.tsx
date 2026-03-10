@@ -95,20 +95,21 @@ export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, 
             </div>
           )}
 
-          {/* Remove Button - Glassmorphism */}
+          {/* Remove Button - only visible on hover */}
           {onRemove && (
             <button
               onClick={handleRemove}
               disabled={isRemoving}
               className={cn(
                 'absolute top-3 right-3 p-2 rounded-full transition-all duration-200 z-20',
-                'bg-white/30 backdrop-blur-md border border-white/20 text-white shadow-sm',
-                'hover:bg-white/50 hover:scale-105',
-                isRemoving && 'opacity-50 cursor-wait'
+                'bg-black/50 backdrop-blur-md text-white shadow-sm',
+                'opacity-0 group-hover:opacity-100',
+                'hover:bg-black/70 hover:scale-105',
+                isRemoving && '!opacity-100 cursor-wait'
               )}
               aria-label="Remove from My Podcasts"
             >
-              <X className="h-3.5 w-3.5 drop-shadow-sm" />
+              <X className="h-3.5 w-3.5" />
             </button>
           )}
         </div>

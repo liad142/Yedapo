@@ -15,7 +15,11 @@ import { useEpisodeImport } from "@/hooks/useEpisodeImport";
 import { formatDate } from "@/lib/formatters";
 import type { Podcast } from "@/types/database";
 import type { PodcastDetailEpisode } from "@/types/podcast";
-import { ArrowLeft, Mic2, Calendar, Globe, Rss } from "lucide-react";
+import { ArrowLeft, Mic2, Calendar, Globe, Rss, Heart, Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
+import { NotifyToggle } from "@/components/NotifyToggle";
+import { cn } from "@/lib/utils";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger('podcast');
@@ -23,6 +27,24 @@ const log = createLogger('podcast');
 export default function PodcastPage() {
   const params = useParams();
   const podcastId = params.id as string;
+
+  const { user } = useAuth();
+  const { subscribedPodcastIds, subscribe, unsubscribe, getNotificationPrefs, updateNotificationPrefs } = useSubscription();
+  const isSubscribed = subscribedPodcastIds?.has(podcastId) ?? false;
+  const [isTogglingSubscription, setIsTogglingSubscription] = useState(false);
+
+  const handleToggleSubscription = async () => {
+    setIsTogglingSubscription(true);
+    try {
+      if (isSubscribed) {
+        await unsubscribe(podcastId);
+      } else {
+        await subscribe(podcastId);
+      }
+    } finally {
+      setIsTogglingSubscription(false);
+    }
+  };
 
   const [podcast, setPodcast] = useState<Podcast | null>(null);
   const [episodes, setEpisodes] = useState<PodcastDetailEpisode[]>([]);
@@ -308,19 +330,49 @@ export default function PodcastPage() {
                     </p>
                   )}
 
-                  {podcast.rss_feed_url && !podcast.rss_feed_url.startsWith('apple:') && (
-                    <div className="pt-2">
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-1 pt-2 justify-center md:justify-start">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleToggleSubscription}
+                      disabled={isTogglingSubscription}
+                      className={cn(
+                        'rounded-full text-white hover:bg-white/10',
+                        isSubscribed && 'text-red-500 hover:text-red-600'
+                      )}
+                      aria-label={isSubscribed ? 'Remove from library' : 'Save to library'}
+                    >
+                      {isTogglingSubscription ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Heart className={cn('h-5 w-5', isSubscribed && 'fill-current')} />
+                      )}
+                    </Button>
+
+                    {isSubscribed && (() => {
+                      const prefs = getNotificationPrefs(podcastId);
+                      return (
+                        <NotifyToggle
+                          enabled={prefs.notifyEnabled}
+                          channels={prefs.notifyChannels}
+                          onUpdate={(enabled, channels) => updateNotificationPrefs(podcastId, enabled, channels)}
+                        />
+                      );
+                    })()}
+
+                    {podcast.rss_feed_url && !podcast.rss_feed_url.startsWith('apple:') && (
                       <a
                         href={podcast.rss_feed_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-300 hover:text-blue-200 transition-colors"
+                        className="inline-flex items-center gap-1.5 ml-2 text-xs font-medium text-blue-300 hover:text-blue-200 transition-colors"
                       >
                         <Rss className="h-3.5 w-3.5" />
                         RSS Feed
                       </a>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

@@ -49,6 +49,14 @@ export function EpisodeList({
   user,
   newEpisodesSince,
 }: EpisodeListProps) {
+  // Hooks must be called before any early returns
+  const episodeProgressIds = episodes.map(ep => {
+    const info = getEpisodeSummaryInfo(ep);
+    return info?.episodeId || ep.id;
+  }).filter((id): id is string => !!id);
+  const progressMap = useListeningProgressBatch(episodeProgressIds);
+  const playerState = useAudioPlayerSafe();
+
   // --- Loading skeletons ---
   if (isLoading) {
     return (
@@ -85,14 +93,6 @@ export function EpisodeList({
   }
 
   // --- Episode list ---
-  // Compute correct episode IDs for progress lookup (summaryInfo ID takes priority)
-  const episodeProgressIds = episodes.map(ep => {
-    const info = getEpisodeSummaryInfo(ep);
-    return info?.episodeId || ep.id;
-  }).filter((id): id is string => !!id);
-  const progressMap = useListeningProgressBatch(episodeProgressIds);
-
-  const playerState = useAudioPlayerSafe();
   // Merge live progress for currently playing episode
   const mergedProgress = { ...progressMap };
   if (playerState?.currentTrack?.id && playerState.isPlaying) {

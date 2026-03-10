@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDate, formatDuration } from '@/lib/formatters';
 import { Calendar, Check, Clock, FileText, Loader2, Sparkles } from 'lucide-react';
 import { useAudioPlayerSafe } from '@/contexts/AudioPlayerContext';
-import type { EpisodeProgress } from '@/hooks/useListeningProgress';
+import { useListeningProgressBatch, type EpisodeProgress } from '@/hooks/useListeningProgress';
 import type { PodcastDetailEpisode, SummaryAvailability } from '@/types/podcast';
 
 interface EpisodeListProps {
@@ -30,8 +30,6 @@ interface EpisodeListProps {
   user?: any;
   /** ISO date string: episodes newer than this date show a "new" indicator */
   newEpisodesSince?: string;
-  /** Map of episodeId -> listening progress */
-  progressMap?: Record<string, EpisodeProgress>;
 }
 
 export function EpisodeList({
@@ -50,7 +48,6 @@ export function EpisodeList({
   onAuthGate,
   user,
   newEpisodesSince,
-  progressMap,
 }: EpisodeListProps) {
   // --- Loading skeletons ---
   if (isLoading) {
@@ -88,9 +85,16 @@ export function EpisodeList({
   }
 
   // --- Episode list ---
+  // Compute correct episode IDs for progress lookup (summaryInfo ID takes priority)
+  const episodeProgressIds = episodes.map(ep => {
+    const info = getEpisodeSummaryInfo(ep);
+    return info?.episodeId || ep.id;
+  }).filter((id): id is string => !!id);
+  const progressMap = useListeningProgressBatch(episodeProgressIds);
+
   const playerState = useAudioPlayerSafe();
   // Merge live progress for currently playing episode
-  const mergedProgress = { ...(progressMap || {}) };
+  const mergedProgress = { ...progressMap };
   if (playerState?.currentTrack?.id && playerState.isPlaying) {
     mergedProgress[playerState.currentTrack.id] = {
       currentTime: playerState.currentTime,

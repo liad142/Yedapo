@@ -16,7 +16,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCountry } from '@/contexts/CountryContext';
-import { useListeningProgressBatch } from '@/hooks/useListeningProgress';
 import { cn } from '@/lib/utils';
 import type { PodcastDetailEpisode } from '@/types/podcast';
 
@@ -103,11 +102,6 @@ export default function PodcastPage({ params }: PageProps) {
     setSummaryAvailability,
     addToQueue
   );
-
-  const episodeIds = episodes
-    .map(ep => ep.id)
-    .filter((id): id is string => !!id && id.includes('-'));
-  const progressMap = useListeningProgressBatch(episodeIds);
 
   const fetchPodcast = useCallback(async () => {
     setIsLoadingPodcast(true);
@@ -357,7 +351,6 @@ export default function PodcastPage({ params }: PageProps) {
                 onAuthGate={() => setShowAuthModal(true, 'Sign up to generate AI summaries and insights for any episode.')}
                 user={user}
                 newEpisodesSince={isSubscribed ? getLastViewedAt(podcastId) ?? undefined : undefined}
-                progressMap={progressMap}
               />
             </div>
           </div>

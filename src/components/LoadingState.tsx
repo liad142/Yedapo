@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, Headphones, FileText, Sparkles } from "lucide-react";
@@ -9,10 +10,27 @@ interface LoadingStateProps {
   message?: string;
 }
 
+const ROTATING_MESSAGES = [
+  "Listening to your episode...",
+  "Finding key insights...",
+  "Polishing the summary...",
+  "Extracting the best moments...",
+  "Almost there...",
+];
+
 export function LoadingState({
   stage = "loading",
   message,
 }: LoadingStateProps) {
+  const [messageIndex, setMessageIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMessageIndex((prev) => (prev + 1) % ROTATING_MESSAGES.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
   const stages = {
     transcribing: {
       icon: Headphones,
@@ -51,6 +69,12 @@ export function LoadingState({
           <h3 className="text-xl font-semibold">{currentStage.title}</h3>
           <p className="text-sm text-muted-foreground mt-1">
             {currentStage.description}
+          </p>
+          <p
+            key={messageIndex}
+            className="text-xs text-primary/70 mt-2 animate-pulse transition-opacity"
+          >
+            {ROTATING_MESSAGES[messageIndex]}
           </p>
         </CardHeader>
         <CardContent className="space-y-4">

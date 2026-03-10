@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requestSummary, checkExistingSummary, getSummariesStatus } from "@/lib/summary-service";
 import { getAuthUser } from "@/lib/auth-helpers";
 import { resolvePodcastLanguage } from "@/lib/language-utils";
-import { checkPlanQuota, isAdminEmail, checkRateLimit, deleteCached, CacheKeys } from "@/lib/cache";
+import { checkPlanQuota, checkRateLimit, deleteCached, CacheKeys } from "@/lib/cache";
+import { isAdminEmail } from "@/lib/admin";
 import { getUserPlan } from "@/lib/user-plan";
 import { PLAN_LIMITS } from "@/lib/plans";
 import { createLogger } from "@/lib/logger";
 import type { SummaryLevel } from "@/types/database";
 
 const log = createLogger('summary');
+
+export const maxDuration = 300;
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -67,6 +69,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Invalidate stale insights cache so polling picks up new generation state
     await deleteCached(CacheKeys.insightsStatus(id, 'en')).catch(() => {});
+
+    const supabase = createAdminClient();
 
     // Get episode with podcast info - language comes from RSS feed
     log.info('Fetching episode and podcast from DB...');

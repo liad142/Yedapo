@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCached, setCached } from "@/lib/cache";
 import type { QuickSummaryContent, DeepSummaryContent, InsightsContent } from "@/types/database";
 
 const MAX_TRANSCRIPT_CHARS = 100_000;
@@ -9,6 +10,11 @@ const MAX_TRANSCRIPT_CHARS = 100_000;
  * Returns null if no transcript exists for the episode.
  */
 export async function buildEpisodeContext(episodeId: string): Promise<string | null> {
+  // Check cache first
+  const cacheKey = `askai:context:${episodeId}`;
+  const cached = await getCached<string>(cacheKey);
+  if (cached) return cached;
+
   const supabase = createAdminClient();
 
   // Fetch transcript and all summaries in parallel
@@ -79,5 +85,10 @@ ${ic.highlights.map((h) => `> "${h.quote}"\n  Context: ${h.context}`).join("\n\n
   const cappedTranscript = transcriptText.slice(0, MAX_TRANSCRIPT_CHARS);
   parts.push(`\n--- FULL TRANSCRIPT ---\n${cappedTranscript}`);
 
-  return parts.join("\n");
+  const result = parts.join("\n");
+
+  // Cache for 30 minutes
+  await setCached(cacheKey, result, 1800);
+
+  return result;
 }

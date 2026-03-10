@@ -29,15 +29,17 @@
   --color-text-secondary: hsl(var(--text-secondary));
   --color-text-tertiary: hsl(var(--text-tertiary));
   --color-primary-subtle: var(--primary-subtle);
-  --color-accent-green: hsl(var(--accent-green));
-  --color-accent-green-hover: hsl(var(--accent-green-hover));
+  --color-accent-brand: hsl(var(--accent-brand));
+  --color-accent-brand-hover: hsl(var(--accent-brand-hover));
   --color-accent-amber: hsl(var(--accent-amber));
   --color-accent-amber-subtle: var(--accent-amber-subtle);
   --color-destructive-subtle: var(--destructive-subtle);
   --color-border-strong: hsl(var(--border-strong));
-  --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
   --shadow-1: var(--shadow-1);
   --shadow-2: var(--shadow-2);
   --shadow-3: var(--shadow-3);
@@ -51,12 +53,12 @@
   --card-foreground: 0 0% 3.9%;
   --popover: 0 0% 100%;
   --popover-foreground: 0 0% 3.9%;
-  --primary: 200 70% 50%;
+  --primary: 200 70% 35%;
   --primary-foreground: 0 0% 100%;
   --secondary: 200 20% 96%;
   --secondary-foreground: 200 25% 15%;
   --muted: 200 15% 95%;
-  --muted-foreground: 200 10% 45%;
+  --muted-foreground: 200 10% 38%;
   --accent: 200 20% 96%;
   --accent-foreground: 200 25% 15%;
   --destructive: 0 72.2% 50.6%;
@@ -66,6 +68,18 @@
   --ring: 200 70% 50%;
   --radius: 0.75rem;
 
+  /* Animation duration tokens */
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+
+  /* Border-radius tokens */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+
   /* Surface tokens */
   --surface-1: 0 0% 100%;
   --surface-2: 240 4.8% 95.9%;
@@ -74,12 +88,12 @@
   /* Text tokens */
   --text-primary: 0 0% 3.9%;
   --text-secondary: 240 3.8% 46.1%;
-  --text-tertiary: 240 5% 64.9%;
+  --text-tertiary: 240 5% 40%;
 
   /* Accent tokens */
   --primary-subtle: rgba(56, 163, 209, 0.08);
-  --accent-green: 200 70% 50%;
-  --accent-green-hover: 200 70% 42%;
+  --accent-brand: 200 70% 50%;
+  --accent-brand-hover: 200 70% 42%;
   --accent-amber: 38 92% 50%;
   --accent-amber-subtle: rgba(245, 158, 11, 0.1);
   --destructive-subtle: rgba(220, 38, 38, 0.08);
@@ -101,7 +115,7 @@
   --card-foreground: 0 0% 98%;
   --popover: 240 5.9% 10%;
   --popover-foreground: 0 0% 98%;
-  --primary: 200 75% 62%;
+  --primary: 200 75% 45%;
   --primary-foreground: 0 0% 100%;
   --secondary: 200 10% 16%;
   --secondary-foreground: 0 0% 98%;
@@ -123,12 +137,12 @@
   /* Text tokens */
   --text-primary: 0 0% 98%;
   --text-secondary: 240 5% 64.9%;
-  --text-tertiary: 240 3.8% 46.1%;
+  --text-tertiary: 240 3.8% 55%;
 
   /* Accent tokens */
   --primary-subtle: rgba(74, 186, 230, 0.12);
-  --accent-green: 200 75% 62%;
-  --accent-green-hover: 200 75% 52%;
+  --accent-brand: 200 75% 62%;
+  --accent-brand-hover: 200 75% 52%;
   --accent-amber: 38 92% 50%;
   --accent-amber-subtle: rgba(245, 158, 11, 0.15);
   --destructive-subtle: rgba(239, 68, 68, 0.12);
@@ -273,4 +287,13 @@ html:not(.dark) {
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

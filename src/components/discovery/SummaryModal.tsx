@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import posthog from 'posthog-js';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -93,6 +93,40 @@ export function SummaryModal({
     return () => { document.body.style.overflow = ''; };
   }, []);
 
+  // Focus trap
+  const modalRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = modalRef.current;
+    if (!el) return;
+    const focusable = el.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length > 0) focusable[0].focus();
+  }, []);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab') return;
+    const el = modalRef.current;
+    if (!el) return;
+    const focusable = el.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }, []);
+
   // Build track with chapters (only for authenticated users)
   const track = useMemo(() => {
     let chapters: { title: string; timestamp: string; timestamp_seconds: number }[] | undefined;
@@ -140,7 +174,7 @@ export function SummaryModal({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[55] flex items-center justify-center p-4">
         {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -153,6 +187,11 @@ export function SummaryModal({
 
         {/* Modal */}
         <motion.div
+          ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="summary-modal-title"
+          onKeyDown={handleKeyDown}
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -200,7 +239,7 @@ export function SummaryModal({
                 )}
                 <div className="flex-1 min-w-0 pt-1">
                   <p className="text-sm text-muted-foreground truncate">{podcastName}</p>
-                  <h2 className="text-lg font-bold text-foreground line-clamp-2 leading-snug mt-1">
+                  <h2 id="summary-modal-title" className="text-lg font-bold text-foreground line-clamp-2 leading-snug mt-1">
                     {title}
                   </h2>
                   {durationSeconds ? (

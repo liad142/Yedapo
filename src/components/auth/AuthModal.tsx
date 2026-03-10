@@ -7,6 +7,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
+import { createClient } from '@/lib/supabase/client';
+
+/** Map common Supabase error messages to user-friendly text */
+function friendlyError(msg: string): string {
+  const map: Record<string, string> = {
+    'Invalid login credentials': 'Incorrect email or password. Please try again.',
+    'Email not confirmed': 'Please check your email and confirm your account first.',
+    'User already registered': 'An account with this email already exists. Try signing in.',
+    'Password should be at least 6 characters': 'Password must be at least 6 characters.',
+    'Email rate limit exceeded': 'Too many attempts. Please wait a moment and try again.',
+  };
+  return map[msg] || msg;
+}
 
 export function AuthModal() {
   const { showAuthModal, setShowAuthModal, signUpOrIn, signInWithGoogle, authPromptMessage } = useAuth();
@@ -56,6 +69,28 @@ export function AuthModal() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError('Please enter your email address first.');
+      return;
+    }
+    setError(null);
+    setIsLoading(true);
+    try {
+      const supabase = createClient();
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
+      if (resetError) {
+        setError(resetError.message);
+      } else {
+        setSuccessMessage('Password reset link sent! Check your email.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     setError(null);
     const result = await signInWithGoogle();
@@ -72,7 +107,7 @@ export function AuthModal() {
         <div className="p-6">
           <DialogHeader className="p-0 mb-6">
             <DialogTitle className="text-xl text-center">
-              Get Started
+              Sign In or Create Account
             </DialogTitle>
           </DialogHeader>
 
@@ -129,8 +164,10 @@ export function AuthModal() {
           {/* Email Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="relative">
+              <label htmlFor="auth-display-name" className="sr-only">Display name</label>
               <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
+                id="auth-display-name"
                 type="text"
                 placeholder="Display name (optional)"
                 value={displayName}
@@ -141,8 +178,10 @@ export function AuthModal() {
             </div>
 
             <div className="relative">
+              <label htmlFor="auth-email" className="sr-only">Email</label>
               <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
+                id="auth-email"
                 type="email"
                 placeholder="Email"
                 value={email}
@@ -154,8 +193,10 @@ export function AuthModal() {
             </div>
 
             <div className="relative">
+              <label htmlFor="auth-password" className="sr-only">Password</label>
               <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
+                id="auth-password"
                 type="password"
                 placeholder="Password"
                 value={password}
@@ -167,12 +208,25 @@ export function AuthModal() {
               />
             </div>
 
+            <div className="text-right">
+              <a
+                href="/auth/forgot-password"
+                className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleForgotPassword();
+                }}
+              >
+                Forgot password?
+              </a>
+            </div>
+
             {error && (
-              <p className="text-sm text-red-500 text-center">{error}</p>
+              <p className="text-sm text-red-500 text-center" role="alert">{friendlyError(error)}</p>
             )}
 
             {successMessage && (
-              <p className="text-sm text-green-600 dark:text-green-400 text-center">{successMessage}</p>
+              <p className="text-sm text-green-600 dark:text-green-400 text-center" role="status">{successMessage}</p>
             )}
 
             <Button
@@ -183,7 +237,7 @@ export function AuthModal() {
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : null}
-              Sign Up
+              Continue
             </Button>
           </form>
         </div>

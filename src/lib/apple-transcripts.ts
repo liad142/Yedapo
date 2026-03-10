@@ -52,7 +52,7 @@ export async function searchAppleEpisode(
     });
 
     if (!response.ok) {
-      log.info('iTunes search failed', { status: response.status });
+      log.warn('iTunes search failed', { status: response.status });
       return null;
     }
 
@@ -78,7 +78,7 @@ export async function searchAppleEpisode(
     return null;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    log.info('iTunes search error', { error: errorMsg });
+    log.error('iTunes search error', { error: errorMsg });
     return null;
   }
 }
@@ -174,7 +174,7 @@ export async function fetchAppleTranscript(
     });
 
     if (response.status === 401 || response.status === 403) {
-      log.info('Apple bearer token expired or invalid', { status: response.status });
+      log.warn('Apple bearer token expired or invalid', { status: response.status });
       return null;
     }
 
@@ -184,7 +184,7 @@ export async function fetchAppleTranscript(
     }
 
     if (!response.ok) {
-      log.info('Apple transcript API error', { status: response.status });
+      log.warn('Apple transcript API error', { status: response.status });
       return null;
     }
 
@@ -214,7 +214,7 @@ export async function fetchAppleTranscript(
     });
 
     if (!ttmlResponse.ok) {
-      log.info('Failed to fetch TTML file', { status: ttmlResponse.status });
+      log.warn('Failed to fetch TTML file', { status: ttmlResponse.status });
       return null;
     }
 
@@ -229,7 +229,7 @@ export async function fetchAppleTranscript(
     return null;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    log.info('Apple transcript fetch error', { error: errorMsg });
+    log.error('Apple transcript fetch error', { error: errorMsg });
     return null;
   }
 }

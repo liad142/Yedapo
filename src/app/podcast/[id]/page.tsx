@@ -8,7 +8,7 @@ import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EpisodeList } from "@/components/EpisodeList";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import { useSummarizeQueue } from "@/contexts/SummarizeQueueContext";
 import { useSummaryAvailability } from "@/hooks/useSummaryAvailability";
 import { useEpisodeImport } from "@/hooks/useEpisodeImport";
@@ -26,6 +26,7 @@ const log = createLogger('podcast');
 
 export default function PodcastPage() {
   const params = useParams();
+  const supabase = createClient();
   const podcastId = params.id as string;
 
   const { user } = useAuth();
@@ -221,7 +222,7 @@ export default function PodcastPage() {
             <p className="text-destructive">{error}</p>
             <Link href="/my-list">
               <Button variant="outline" className="mt-4">
-                Return to My Podcasts
+                Return to My List
               </Button>
             </Link>
           </div>
@@ -239,7 +240,7 @@ export default function PodcastPage() {
           <Link href="/my-list">
             <Button variant="ghost" className="-ml-2">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to My Podcasts
+              Back to My List
             </Button>
           </Link>
         </div>
@@ -298,7 +299,7 @@ export default function PodcastPage() {
 
                 <div className="flex-1 space-y-4">
                   <div>
-                    <h1 className="text-3xl md:text-5xl font-bold text-white mb-3 tracking-tight leading-tight drop-shadow-sm">
+                    <h1 className="text-h1 md:text-display text-white mb-3 tracking-tight leading-tight drop-shadow-sm">
                       {podcast.title}
                     </h1>
                     {podcast.author && (
@@ -379,7 +380,7 @@ export default function PodcastPage() {
 
             {/* Episodes Section */}
             <section className="bg-secondary/50 md:bg-transparent -mx-4 px-4 py-8 md:px-0 md:mx-0 md:py-0">
-              <h2 className="text-2xl font-bold tracking-tight text-foreground mb-6">Episodes</h2>
+              <h2 className="text-h2 tracking-tight text-foreground mb-6">Episodes</h2>
 
               <EpisodeList
                 episodes={episodes}
@@ -402,7 +403,7 @@ export default function PodcastPage() {
             <p className="text-muted-foreground">Podcast not found</p>
             <Link href="/my-list">
               <Button variant="outline" className="mt-4">
-                Return to My Podcasts
+                Return to My List
               </Button>
             </Link>
           </div>

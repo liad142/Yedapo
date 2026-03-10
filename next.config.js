@@ -46,6 +46,7 @@ const nextConfig = {
     ],
   },
   async headers() {
+    const scriptSrc = `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''} https://va.vercel-scripts.com https://us-assets.i.posthog.com https://www.youtube.com`;
     return [
       {
         source: "/(.*)",
@@ -58,7 +59,7 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com https://us-assets.i.posthog.com https://www.youtube.com",
+              scriptSrc,
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https:",
               "media-src *",
@@ -67,6 +68,7 @@ const nextConfig = {
               "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com",
             ].join("; "),
           },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
         ],
       },
     ];

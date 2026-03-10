@@ -4,6 +4,7 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { springBouncy } from '@/lib/motion';
 import { Heart, BookOpen, Target, Clock } from 'lucide-react';
 import { DiscoverySummarizeButton } from './DiscoverySummarizeButton';
 import { PlayButton, InlinePlayButton } from '@/components/PlayButton';
@@ -96,7 +97,8 @@ export const InsightCard = React.memo(function InsightCard({
   return (
     <motion.article
       initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
       className="bg-card border border-border rounded-2xl shadow-[var(--shadow-1)] p-5"
     >
       {/* Header: Podcast Info */}
@@ -129,14 +131,16 @@ export const InsightCard = React.memo(function InsightCard({
             {formatDate(publishedAt)}
           </p>
         </div>
-        <button
+        <motion.button
           onClick={handleSubscribe}
           disabled={isLoading}
           className="p-2 rounded-full transition-all cursor-pointer"
           title={subscribed ? 'Unsubscribe' : 'Subscribe'}
+          whileTap={{ scale: 1.3 }}
+          transition={springBouncy}
         >
           <Heart className={`h-5 w-5 ${subscribed ? 'fill-current text-red-500' : 'text-muted-foreground'}`} />
-        </button>
+        </motion.button>
       </div>
 
       {/* Main Content: Episode Title */}

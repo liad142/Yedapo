@@ -1,3 +1,16 @@
+/* ── Z-index scale ─────────────────────────────────────── */
+export const zIndex = {
+  zBase: 0,
+  zSticky: 10,
+  zNav: 30,
+  zHeader: 40,
+  zPlayer: 45,
+  zOverlay: 50,
+  zModal: 55,
+  zToast: 60,
+  zTop: 99,
+} as const;
+
 export const elevation = {
   // Card/Panel surfaces
   card: "bg-card border border-border shadow-[var(--shadow-1)] rounded-2xl",

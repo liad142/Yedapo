@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import posthog from 'posthog-js';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -225,19 +225,21 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const value = useMemo(() => ({
+    subscribedPodcastIds,
+    subscribedAppleIds,
+    isLoading,
+    isSubscribed,
+    subscribe,
+    unsubscribe,
+    refreshSubscriptions,
+    getNotificationPrefs,
+    updateNotificationPrefs,
+    getLastViewedAt,
+  }), [subscribedPodcastIds, subscribedAppleIds, isLoading, isSubscribed, subscribe, unsubscribe, refreshSubscriptions, getNotificationPrefs, updateNotificationPrefs, getLastViewedAt]);
+
   return (
-    <SubscriptionContext.Provider value={{
-      subscribedPodcastIds,
-      subscribedAppleIds,
-      isLoading,
-      isSubscribed,
-      subscribe,
-      unsubscribe,
-      refreshSubscriptions,
-      getNotificationPrefs,
-      updateNotificationPrefs,
-      getLastViewedAt,
-    }}>
+    <SubscriptionContext.Provider value={value}>
       {children}
     </SubscriptionContext.Provider>
   );

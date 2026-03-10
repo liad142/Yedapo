@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { SafeImage } from '@/components/SafeImage';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, Heart } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { springBouncy } from '@/lib/motion';
 import { EpisodeList } from '@/components/EpisodeList';
 import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -290,23 +292,29 @@ export default function PodcastPage({ params }: PageProps) {
                 {/* Action Buttons */}
                 <div className="flex items-center gap-1 pt-2 justify-center md:justify-start">
                   {!isPiPodcast && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleToggleSubscription}
-                      disabled={isTogglingSubscription}
-                      className={cn(
-                        'rounded-full',
-                        isSubscribed && 'text-red-500 hover:text-red-600'
-                      )}
-                      aria-label={isSubscribed ? 'Remove from library' : 'Save to library'}
+                    <motion.div
+                      whileTap={{ scale: 1.3 }}
+                      transition={isSubscribed ? { duration: 0.4, ease: 'easeInOut' } : springBouncy}
+                      animate={isSubscribed ? { scale: [1, 1.25, 1] } : undefined}
                     >
-                      {isTogglingSubscription ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                      ) : (
-                        <Heart className={cn('h-5 w-5', isSubscribed && 'fill-current')} />
-                      )}
-                    </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleToggleSubscription}
+                        disabled={isTogglingSubscription}
+                        className={cn(
+                          'rounded-full',
+                          isSubscribed && 'text-red-500 hover:text-red-600'
+                        )}
+                        aria-label={isSubscribed ? 'Remove from library' : 'Save to library'}
+                      >
+                        {isTogglingSubscription ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <Heart className={cn('h-5 w-5', isSubscribed && 'fill-current')} />
+                        )}
+                      </Button>
+                    </motion.div>
                   )}
 
                   {/* Secondary actions — icon row, scales with future integrations (Notion, etc.) */}

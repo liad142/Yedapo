@@ -289,7 +289,8 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
         {isQuickReady && (
           <motion.section
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
             transition={{ duration: 0.4 }}
             dir={isRTL ? "rtl" : "ltr"}
           >
@@ -307,7 +308,8 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
             {/* CTA card — scrolls naturally, visible at the top then gone */}
             <motion.section
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
               transition={{ duration: 0.4, delay: 0.05 }}
             >
               <div className="bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl shadow-black/20 p-6 text-center space-y-4 max-w-sm mx-auto">
@@ -333,7 +335,8 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
             {/* Blurred real content — tap anywhere to open auth modal */}
             <motion.section
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
               transition={{ duration: 0.4, delay: 0.1 }}
             >
               <div className="relative overflow-hidden">
@@ -418,7 +421,8 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
             {!isDeepReady && !isGenerating && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: 0.05 }}
               >
                 <div className="text-center max-w-md mx-auto space-y-6 py-8">
@@ -446,7 +450,8 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
             {isDeepReady && deepContent!.comprehensive_overview && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: 0.05 }}
                 dir={isRTL ? "rtl" : "ltr"}
               >
@@ -464,7 +469,8 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
             {isDeepReady && deepContent!.core_concepts?.length > 0 && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: 0.1 }}
                 dir={isRTL ? "rtl" : "ltr"}
               >
@@ -482,7 +488,8 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
             {isDeepReady && deepContent!.chronological_breakdown?.length > 0 && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: 0.15 }}
                 dir={isRTL ? "rtl" : "ltr"}
               >
@@ -518,7 +525,8 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
             {isYouTube && ytMeta?.pinned_comment && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: 0.17 }}
               >
                 <PinnedComment comment={ytMeta.pinned_comment} isRTL={isRTL} />
@@ -529,7 +537,8 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
             {isDeepReady && deepContent!.contrarian_views?.length > 0 && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: 0.2 }}
                 dir={isRTL ? "rtl" : "ltr"}
               >
@@ -568,7 +577,8 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
         {/* --- Section 8: Discussion / Comments --- */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
           transition={{ duration: 0.4, delay: 0.25 }}
         >
           <CommentsSection episodeId={episode.id} />

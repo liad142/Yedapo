@@ -50,7 +50,8 @@ function BriefCard({ item, index }: { item: BriefItem; index: number }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
       transition={{ delay: index * 0.05, duration: 0.3 }}
       className="rounded-xl bg-card border border-border hover:border-primary/30 hover:shadow-[var(--shadow-2)] p-4 cursor-pointer transition-all duration-200"
       role="button"
@@ -67,7 +68,7 @@ function BriefCard({ item, index }: { item: BriefItem; index: number }) {
       </div>
 
       {/* Content */}
-      <p className="text-sm font-semibold text-foreground line-clamp-1 mb-1">
+      <p className="text-h4 text-foreground line-clamp-1 mb-1">
         {item.headline}
       </p>
       <p className="text-xs text-muted-foreground line-clamp-2 min-h-[2lh]">
@@ -86,14 +87,14 @@ function BriefCard({ item, index }: { item: BriefItem; index: number }) {
           ) : (
             <div className="w-4 h-4 rounded-full bg-secondary flex-shrink-0" />
           )}
-          <span className="text-[11px] text-muted-foreground truncate">
+          <span className="text-caption text-muted-foreground truncate">
             {item.source.name}
           </span>
         </div>
         {item.timestamp && (
           <button
             onClick={handleTimestampClick}
-            className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors cursor-pointer"
+            className="text-caption font-medium text-primary hover:text-primary/80 transition-colors cursor-pointer"
           >
             @{item.timestamp}
           </button>
@@ -195,7 +196,8 @@ export function TodaysInsights() {
   return (
     <motion.section
       initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
       transition={{ duration: 0.4 }}
     >
       <div className="relative rounded-2xl overflow-hidden bg-secondary/60 dark:bg-secondary/40 border border-border">
@@ -205,14 +207,14 @@ export function TodaysInsights() {
         <div className="relative px-6 py-6 sm:px-8 sm:py-8">
           {/* Header row */}
           <div className="flex items-start justify-between gap-4 mb-1.5">
-            <h2 className="text-lg sm:text-xl font-bold text-foreground tracking-tight">
+            <h2 className="text-h3 text-foreground tracking-tight">
               Today&apos;s Brief
             </h2>
           </div>
 
           {/* Date + count */}
           <div className="flex items-center gap-3 mb-5">
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+            <span className="inline-flex items-center gap-1 text-caption font-medium text-muted-foreground">
               <Zap className="h-3 w-3 text-amber-500 dark:text-amber-400" />
               {displayDate} &middot; {data.items.length} items
             </span>
@@ -220,7 +222,7 @@ export function TodaysInsights() {
 
           {/* Stale data banner */}
           {data.isStale && (
-            <div className="text-[11px] text-muted-foreground bg-amber-500/5 border border-amber-500/10 rounded-lg px-3 py-1.5 mb-3">
+            <div className="text-caption text-muted-foreground bg-amber-500/5 border border-amber-500/10 rounded-lg px-3 py-1.5 mb-3">
               Showing latest brief from {formatDate(data.date)}
             </div>
           )}

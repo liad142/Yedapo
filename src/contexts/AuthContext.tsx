@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import posthog from 'posthog-js';
 import { createClient } from '@/lib/supabase/client';
 import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
@@ -24,6 +24,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+const supabase = createClient();
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -32,8 +34,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authPromptMessage, setAuthPromptMessage] = useState<string | null>(null);
   const [showCompactPromptState, setShowCompactPromptState] = useState(false);
   const [compactPromptMessage, setCompactPromptMessage] = useState<string | null>(null);
-
-  const supabase = createClient();
 
   const setShowAuthModal = useCallback((show: boolean, message?: string) => {
     setShowAuthModalState(show);
@@ -166,23 +166,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
   }, []);
 
+  const value = useMemo(() => ({
+    user,
+    session,
+    isLoading,
+    signIn,
+    signUp,
+    signUpOrIn,
+    signInWithGoogle,
+    signOut,
+    showAuthModal: showAuthModalState,
+    setShowAuthModal,
+    authPromptMessage,
+    showCompactPrompt: showCompactPromptState,
+    setShowCompactPrompt,
+    compactPromptMessage,
+  }), [user, session, isLoading, signIn, signUp, signUpOrIn, signInWithGoogle, signOut, showAuthModalState, setShowAuthModal, authPromptMessage, showCompactPromptState, setShowCompactPrompt, compactPromptMessage]);
+
   return (
-    <AuthContext.Provider value={{
-      user,
-      session,
-      isLoading,
-      signIn,
-      signUp,
-      signUpOrIn,
-      signInWithGoogle,
-      signOut,
-      showAuthModal: showAuthModalState,
-      setShowAuthModal,
-      authPromptMessage,
-      showCompactPrompt: showCompactPromptState,
-      setShowCompactPrompt,
-      compactPromptMessage,
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

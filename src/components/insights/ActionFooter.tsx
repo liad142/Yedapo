@@ -102,8 +102,15 @@ function getResourceIcon(type: string) {
 }
 
 // localStorage key for checked state
+const STORAGE_PREFIX = 'yedapo:actions:';
+const LEGACY_STORAGE_PREFIX = 'podcatch:actions:';
+
 function getStorageKey(episodeId: string) {
-  return `podcatch:actions:${episodeId}`;
+  return `${STORAGE_PREFIX}${episodeId}`;
+}
+
+function getLegacyStorageKey(episodeId: string) {
+  return `${LEGACY_STORAGE_PREFIX}${episodeId}`;
 }
 
 export function ActionFooter({ episode, actionPrompts, summaryReady = false }: ActionFooterProps) {
@@ -123,7 +130,14 @@ export function ActionFooter({ episode, actionPrompts, summaryReady = false }: A
   // Load checked state from localStorage
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(getStorageKey(episode.id));
+      let stored = localStorage.getItem(getStorageKey(episode.id));
+      if (!stored) {
+        const legacy = localStorage.getItem(getLegacyStorageKey(episode.id));
+        if (legacy) {
+          stored = legacy;
+          localStorage.setItem(getStorageKey(episode.id), legacy);
+        }
+      }
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
@@ -162,7 +176,8 @@ export function ActionFooter({ episode, actionPrompts, summaryReady = false }: A
     <div>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
         transition={{ duration: 0.4, delay: 0.4 }}
         className="space-y-5"
       >

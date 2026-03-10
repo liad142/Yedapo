@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCached, setCached, CacheKeys, CacheTTL } from "@/lib/cache";
 
 interface RouteParams {
@@ -27,6 +27,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },
       });
     }
+
+    const supabase = createAdminClient();
 
     // Fetch episode with transcript and summaries in a single query
     const { data: episode, error: episodeError } = await supabase

@@ -119,7 +119,7 @@ export function SummaryPanel({ episodeId, episodeTitle, onClose, onChapterClick,
       {/* Header */}
       <div className="border-b p-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold line-clamp-1">{episodeTitle || 'Episode Summary'}</h2>
+          <h2 className="text-h3 line-clamp-1">{episodeTitle || 'Episode Summary'}</h2>
           {onClose && (
             <Button variant="ghost" size="sm" onClick={onClose}>
               Close
@@ -201,7 +201,7 @@ function SummaryLimitReached() {
   const resetTime = getTimeUntilReset();
   return (
     <div className="space-y-3">
-      <p className="text-sm font-medium text-red-500 dark:text-red-400">Daily limit reached</p>
+      <p className="text-h4 text-red-500 dark:text-red-400">Daily limit reached</p>
       <p className="text-xs text-muted-foreground">
         Resets in {resetTime}
       </p>
@@ -222,7 +222,7 @@ function GuestSummaryGate({ onSignUp }: { onSignUp: () => void }) {
       <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
         <Lock className="h-8 w-8 text-primary" />
       </div>
-      <h3 className="text-lg font-semibold">Summaries for Members</h3>
+      <h3 className="text-h3">Summaries for Members</h3>
       <p className="text-muted-foreground text-sm max-w-xs mx-auto">
         Sign up to access AI-generated summaries, key insights, and deep analysis for any episode.
       </p>
@@ -278,7 +278,7 @@ function QuickSummaryView({
     return (
       <div className="text-center py-12">
         <Zap className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-        <h3 className="text-lg font-semibold mb-2">Quick Summary</h3>
+        <h3 className="text-h3 mb-2">Quick Summary</h3>
         <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
           Get the key points in 30 seconds. Perfect for deciding if this episode is for you.
         </p>
@@ -295,7 +295,7 @@ function QuickSummaryView({
               Create Quick Summary
             </Button>
             {summaryUsage && summaryUsage.limit !== -1 && (
-              <p className="text-[11px] text-muted-foreground mt-2">
+              <p className="text-caption text-muted-foreground mt-2">
                 {summaryUsage.limit - summaryUsage.used} summaries left today
               </p>
             )}
@@ -311,7 +311,7 @@ function QuickSummaryView({
       {summary.hook_headline && (
         <Card className="border-primary/50">
           <CardContent className="pt-6">
-            <h2 className="text-xl font-bold">{summary.hook_headline}</h2>
+            <h2 className="text-h3">{summary.hook_headline}</h2>
           </CardContent>
         </Card>
       )}
@@ -421,7 +421,7 @@ function DeepSummaryView({
     return (
       <div className="text-center py-12">
         <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-        <h3 className="text-lg font-semibold mb-2">Deep Analysis</h3>
+        <h3 className="text-h3 mb-2">Deep Analysis</h3>
         <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
           Get a structured breakdown with sections, resources, and actionable next steps.
         </p>
@@ -438,7 +438,7 @@ function DeepSummaryView({
               Generate Deep Analysis
             </Button>
             {summaryUsage && summaryUsage.limit !== -1 && (
-              <p className="text-[11px] text-muted-foreground mt-2">
+              <p className="text-caption text-muted-foreground mt-2">
                 {summaryUsage.limit - summaryUsage.used} summaries left today
               </p>
             )}

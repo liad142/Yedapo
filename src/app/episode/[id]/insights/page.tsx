@@ -7,7 +7,7 @@ import { Header } from "@/components/Header";
 import { EpisodeSmartFeed } from "@/components/insights/EpisodeSmartFeed";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import type { Episode, Podcast } from "@/types/database";
 import { Clock, Calendar, ChevronRight, Share2 } from "lucide-react";
 import { YouTubeLogo } from "@/components/YouTubeLogo";
@@ -22,6 +22,7 @@ interface EpisodeData extends Episode {
 export default function EpisodeInsightsPage() {
   const params = useParams();
   const router = useRouter();
+  const supabase = createClient();
   const episodeId = params.id as string;
 
   const [episode, setEpisode] = useState<EpisodeData | null>(null);

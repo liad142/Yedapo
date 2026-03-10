@@ -79,7 +79,7 @@ export default function DMCAPage() {
               <div>
                 <p className="text-sm font-medium text-foreground">Email</p>
                 <p className="text-sm text-muted-foreground">
-                  Send your DMCA notice to: <strong className="text-foreground">dmca@podcatch.app</strong>
+                  Send your DMCA notice to: <strong className="text-foreground">dmca@yedapo.com</strong>
                 </p>
               </div>
             </div>
@@ -121,7 +121,7 @@ export default function DMCAPage() {
             <div>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 If you are a podcast creator and would like your show excluded from Yedapo entirely,
-                you can contact us at <strong className="text-foreground">dmca@podcatch.app</strong> with
+                you can contact us at <strong className="text-foreground">dmca@yedapo.com</strong> with
                 your show details. We will add your show to our exclusion list within 5 business days.
               </p>
             </div>

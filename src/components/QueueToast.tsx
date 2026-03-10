@@ -38,9 +38,9 @@ export function QueueToast() {
           initial={{ opacity: 0, y: 50, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.9 }}
-          className="fixed bottom-4 right-4 z-50"
+          className="fixed bottom-4 right-4 z-[60]"
         >
-          <div className="bg-card border rounded-lg shadow-lg p-4 flex items-center gap-3 min-w-[280px]">
+          <div role="status" aria-live="polite" className="bg-card border rounded-lg shadow-lg p-4 flex items-center gap-3 min-w-[280px]">
             <div className={`flex-shrink-0 ${stats.failed > 0 ? 'text-amber-500' : 'text-green-500'}`}>
               {stats.failed > 0 ? (
                 <div className="relative">
@@ -66,6 +66,7 @@ export function QueueToast() {
 
             <button
               onClick={handleDismiss}
+              aria-label="Dismiss notification"
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
               <X className="h-4 w-4" />

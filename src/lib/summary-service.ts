@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI, type GenerativeModel } from "@google/generative-ai";
 import { createAdminClient } from "@/lib/supabase/admin";
 const supabase = createAdminClient();
 import { transcribeFromUrl, formatTranscriptWithTimestamps, formatTranscriptWithSpeakerNames } from "./deepgram";
@@ -8,6 +7,9 @@ import { extractYouTubeVideoId } from "@/lib/youtube/utils";
 import { fetchYouTubeTranscript } from "@/lib/youtube/transcripts";
 import type { YouTubeMetadata } from "@/lib/youtube/transcripts";
 import { ensureYouTubeMetadata } from "@/lib/youtube/metadata";
+import { acquireLock, releaseLock } from '@/lib/cache';
+import { repairJsonString } from '@/lib/json-repair';
+import { getModel, DEFAULT_MODELS } from '@/lib/gemini';
 import type { DiarizedTranscript } from "@/types/deepgram";
 import type {
   SummaryLevel,
@@ -17,28 +19,9 @@ import type {
   DeepSummaryContent
 } from "@/types/database";
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
-
 // Model fallback chains: primary → fallback(s)
-const DEEP_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash'] as const;
-const QUICK_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash'] as const;
-
-// Cached model instances
-const modelCache = new Map<string, GenerativeModel>();
-
-function getModel(modelId: string): GenerativeModel {
-  let model = modelCache.get(modelId);
-  if (!model) {
-    model = genAI.getGenerativeModel({
-      model: modelId,
-      generationConfig: {
-        responseMimeType: "application/json"
-      }
-    });
-    modelCache.set(modelId, model);
-  }
-  return model;
-}
+const DEEP_MODELS = DEFAULT_MODELS;
+const QUICK_MODELS = DEFAULT_MODELS;
 
 /** Get ordered fallback chain for a summary level */
 function getModelChain(level: SummaryLevel): readonly string[] {
@@ -57,7 +40,7 @@ async function generateWithFallback(
   for (const modelId of chain) {
     try {
       log.info(`${logPrefix} trying ${modelId}...`);
-      const model = getModel(modelId);
+      const model = getModel(modelId, true);
       const result = await model.generateContent(prompt);
       const text = result.response.text();
       return { text, modelUsed: modelId };
@@ -106,61 +89,7 @@ const log = createLogger('summary');
  * - Unescaped control characters inside strings (newlines, tabs)
  * - Unescaped quotes inside strings (best-effort)
  */
-function repairJsonString(text: string): string {
-  let result = text;
-
-  // 1. Remove trailing commas before } or ] (with optional whitespace)
-  result = result.replace(/,(\s*[}\]])/g, '$1');
-
-  // 2. Fix unescaped control characters inside JSON strings.
-  //    Walk through the string tracking whether we're inside a JSON string value,
-  //    and escape raw newlines/tabs that appear inside.
-  const chars: string[] = [];
-  let inString = false;
-  let escaped = false;
-
-  for (let i = 0; i < result.length; i++) {
-    const ch = result[i];
-
-    if (escaped) {
-      chars.push(ch);
-      escaped = false;
-      continue;
-    }
-
-    if (ch === '\\' && inString) {
-      chars.push(ch);
-      escaped = true;
-      continue;
-    }
-
-    if (ch === '"') {
-      inString = !inString;
-      chars.push(ch);
-      continue;
-    }
-
-    // If inside a string, escape raw control characters
-    if (inString) {
-      if (ch === '\n') {
-        chars.push('\\n');
-        continue;
-      }
-      if (ch === '\r') {
-        chars.push('\\r');
-        continue;
-      }
-      if (ch === '\t') {
-        chars.push('\\t');
-        continue;
-      }
-    }
-
-    chars.push(ch);
-  }
-
-  return chars.join('');
-}
+// repairJsonString is now imported from @/lib/json-repair
 
 // Speaker identification types
 export interface IdentifiedSpeaker {
@@ -258,7 +187,7 @@ export async function identifySpeakers(transcript: DiarizedTranscript): Promise<
     return speakers;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    log.info('identifySpeakers FAILED', { error: errorMsg });
+    log.warn('identifySpeakers FAILED', { error: errorMsg });
     
     // Return default speaker names on failure
     const defaultSpeakers: IdentifiedSpeaker[] = [];
@@ -400,7 +329,7 @@ async function fetchTranscriptFromUrl(transcriptUrl: string): Promise<string | n
     });
 
     if (!response.ok) {
-      log.info('Transcript fetch failed', { status: response.status, statusText: response.statusText });
+      log.warn('Transcript fetch failed', { status: response.status, statusText: response.statusText });
       return null;
     }
 
@@ -434,7 +363,7 @@ async function fetchTranscriptFromUrl(transcriptUrl: string): Promise<string | n
     return parsed;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    log.info('Transcript fetch error', { error: errorMsg });
+    log.error('Transcript fetch error', { error: errorMsg });
     return null;
   }
 }
@@ -618,8 +547,26 @@ export async function ensureTranscript(
       // Don't return early - allow retry by continuing to transcription
     }
     if (existing.status === 'queued' || existing.status === 'transcribing') {
-      log.info('Transcript already in progress', { status: existing.status });
-      return { status: existing.status };
+      const STALE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
+      const updatedAt = existing.updated_at ? new Date(existing.updated_at).getTime() : 0;
+      const isStale = Date.now() - updatedAt > STALE_THRESHOLD_MS;
+
+      if (isStale) {
+        log.warn('Transcript is STALE - resetting to retry', {
+          status: existing.status,
+          updatedAt: existing.updated_at,
+          staleForMs: Date.now() - updatedAt
+        });
+        await supabase
+          .from('transcripts')
+          .update({ status: 'failed', updated_at: new Date().toISOString() })
+          .eq('episode_id', episodeId)
+          .eq('language', language);
+        // Fall through to retry
+      } else {
+        log.info('Transcript already in progress', { status: existing.status });
+        return { status: existing.status };
+      }
     }
   }
 
@@ -635,7 +582,7 @@ export async function ensureTranscript(
     }, { onConflict: 'episode_id,language' });
 
   if (upsertError) {
-    log.info('DB upsert error', { error: upsertError });
+    log.error('DB upsert error', { error: upsertError });
     return { status: 'failed', error: 'Database error' };
   }
 
@@ -667,11 +614,11 @@ export async function ensureTranscript(
           };
           log.info('SUCCESS: Got YouTube captions!', { textLength: transcriptText.length });
         } else {
-          log.info('PRIORITY 0 FAILED: No YouTube captions available');
+          log.warn('PRIORITY 0 FAILED: No YouTube captions available');
         }
       } catch (ytError) {
         const errorMsg = ytError instanceof Error ? ytError.message : String(ytError);
-        log.info('PRIORITY 0 ERROR: YouTube caption fetch failed', { error: errorMsg });
+        log.error('PRIORITY 0 ERROR: YouTube caption fetch failed', { error: errorMsg });
       }
     }
 
@@ -722,11 +669,11 @@ export async function ensureTranscript(
             saved: 'Deepgram/Voxtral API costs + ~5 min transcription time',
           });
         } else {
-          log.info('PRIORITY A+ FAILED: Apple transcript not available, trying RSS...');
+          log.warn('PRIORITY A+ FAILED: Apple transcript not available, trying RSS...');
         }
       } catch (appleError) {
         const errorMsg = appleError instanceof Error ? appleError.message : String(appleError);
-        log.info('PRIORITY A+ ERROR: Apple transcript fetch failed', { error: errorMsg });
+        log.error('PRIORITY A+ ERROR: Apple transcript fetch failed', { error: errorMsg });
       }
     }
 
@@ -759,7 +706,7 @@ export async function ensureTranscript(
           detectedLanguage: language
         };
       } else {
-        log.info('PRIORITY A FAILED: RSS transcript fetch failed or too short, falling back to Deepgram');
+        log.warn('PRIORITY A FAILED: RSS transcript fetch failed or too short, falling back to Deepgram');
       }
     }
 
@@ -794,7 +741,7 @@ export async function ensureTranscript(
         }
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
-        log.info('Voxtral transcription FAILED, falling back to Deepgram', { error: errorMsg });
+        log.warn('Voxtral transcription FAILED, falling back to Deepgram', { error: errorMsg });
         // Reset for Deepgram fallback
         diarizedTranscript = null;
         provider = 'deepgram';
@@ -855,7 +802,7 @@ export async function ensureTranscript(
       const errorMsg = youtubeVideoId
         ? 'YouTube captions not available for this video'
         : 'All transcription methods failed';
-      log.info('No transcript obtained', { errorMsg });
+      log.error('No transcript obtained', { errorMsg });
       await supabase
         .from('transcripts')
         .update({ status: 'failed', error_message: errorMsg })
@@ -888,7 +835,7 @@ export async function ensureTranscript(
     return { status: 'ready', text: transcriptText, transcript: diarizedTranscript || undefined, pendingSpeakerIdentification };
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : 'Transcription failed';
-    log.info('Transcription FAILED', { error: errorMsg, totalDurationMs: Date.now() - startTime });
+    log.error('Transcription FAILED', { error: errorMsg, totalDurationMs: Date.now() - startTime });
     await supabase
       .from('transcripts')
       .update({ status: 'failed', error_message: errorMsg })
@@ -1015,7 +962,7 @@ export async function generateSummaryForLevel(
       // Log the area around the failure for debugging
       const posMatch = parseMsg.match(/position (\d+)/);
       const failPos = posMatch ? parseInt(posMatch[1]) : -1;
-      log.info('Initial JSON parse failed, attempting repair...', {
+      log.warn('Initial JSON parse failed, attempting repair...', {
         error: parseMsg,
         failContext: failPos >= 0 ? jsonText.substring(Math.max(0, failPos - 60), failPos + 60) : undefined
       });
@@ -1025,7 +972,7 @@ export async function generateSummaryForLevel(
         log.info('JSON repair succeeded');
       } catch (repairError) {
         const repairMsg = repairError instanceof Error ? repairError.message : String(repairError);
-        log.info('JSON repair also failed', { error: repairMsg });
+        log.error('JSON repair also failed', { error: repairMsg });
         throw new Error(`Invalid JSON from Gemini (repair failed): ${parseMsg}`);
       }
     }
@@ -1053,14 +1000,14 @@ export async function generateSummaryForLevel(
       ]);
       log.info('Invalidated status caches', { episodeId, language });
     } catch (cacheErr) {
-      log.info('Cache invalidation failed (non-blocking)', { error: String(cacheErr) });
+      log.warn('Cache invalidation failed (non-blocking)', { error: String(cacheErr) });
     }
 
     // Trigger pending notifications (non-blocking)
     try {
       await triggerPendingNotifications(episodeId);
     } catch (notifError) {
-      log.info('Notification trigger failed (non-blocking)', { episodeId, error: String(notifError) });
+      log.warn('Notification trigger failed (non-blocking)', { episodeId, error: String(notifError) });
     }
 
     log.info('generateSummaryForLevel completed successfully', {
@@ -1071,7 +1018,7 @@ export async function generateSummaryForLevel(
     return { status: 'ready', content };
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : 'Summary generation failed';
-    log.info('Summary generation FAILED', { error: errorMsg, totalDurationMs: Date.now() - startTime });
+    log.error('Summary generation FAILED', { error: errorMsg, totalDurationMs: Date.now() - startTime });
     await supabase
       .from('summaries')
       .update({ status: 'failed', error_message: errorMsg })
@@ -1214,120 +1161,132 @@ export async function requestSummary(
     // If failed or not_ready, we'll try again
   }
 
-  // Create summary record directly as transcribing (Fix 1: single DB write)
-  log.info('Creating summary record (transcribing)...');
-  await supabase
-    .from('summaries')
-    .upsert({
-      episode_id: episodeId,
-      level,
-      language,
-      status: 'transcribing',
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'episode_id,level,language' });
+  // Acquire distributed lock to prevent duplicate generation
+  const lockKey = `lock:summary:${episodeId}:${level}:${language}`;
+  const gotLock = await acquireLock(lockKey, 600); // 10 min TTL
+  if (!gotLock) {
+    log.info('Summary generation already in progress (locked)', { episodeId, level });
+    return { status: 'transcribing' as SummaryStatus };
+  }
 
-  // Ensure transcript exists (this is blocking for now, could be async)
-  log.info('Calling ensureTranscript...', { hasTranscriptUrl: !!transcriptUrl, hasMetadata: !!metadata });
-  const transcriptResult = await ensureTranscript(episodeId, audioUrl, language, transcriptUrl, metadata);
-  log.info('ensureTranscript returned', { status: transcriptResult.status, hasText: !!transcriptResult.text, hasTranscript: !!transcriptResult.transcript, error: transcriptResult.error });
-
-  if (transcriptResult.status !== 'ready' || !transcriptResult.text) {
-    // Update summary status to match transcript status
-    const summaryStatus: SummaryStatus = transcriptResult.status === 'failed' ? 'failed' : 'transcribing';
-    log.info('Transcript not ready, updating summary status', { summaryStatus });
+  try {
+    // Create summary record directly as transcribing (Fix 1: single DB write)
+    log.info('Creating summary record (transcribing)...');
     await supabase
       .from('summaries')
-      .update({
-        status: summaryStatus,
-        error_message: transcriptResult.error || null
-      })
-      .eq('episode_id', episodeId)
-      .eq('level', level)
-      .eq('language', language);
+      .upsert({
+        episode_id: episodeId,
+        level,
+        language,
+        status: 'transcribing',
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'episode_id,level,language' });
 
-    log.info('=== requestSummary ENDED (transcript not ready) ===', { totalDurationMs: Date.now() - startTime });
-    return { status: summaryStatus };
-  }
+    // Ensure transcript exists (this is blocking for now, could be async)
+    log.info('Calling ensureTranscript...', { hasTranscriptUrl: !!transcriptUrl, hasMetadata: !!metadata });
+    const transcriptResult = await ensureTranscript(episodeId, audioUrl, language, transcriptUrl, metadata);
+    log.info('ensureTranscript returned', { status: transcriptResult.status, hasText: !!transcriptResult.text, hasTranscript: !!transcriptResult.transcript, error: transcriptResult.error });
 
-  // Fetch YouTube metadata context if this is a YouTube episode
-  let youtubeContext: { description: string; chapters: { title: string; startSeconds: number }[]; descriptionLinks: { url: string; text: string }[] } | undefined;
-  const ytVideoId = extractYouTubeVideoId(audioUrl);
-  if (ytVideoId) {
-    try {
-      const ytMeta = await ensureYouTubeMetadata(episodeId, ytVideoId);
-      if (ytMeta) {
-        youtubeContext = {
-          description: ytMeta.description,
-          chapters: ytMeta.chapters,
-          descriptionLinks: ytMeta.description_links,
-        };
-        log.info('YouTube metadata context loaded for summary generation', {
-          chapters: ytMeta.chapters.length,
-          links: ytMeta.description_links.length,
-        });
-      }
-    } catch (err) {
-      log.info('YouTube metadata fetch failed (non-blocking)', { error: String(err) });
-    }
-  }
-
-  // Generate the summary (language is known from RSS feed)
-  // If speaker identification is pending (Apple multi-speaker), run it in parallel
-  // with summary generation to save ~20s
-  if (transcriptResult.pendingSpeakerIdentification && transcriptResult.transcript) {
-    log.info('Running identifySpeakers in PARALLEL with generateSummaryForLevel...', { language });
-    const [result, speakers] = await Promise.all([
-      generateSummaryForLevel(episodeId, level, transcriptResult.text, language, transcriptResult.transcript, youtubeContext),
-      identifySpeakers(transcriptResult.transcript),
-    ]);
-
-    // Update transcript in DB with real speaker names (non-blocking for the response)
-    if (speakers.length > 0) {
-      transcriptResult.transcript.speakers = speakers;
-      const namedTranscript = formatTranscriptWithSpeakerNames(transcriptResult.transcript);
-      log.info('Updating transcript with identified speaker names...', {
-        speakers: speakers.map(s => ({ id: s.id, name: s.name, role: s.role })),
-      });
-      supabase
-        .from('transcripts')
+    if (transcriptResult.status !== 'ready' || !transcriptResult.text) {
+      // Update summary status to match transcript status
+      const summaryStatus: SummaryStatus = transcriptResult.status === 'failed' ? 'failed' : 'transcribing';
+      log.info('Transcript not ready, updating summary status', { summaryStatus });
+      await supabase
+        .from('summaries')
         .update({
-          full_text: namedTranscript,
-          diarized_json: transcriptResult.transcript,
+          status: summaryStatus,
+          error_message: transcriptResult.error || null
         })
         .eq('episode_id', episodeId)
-        .eq('language', transcriptResult.transcript.detectedLanguage || 'en')
-        .then(({ error }) => {
-          if (error) log.info('Failed to update transcript with speaker names', { error });
-          else log.info('Transcript updated with speaker names');
-        });
+        .eq('level', level)
+        .eq('language', language);
+
+      log.info('=== requestSummary ENDED (transcript not ready) ===', { totalDurationMs: Date.now() - startTime });
+      return { status: summaryStatus };
     }
 
+    // Fetch YouTube metadata context if this is a YouTube episode
+    let youtubeContext: { description: string; chapters: { title: string; startSeconds: number }[]; descriptionLinks: { url: string; text: string }[] } | undefined;
+    const ytVideoId = extractYouTubeVideoId(audioUrl);
+    if (ytVideoId) {
+      try {
+        const ytMeta = await ensureYouTubeMetadata(episodeId, ytVideoId);
+        if (ytMeta) {
+          youtubeContext = {
+            description: ytMeta.description,
+            chapters: ytMeta.chapters,
+            descriptionLinks: ytMeta.description_links,
+          };
+          log.info('YouTube metadata context loaded for summary generation', {
+            chapters: ytMeta.chapters.length,
+            links: ytMeta.description_links.length,
+          });
+        }
+      } catch (err) {
+        log.warn('YouTube metadata fetch failed (non-blocking)', { error: String(err) });
+      }
+    }
+
+    // Generate the summary (language is known from RSS feed)
+    // If speaker identification is pending (Apple multi-speaker), run it in parallel
+    // with summary generation to save ~20s
+    if (transcriptResult.pendingSpeakerIdentification && transcriptResult.transcript) {
+      log.info('Running identifySpeakers in PARALLEL with generateSummaryForLevel...', { language });
+      const [result, speakers] = await Promise.all([
+        generateSummaryForLevel(episodeId, level, transcriptResult.text, language, transcriptResult.transcript, youtubeContext),
+        identifySpeakers(transcriptResult.transcript),
+      ]);
+
+      // Update transcript in DB with real speaker names (non-blocking for the response)
+      if (speakers.length > 0) {
+        transcriptResult.transcript.speakers = speakers;
+        const namedTranscript = formatTranscriptWithSpeakerNames(transcriptResult.transcript);
+        log.info('Updating transcript with identified speaker names...', {
+          speakers: speakers.map(s => ({ id: s.id, name: s.name, role: s.role })),
+        });
+        supabase
+          .from('transcripts')
+          .update({
+            full_text: namedTranscript,
+            diarized_json: transcriptResult.transcript,
+          })
+          .eq('episode_id', episodeId)
+          .eq('language', transcriptResult.transcript.detectedLanguage || 'en')
+          .then(({ error }) => {
+            if (error) log.error('Failed to update transcript with speaker names', { error });
+            else log.info('Transcript updated with speaker names');
+          });
+      }
+
+      log.info('=== requestSummary ENDED ===', {
+        status: result.status,
+        language,
+        parallelSpeakerIdentification: true,
+        totalDurationMs: Date.now() - startTime,
+        totalDurationSec: ((Date.now() - startTime) / 1000).toFixed(1),
+      });
+      return result;
+    }
+
+    log.info('Calling generateSummaryForLevel...', { language });
+    const result = await generateSummaryForLevel(
+      episodeId,
+      level,
+      transcriptResult.text,
+      language,
+      transcriptResult.transcript,
+      youtubeContext
+    );
     log.info('=== requestSummary ENDED ===', {
       status: result.status,
       language,
-      parallelSpeakerIdentification: true,
       totalDurationMs: Date.now() - startTime,
-      totalDurationSec: ((Date.now() - startTime) / 1000).toFixed(1),
+      totalDurationSec: ((Date.now() - startTime) / 1000).toFixed(1)
     });
     return result;
+  } finally {
+    await releaseLock(lockKey);
   }
-
-  log.info('Calling generateSummaryForLevel...', { language });
-  const result = await generateSummaryForLevel(
-    episodeId,
-    level,
-    transcriptResult.text,
-    language,
-    transcriptResult.transcript,
-    youtubeContext
-  );
-  log.info('=== requestSummary ENDED ===', {
-    status: result.status,
-    language,
-    totalDurationMs: Date.now() - startTime,
-    totalDurationSec: ((Date.now() - startTime) / 1000).toFixed(1)
-  });
-  return result;
 }
 
 export async function getSummariesStatus(episodeId: string, language = 'en') {

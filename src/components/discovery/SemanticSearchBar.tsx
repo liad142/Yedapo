@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import posthog from 'posthog-js';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Search, Loader2, X, Podcast, Play } from 'lucide-react';
 import { YouTubeLogoStatic } from '@/components/YouTubeLogo';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,7 +36,9 @@ interface SearchVideo {
 
 export function SemanticSearchBar() {
   const router = useRouter();
-  const [query, setQuery] = useState('');
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get('q') || '';
+  const [query, setQuery] = useState(initialQuery);
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<SearchPodcast[]>([]);
   const [channels, setChannels] = useState<SearchChannel[]>([]);
@@ -57,6 +59,18 @@ export function SemanticSearchBar() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Sync query to URL params
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (query.trim()) {
+      params.set('q', query.trim());
+    } else {
+      params.delete('q');
+    }
+    const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname;
+    router.replace(newUrl, { scroll: false });
+  }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounced search
   useEffect(() => {
@@ -190,6 +204,11 @@ export function SemanticSearchBar() {
     setShowResults(false);
     setSelectedIndex(-1);
     inputRef.current?.focus();
+    // Clear URL param
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('q');
+    const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname;
+    router.replace(newUrl, { scroll: false });
   };
 
   const hasYouTube = channels.length > 0 || videos.length > 0;
@@ -219,12 +238,21 @@ export function SemanticSearchBar() {
         {query ? (
           <button
             onClick={clearSearch}
-            className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full transition-colors cursor-pointer"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 hover:bg-muted rounded-full transition-colors cursor-pointer"
             aria-label="Clear search"
           >
             <X className="h-4 w-4 text-muted-foreground" />
           </button>
         ) : null}
+      </div>
+
+      {/* Screen reader announcement for search results */}
+      <div className="sr-only" aria-live="polite" role="status">
+        {showResults && !isSearching && totalItems > 0
+          ? `${totalItems} result${totalItems === 1 ? '' : 's'} found`
+          : showResults && !isSearching && query.trim()
+            ? 'No results found'
+            : ''}
       </div>
 
       {/* Results Dropdown */}
@@ -256,8 +284,13 @@ export function SemanticSearchBar() {
                     {results.map((podcast, index) => {
                       const globalIndex = podcastBaseIndex + index;
                       return (
-                        <Link
+                        <motion.div
                           key={podcast.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                        >
+                        <Link
                           href={getPodcastHref(podcast)}
                           onClick={() => {
                             posthog.capture('search_result_clicked', { query, podcast_id: podcast.id, podcast_title: podcast.title, result_index: index });
@@ -283,6 +316,7 @@ export function SemanticSearchBar() {
                             <p className="text-xs text-muted-foreground truncate">{podcast.author}</p>
                           </div>
                         </Link>
+                        </motion.div>
                       );
                     })}
                   </div>
@@ -303,8 +337,13 @@ export function SemanticSearchBar() {
                         {channels.map((channel, index) => {
                           const globalIndex = channelBaseIndex + index;
                           return (
-                            <Link
+                            <motion.div
                               key={channel.id}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.05 }}
+                            >
+                            <Link
                               href={`/browse/youtube/${channel.id}`}
                               onClick={() => {
                                 posthog.capture('search_channel_clicked', { query, channel_id: channel.id, channel_title: channel.title, result_index: globalIndex });
@@ -330,6 +369,7 @@ export function SemanticSearchBar() {
                                 <p className="text-xs text-muted-foreground truncate">{channel.description}</p>
                               </div>
                             </Link>
+                            </motion.div>
                           );
                         })}
                       </>
@@ -348,8 +388,13 @@ export function SemanticSearchBar() {
                         {videos.map((video, index) => {
                           const globalIndex = videoBaseIndex + index;
                           return (
-                            <button
+                            <motion.div
                               key={video.videoId}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.05 }}
+                            >
+                            <button
                               onClick={() => handleVideoClick(video)}
                               className={`flex items-center gap-3 px-4 py-2.5 transition-colors cursor-pointer w-full text-left ${
                                 globalIndex === selectedIndex
@@ -375,6 +420,7 @@ export function SemanticSearchBar() {
                                 <p className="text-xs text-muted-foreground truncate">{video.channelTitle}</p>
                               </div>
                             </button>
+                            </motion.div>
                           );
                         })}
                       </>

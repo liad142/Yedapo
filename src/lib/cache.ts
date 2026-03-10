@@ -116,6 +116,34 @@ export async function getCachedMulti<T>(keys: string[]): Promise<(T | null)[]> {
 }
 
 /**
+ * Acquire a distributed lock using Redis SET NX EX.
+ * Returns true if the lock was acquired, false if already held.
+ */
+export async function acquireLock(key: string, ttlSeconds: number): Promise<boolean> {
+  try {
+    const client = getRedis();
+    // SET NX returns 'OK' if the key was set, null if it already exists
+    const result = await client.set(key, Date.now(), { nx: true, ex: ttlSeconds });
+    return result === 'OK';
+  } catch (error) {
+    log.error('Failed to acquire lock', { key, error: String(error) });
+    return false;
+  }
+}
+
+/**
+ * Release a distributed lock.
+ */
+export async function releaseLock(key: string): Promise<void> {
+  try {
+    const client = getRedis();
+    await client.del(key);
+  } catch (error) {
+    log.error('Failed to release lock', { key, error: String(error) });
+  }
+}
+
+/**
  * Cache key builders for consistent naming
  */
 export const CacheKeys = {
@@ -206,19 +234,18 @@ export async function checkRateLimit(
     const client = getRedis();
     const key = `ratelimit:${identifier}`;
 
-    // INCR creates key with value 1 if it doesn't exist
-    const count = await client.incr(key);
-    // Ensure TTL is always set — guards against race where key loses its expiry
-    const ttl = await client.ttl(key);
-    if (ttl === -1) {
-      await client.expire(key, windowSeconds);
-    }
+    // Atomic: INCR + EXPIRE in a pipeline
+    const pipeline = client.pipeline();
+    pipeline.incr(key);
+    pipeline.expire(key, windowSeconds);
+    const results = await pipeline.exec();
 
+    const count = results[0] as number;
     return count <= maxRequests;
   } catch (error) {
     log.error('Rate limit check failed', { identifier, error: String(error) });
-    // Fail open - allow the request if Redis is down
-    return true;
+    // Fail closed - deny the request if Redis is down
+    return false;
   }
 }
 
@@ -234,24 +261,29 @@ export async function checkQuota(
 ): Promise<{ allowed: boolean; used: number; limit: number }> {
   try {
     const client = getRedis();
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const today = new Date().toISOString().slice(0, 10);
     const key = `quota:${feature}:${userId}:${today}`;
 
-    // Atomic increment — creates key if it doesn't exist
-    const used = await client.incr(key);
-    // Set TTL on first use (48h to handle timezone edges)
-    if (used === 1) {
+    // Check current usage first
+    const current = await client.get<number>(key);
+    const used = current || 0;
+
+    if (used >= maxPerDay) {
+      return { allowed: false, used, limit: maxPerDay };
+    }
+
+    // Increment only if allowed
+    const newCount = await client.incr(key);
+    // Set TTL on first use (48h for timezone edges)
+    if (newCount === 1) {
       await client.expire(key, 172800);
     }
 
-    if (used > maxPerDay) {
-      return { allowed: false, used, limit: maxPerDay };
-    }
-    return { allowed: true, used, limit: maxPerDay };
+    return { allowed: true, used: newCount, limit: maxPerDay };
   } catch (error) {
     log.error('Quota check failed', { feature, userId: userId.slice(0, 8), error: String(error) });
-    // Fail open — allow request if Redis is down
-    return { allowed: true, used: 0, limit: maxPerDay };
+    // Fail closed
+    return { allowed: false, used: 0, limit: maxPerDay };
   }
 }
 
@@ -287,9 +319,6 @@ export async function checkPlanQuota(
   }
   return checkQuota(userId, feature, maxPerDay);
 }
-
-/** Re-export the canonical admin check from admin.ts */
-export { isAdminEmail } from '@/lib/admin';
 
 /**
  * Get Redis health info for admin dashboard

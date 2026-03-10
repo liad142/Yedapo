@@ -77,7 +77,7 @@ export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, 
 
   return (
     <Link href={podcastHref} className="block h-full">
-      <div className="group h-full bg-white dark:bg-[#1e202e] dark:border dark:border-white/5 rounded-2xl overflow-hidden transition-all duration-300 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:shadow-none dark:hover:shadow-none hover:scale-[1.02]">
+      <div className="group h-full bg-card dark:border dark:border-white/5 rounded-2xl overflow-hidden transition-all duration-300 shadow-sm hover:shadow-md dark:shadow-none dark:hover:shadow-none hover:scale-[1.02]">
         <div className="relative aspect-square w-full bg-secondary">
           {imageUrl ? (
             <Image
@@ -120,19 +120,19 @@ export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, 
         </div>
 
         <div className="p-5">
-          <h3 className="font-bold text-base leading-tight tracking-tight text-foreground line-clamp-1 mb-1 group-hover:text-primary transition-colors">
+          <h3 className="text-h4 leading-tight tracking-tight text-foreground line-clamp-1 mb-1 group-hover:text-primary transition-colors">
             {podcast.title}
           </h3>
 
           {podcast.author && (
-            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mb-4">
+            <p className="text-xs text-muted-foreground line-clamp-1 mb-4">
               {podcast.author}
             </p>
           )}
 
           <div className="flex items-center gap-2 flex-wrap">
             {podcast.episode_count !== undefined && (
-              <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
+              <span className="text-xs text-muted-foreground font-medium">
                 {podcast.episode_count} eps
               </span>
             )}

@@ -122,11 +122,11 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{displayName}</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{email}</p>
+          <p className="text-sm font-semibold text-foreground truncate">{displayName}</p>
+          <p className="text-xs text-muted-foreground truncate">{email}</p>
           <p className={cn(
             'text-[10px] font-medium mt-0.5',
-            plan === 'free' && 'text-slate-400 dark:text-slate-500',
+            plan === 'free' && 'text-muted-foreground',
             plan === 'pro' && 'text-blue-500 dark:text-blue-400',
             plan === 'power' && 'text-amber-500 dark:text-amber-400',
           )}>
@@ -134,7 +134,7 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
           </p>
         </div>
         <ChevronDown className={cn(
-          'h-4 w-4 text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-400 transition-transform',
+          'h-4 w-4 text-muted-foreground group-hover:text-foreground transition-transform',
           showDropdown && 'rotate-180'
         )} />
       </button>

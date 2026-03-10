@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
 // Country code to name mapping — derived from APPLE_PODCAST_COUNTRIES (uppercase codes)
@@ -167,7 +167,8 @@ const LANGUAGE_TO_COUNTRY: Record<string, string> = {
   "sv-SE": "SE",
 };
 
-const STORAGE_KEY = "podcatch-country";
+const STORAGE_KEY = "yedapo-country";
+const LEGACY_STORAGE_KEY = "podcatch-country";
 
 interface CountryContextValue {
   country: string;
@@ -204,7 +205,14 @@ export function CountryProvider({ children }: { children: React.ReactNode }) {
 
   // Initial load: localStorage or browser language detection
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    let stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) {
+      const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (legacy && COUNTRY_OPTIONS.find((c) => c.code === legacy)) {
+        stored = legacy;
+        localStorage.setItem(STORAGE_KEY, legacy);
+      }
+    }
     if (stored && COUNTRY_OPTIONS.find((c) => c.code === stored)) {
       setCountryState(stored);
     } else {
@@ -244,7 +252,9 @@ export function CountryProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(STORAGE_KEY, newCountry);
   }, []);
 
-  const countryInfo = COUNTRY_OPTIONS.find((c) => c.code === country);
+  const countryInfo = useMemo(() => COUNTRY_OPTIONS.find((c) => c.code === country), [country]);
+
+  const value = useMemo(() => ({ country, setCountry, countryInfo }), [country, setCountry, countryInfo]);
 
   // Prevent hydration mismatch by not rendering until initialized
   if (!isInitialized) {
@@ -256,7 +266,7 @@ export function CountryProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <CountryContext.Provider value={{ country, setCountry, countryInfo }}>
+    <CountryContext.Provider value={value}>
       {children}
     </CountryContext.Provider>
   );

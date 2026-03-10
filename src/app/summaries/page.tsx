@@ -98,7 +98,7 @@ export default function SummariesPage() {
               <div className="p-2 rounded-lg bg-primary/10">
                 <FileText className="h-6 w-6 text-primary" />
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold">My Summaries</h1>
+              <h1 className="text-h1">My Summaries</h1>
             </div>
           </div>
           <div className="space-y-4">
@@ -131,7 +131,7 @@ export default function SummariesPage() {
               <div className="p-2 rounded-lg bg-primary/10">
                 <FileText className="h-6 w-6 text-primary" />
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold">My Summaries</h1>
+              <h1 className="text-h1">My Summaries</h1>
             </div>
           </div>
           <SignInPrompt
@@ -152,7 +152,7 @@ export default function SummariesPage() {
             <div className="p-2 rounded-lg bg-primary/10">
               <FileText className="h-6 w-6 text-primary" />
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold">My Summaries</h1>
+            <h1 className="text-h1">My Summaries</h1>
           </div>
           <p className="text-muted-foreground">
             All your AI-generated episode summaries in one place
@@ -202,14 +202,14 @@ export default function SummariesPage() {
             </div>
             {searchQuery ? (
               <>
-                <h2 className="text-xl font-semibold mb-2">No matches found</h2>
+                <h2 className="text-h3 mb-2">No matches found</h2>
                 <p className="text-muted-foreground">
                   Try a different search term
                 </p>
               </>
             ) : (
               <>
-                <h2 className="text-xl font-semibold mb-2">No summaries yet</h2>
+                <h2 className="text-h3 mb-2">No summaries yet</h2>
                 <p className="text-muted-foreground mb-6">
                   Browse podcasts and create summaries to see them here
                 </p>

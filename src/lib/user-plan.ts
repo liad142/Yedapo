@@ -4,7 +4,7 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { isAdminEmail } from '@/lib/cache';
+import { isAdminEmail } from '@/lib/admin';
 import { createLogger } from '@/lib/logger';
 import type { UserPlan } from '@/lib/plans';
 

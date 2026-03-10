@@ -215,8 +215,8 @@ export function TranscriptTabContent({
 
   if (isLoading) {
     return (
-      <div className="flex flex-col h-full bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
-        <div className="flex gap-3 p-6 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex flex-col h-full bg-gradient-to-b from-surface-2 to-surface-3">
+        <div className="flex gap-3 p-6 border-b border-border">
           <Skeleton className="h-12 flex-1" />
           <Skeleton className="h-12 w-32" />
         </div>
@@ -237,17 +237,17 @@ export function TranscriptTabContent({
 
   if (!hasTranscript) {
     return (
-      <div className="flex items-center justify-center h-full min-h-[400px] bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
+      <div className="flex items-center justify-center h-full min-h-[400px] bg-gradient-to-b from-surface-2 to-surface-3">
         <div className="text-center max-w-md px-6">
           <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-primary text-primary-foreground mb-6 shadow-lg shadow-primary/30">
             <ScrollText size={40} />
           </div>
           {isTranscribing ? (
             <>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3">
+              <h3 className="text-2xl font-bold text-foreground mb-3">
                 Transcribing audio...
               </h3>
-              <p className="text-slate-600 dark:text-slate-400 mb-8">
+              <p className="text-muted-foreground mb-8">
                 This may take a few minutes. We're converting speech to text.
               </p>
               <div className="flex justify-center gap-1.5">
@@ -265,19 +265,19 @@ export function TranscriptTabContent({
             </>
           ) : transcriptStatus === 'failed' ? (
             <>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3">
+              <h3 className="text-2xl font-bold text-foreground mb-3">
                 Transcription failed
               </h3>
-              <p className="text-slate-600 dark:text-slate-400">
+              <p className="text-muted-foreground">
                 We couldn't transcribe this episode. Please try generating insights again.
               </p>
             </>
           ) : (
             <>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3">
+              <h3 className="text-2xl font-bold text-foreground mb-3">
                 No transcript available
               </h3>
-              <p className="text-slate-600 dark:text-slate-400">
+              <p className="text-muted-foreground">
                 Generate insights to create a transcript for this episode.
               </p>
             </>
@@ -288,18 +288,18 @@ export function TranscriptTabContent({
   }
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
+    <div className="flex flex-col h-full bg-gradient-to-b from-surface-2 to-surface-3">
       {/* Header */}
-      <div className="flex gap-3 p-6 border-b border-slate-200/60 dark:border-slate-800/60 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl sticky top-0 z-50">
+      <div className="flex gap-3 p-6 border-b border-border/60 bg-card/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex-1 relative">
           {isFree ? (
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600 pointer-events-none" size={18} />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={18} />
               <Input
                 type="text"
                 placeholder="Search conversation..."
                 disabled
-                className="pl-12 pr-32 h-12 rounded-full border-2 border-transparent bg-slate-100 dark:bg-slate-800 opacity-60 cursor-not-allowed"
+                className="pl-12 pr-32 h-12 rounded-full border-2 border-transparent bg-muted opacity-60 cursor-not-allowed"
               />
               <Badge variant="secondary" className="absolute right-4 top-1/2 -translate-y-1/2 gap-1 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800">
                 <Crown size={12} />
@@ -308,16 +308,16 @@ export function TranscriptTabContent({
             </div>
           ) : (
             <>
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={18} />
               <Input
                 type="text"
                 placeholder="Search conversation..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 pr-24 h-12 rounded-full border-2 border-transparent bg-slate-100 dark:bg-slate-800 focus:border-primary focus:bg-white dark:focus:bg-slate-700 transition-all"
+                className="pl-12 pr-24 h-12 rounded-full border-2 border-transparent bg-muted focus:border-primary focus:bg-card transition-all"
               />
               {searchQuery && (
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-500">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
                   {matchCount} {matchCount === 1 ? 'result' : 'results'}
                 </span>
               )}
@@ -352,9 +352,9 @@ export function TranscriptTabContent({
 
       {/* Speaker Filter */}
       {uniqueSpeakers.length > 1 && (
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200/60 dark:border-slate-800/60 bg-white/60 dark:bg-slate-900/60 backdrop-blur-lg">
-          <Filter size={14} className="text-slate-500" />
-          <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-border/60 bg-card/60 backdrop-blur-lg">
+          <Filter size={14} className="text-muted-foreground" />
+          <span className="text-sm font-medium text-muted-foreground">
             Filter by speaker:
           </span>
           <div className="flex gap-2 flex-wrap">
@@ -363,7 +363,7 @@ export function TranscriptTabContent({
               className={`px-4 py-1.5 rounded-full text-sm font-medium border-2 transition-all ${
                 !selectedSpeaker
                   ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-primary/50'
+                  : 'bg-card text-foreground border-border hover:border-primary/50'
               }`}
             >
               All
@@ -378,7 +378,7 @@ export function TranscriptTabContent({
                   className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium border-2 transition-all ${
                     isActive
                       ? 'text-white border-transparent'
-                      : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                      : 'bg-card text-foreground border-border hover:border-border'
                   }`}
                   style={isActive ? { backgroundColor: info?.color } : {}}
                 >
@@ -449,23 +449,23 @@ export function TranscriptTabContent({
       </div>
 
       {/* Footer */}
-      <div className="space-y-0 border-t border-slate-200/60 dark:border-slate-800/60 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
+      <div className="space-y-0 border-t border-border/60 bg-card/80 backdrop-blur-xl">
         <div className="flex justify-center gap-8 px-6 py-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
             <Mic size={14} />
             <span>{uniqueSpeakers.length} {uniqueSpeakers.length === 1 ? 'speaker' : 'speakers'}</span>
           </div>
-          <div className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
             <ScrollText size={14} />
             <span>{segments.length} segments</span>
           </div>
-          <div className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
             <User size={14} />
             <span>{transcript.split(/\s+/).length.toLocaleString()} words</span>
           </div>
         </div>
-        <div className="px-6 py-2 border-t border-slate-100 dark:border-slate-800/40">
-          <p className="text-[11px] text-center text-slate-400 dark:text-slate-500">
+        <div className="px-6 py-2 border-t border-border/40">
+          <p className="text-[11px] text-center text-muted-foreground">
             Transcript provided for accessibility and personal reference. All content belongs to the original creators.
           </p>
         </div>

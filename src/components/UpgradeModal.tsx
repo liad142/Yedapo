@@ -3,7 +3,7 @@
 import { Sparkles, X, Clock, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import Link from 'next/link';
 import { PLAN_LIMITS, PLAN_META } from '@/lib/plans';
 import { getTimeUntilReset } from '@/lib/time-utils';
@@ -46,6 +46,43 @@ export function UpgradeModal({ open, onClose, rateLimitInfo, feature = 'summary'
     return () => clearInterval(interval);
   }, [open]);
 
+  // Body scroll lock
+  useEffect(() => {
+    if (!open) return;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, [open]);
+
+  // Focus trap
+  const modalRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const el = modalRef.current;
+    if (!el) return;
+    const focusable = el.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length > 0) focusable[0].focus();
+  }, [open]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape') { onClose(); return; }
+    if (e.key !== 'Tab') return;
+    const el = modalRef.current;
+    if (!el) return;
+    const focusable = el.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+    } else {
+      if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  }, [onClose]);
+
   if (!open) return null;
 
   const { limit, used } = rateLimitInfo;
@@ -54,21 +91,29 @@ export function UpgradeModal({ open, onClose, rateLimitInfo, feature = 'summary'
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm animate-in fade-in-0 duration-200"
+        className="fixed inset-0 z-[55] bg-black/60 backdrop-blur-sm animate-in fade-in-0 duration-200"
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className={cn(
-        'fixed z-50 w-full max-w-sm px-4',
-        'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
-        'lg:left-[calc(50%+8rem)]',
-        'animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-200'
-      )}>
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="upgrade-modal-title"
+        onKeyDown={handleKeyDown}
+        className={cn(
+          'fixed z-[55] w-full max-w-sm px-4',
+          'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
+          'lg:left-[calc(50%+8rem)]',
+          'animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-4 duration-200'
+        )}
+      >
         <div className="relative rounded-2xl bg-card border border-border shadow-2xl p-8 text-center overflow-hidden">
           {/* Close */}
           <button
             onClick={onClose}
+            aria-label="Close"
             className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
           >
             <X className="h-4 w-4" />
@@ -80,7 +125,7 @@ export function UpgradeModal({ open, onClose, rateLimitInfo, feature = 'summary'
           </div>
 
           {/* Heading */}
-          <h3 className="text-xl font-bold mb-1.5">Upgrade to Pro</h3>
+          <h3 id="upgrade-modal-title" className="text-xl font-bold mb-1.5">Upgrade to Pro</h3>
           <p className="text-sm text-muted-foreground mb-1">
             {FEATURE_COPY[feature].heading}
           </p>

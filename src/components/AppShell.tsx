@@ -6,6 +6,8 @@ import { Sidebar } from '@/components/Sidebar';
 import { StickyAudioPlayer } from '@/components/player';
 import { AskAIProvider } from '@/contexts/AskAIContext';
 import { LegalFooter } from '@/components/LegalFooter';
+import { useAudioPlayerSafe } from '@/contexts/AudioPlayerContext';
+import { useSummarizeQueueOptional } from '@/contexts/SummarizeQueueContext';
 
 // Dynamic imports for components that only appear on user interaction
 const AuthModal = dynamic(() => import('@/components/auth/AuthModal').then(m => ({ default: m.AuthModal })), { ssr: false });
@@ -13,34 +15,61 @@ const CompactAuthPrompt = dynamic(() => import('@/components/auth/CompactAuthPro
 const QueueToast = dynamic(() => import('@/components/QueueToast').then(m => ({ default: m.QueueToast })), { ssr: false });
 const AskAIChatPopup = dynamic(() => import('@/components/insights/AskAIChatPopup').then(m => ({ default: m.AskAIChatPopup })), { ssr: false });
 const CookieConsent = dynamic(() => import('@/components/CookieConsent').then(m => ({ default: m.CookieConsent })), { ssr: false });
+const UpgradeModal = dynamic(() => import('@/components/UpgradeModal').then(m => ({ default: m.UpgradeModal })), { ssr: false });
+
+function AppShellInner({ children }: { children: React.ReactNode }) {
+  const player = useAudioPlayerSafe();
+  const playerActive = !!(player?.currentTrack);
+
+  return (
+    <div className="min-h-screen">
+      <Sidebar />
+      {/* Main content: offset for desktop sidebar (lg:pl-64), mobile top bar (pt-14).
+          Bottom padding: pb-20 for bottom nav only, pb-40 when player is also visible. */}
+      <main
+        id="main-content"
+        className={`lg:pl-64 pt-14 lg:pt-0 min-h-screen ${playerActive ? 'pb-40 lg:pb-36' : 'pb-20 lg:pb-8'}`}
+      >
+        <div className="max-w-7xl mx-auto">
+          {children}
+        </div>
+        <LegalFooter />
+      </main>
+    </div>
+  );
+}
+
+function UpgradeModalBridge() {
+  const queueCtx = useSummarizeQueueOptional();
+  if (!queueCtx) return null;
+  return (
+    <UpgradeModal
+      open={queueCtx.showUpgradeModal}
+      onClose={() => queueCtx.setShowUpgradeModal(false)}
+      rateLimitInfo={queueCtx.rateLimitInfo}
+    />
+  );
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdmin = pathname.startsWith('/admin');
 
   if (isAdmin) {
-    return <main className="min-h-screen">{children}</main>;
+    return <main id="main-content" className="min-h-screen">{children}</main>;
   }
 
   return (
     <AskAIProvider>
-      <div className="min-h-screen">
-        <Sidebar />
-        {/* Main content: offset for desktop sidebar (lg:pl-64), mobile top bar (pt-14), mobile bottom nav + player space (pb-28) */}
-        <main className="lg:pl-64 pt-14 lg:pt-0 min-h-screen pb-28 lg:pb-24">
-          <div className="max-w-7xl mx-auto">
-            {children}
-          </div>
-          <LegalFooter />
-        </main>
-      </div>
+      <AppShellInner>{children}</AppShellInner>
       <AuthModal />
       <CompactAuthPrompt />
       <QueueToast />
-      {/* Audio player z-40: above mobile bottom nav (z-30), below modals */}
+      {/* Audio player z-[45]: above mobile bottom nav (z-30), below modals (z-[55]) */}
       <StickyAudioPlayer />
       <AskAIChatPopup />
       <CookieConsent />
+      <UpgradeModalBridge />
     </AskAIProvider>
   );
 }

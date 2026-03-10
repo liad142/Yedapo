@@ -33,7 +33,7 @@ async function withRetry<T>(
       if (error?.statusCode >= 400 && error?.statusCode < 500) throw error;
       if (attempt < maxRetries) {
         const delay = baseDelayMs * Math.pow(2, attempt);
-        log.info(`Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+        log.warn(`Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }

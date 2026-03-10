@@ -94,6 +94,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioInitialized = useRef(false);
   const lastSaveRef = useRef<number>(0);
+  const pendingCanPlayRef = useRef<(() => void) | null>(null);
 
   // Frequently changing state
   const [currentTime, setCurrentTime] = useState(0);
@@ -238,6 +239,25 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     audio.load();
   }, [initializeAudio]);
 
+  /** Remove any previous pending canplay handler and optionally register a new one.
+   *  If audio.readyState >= HAVE_CURRENT_DATA (2), invoke the handler immediately. */
+  const setCanPlayHandler = useCallback((audio: HTMLAudioElement, handler: (() => void) | null) => {
+    // Remove previous listener if any
+    if (pendingCanPlayRef.current) {
+      audio.removeEventListener('canplay', pendingCanPlayRef.current);
+      pendingCanPlayRef.current = null;
+    }
+    if (handler) {
+      // Already loaded — fire immediately
+      if (audio.readyState >= 2) {
+        handler();
+      } else {
+        pendingCanPlayRef.current = handler;
+        audio.addEventListener('canplay', handler);
+      }
+    }
+  }, []);
+
   const play = useCallback((track?: Track) => {
     const audio = initializeAudio();
     if (!audio) return;
@@ -246,7 +266,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       loadTrack(track);
       posthog.capture('episode_played', { episode_id: track.id, podcast_name: track.artist });
       const onCanPlay = () => {
-        audio.removeEventListener('canplay', onCanPlay);
+        // Clean up ref since we're executing
+        if (pendingCanPlayRef.current === onCanPlay) {
+          audio.removeEventListener('canplay', onCanPlay);
+          pendingCanPlayRef.current = null;
+        }
         // Resume from saved position
         const saved = localStorage.getItem(`lp:${track.id}`);
         if (saved) {
@@ -260,11 +284,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         }
         audio.play().catch(() => {});
       };
-      audio.addEventListener('canplay', onCanPlay);
+      setCanPlayHandler(audio, onCanPlay);
     } else {
       audio.play().catch(() => {});
     }
-  }, [loadTrack, initializeAudio]);
+  }, [loadTrack, initializeAudio, setCanPlayHandler]);
 
   const playFromTime = useCallback((track: Track, time: number) => {
     const audio = initializeAudio();
@@ -272,12 +296,16 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     loadTrack(track);
     const onCanPlay = () => {
-      audio.removeEventListener('canplay', onCanPlay);
+      // Clean up ref since we're executing
+      if (pendingCanPlayRef.current === onCanPlay) {
+        audio.removeEventListener('canplay', onCanPlay);
+        pendingCanPlayRef.current = null;
+      }
       audio.currentTime = Math.max(0, time);
       audio.play().catch(() => {});
     };
-    audio.addEventListener('canplay', onCanPlay);
-  }, [loadTrack, initializeAudio]);
+    setCanPlayHandler(audio, onCanPlay);
+  }, [loadTrack, initializeAudio, setCanPlayHandler]);
 
   const pause = useCallback(() => {
     audioRef.current?.pause();

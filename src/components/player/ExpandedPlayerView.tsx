@@ -69,8 +69,9 @@ export function ExpandedPlayerView({
                   step={0.1}
                   className="mb-2"
                   trackClassName="h-2 bg-secondary"
-                  rangeClassName="bg-gradient-to-r from-primary to-blue-400"
+                  rangeClassName="bg-gradient-to-r from-primary to-primary/60"
                   thumbClassName="h-4 w-4 border-2 border-primary"
+                  aria-label="Playback progress"
                 />
                 <div className="flex justify-between text-xs text-muted-foreground font-mono">
                   <span>{formatTime(currentTime)}</span>
@@ -88,6 +89,7 @@ export function ExpandedPlayerView({
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => onSetPlaybackRate(rate)}
+                  aria-pressed={playbackRate === rate}
                   className={cn(
                     'px-2 py-1 sm:px-3 sm:py-1.5 rounded-full text-[13px] sm:text-xs font-medium transition-all shrink-0',
                     playbackRate === rate
@@ -111,6 +113,7 @@ export function ExpandedPlayerView({
                 trackClassName="h-1.5 bg-secondary"
                 rangeClassName="bg-foreground/70"
                 thumbClassName="h-4 w-4 border-foreground/70 bg-foreground"
+                aria-label="Volume"
               />
               <span className="text-xs text-muted-foreground w-8 text-right font-mono">
                 {Math.round(volume * 100)}%

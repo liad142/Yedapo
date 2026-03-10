@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Check, X, Headphones, Sparkles, Zap, ArrowRight, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -44,7 +45,7 @@ const TIERS: Tier[] = [
     icon: Headphones,
     price: 0,
     priceSuffix: 'Free forever',
-    tagline: 'EVERY NEW USER',
+    tagline: 'ALWAYS FREE',
     tagDescription: 'Start listening smarter, zero commitment',
     features: [
       { label: `${PLAN_LIMITS.free.summariesPerDay} AI summaries per day`, status: 'included' },
@@ -100,7 +101,6 @@ const TIERS: Tier[] = [
       { label: 'Unlimited podcast subscriptions', status: 'included' },
       { label: 'Unlimited YouTube channels', status: 'included' },
       { label: 'Personalized + Curiosity feed', status: 'included' },
-      { label: 'Automations (coming soon)', status: 'included' },
       { label: 'Priority processing', status: 'included' },
       { label: 'Email + Telegram + Scheduling', status: 'included' },
       { label: 'Early access to new features', status: 'included' },
@@ -149,6 +149,9 @@ function FeatureRow({ feature, highlighted }: { feature: Feature; highlighted?: 
 function PricingCard({ tier, index }: { tier: Tier; index: number }) {
   const Icon = tier.icon;
   const { user, setShowAuthModal } = useAuth();
+  const [waitlistEmail, setWaitlistEmail] = useState('');
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
 
   const handleCTA = () => {
     if (!user && tier.price > 0) {
@@ -157,12 +160,31 @@ function PricingCard({ tier, index }: { tier: Tier; index: number }) {
     // TODO: Stripe integration for paid tiers
   };
 
+  const handleWaitlistSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setWaitlistLoading(true);
+    try {
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: waitlistEmail }),
+      });
+      if (res.ok) {
+        setWaitlistSubmitted(true);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setWaitlistLoading(false);
+    }
+  };
+
   return (
     <div
       className={cn(
         'relative flex flex-col rounded-2xl border bg-card p-6 sm:p-8 transition-all duration-300',
         tier.highlighted
-          ? 'border-primary shadow-xl shadow-primary/10 scale-[1.02] ring-1 ring-primary/20'
+          ? 'border-primary shadow-xl shadow-primary/10 md:scale-[1.02] ring-1 ring-primary/20'
           : 'border-border shadow-sm hover:shadow-md hover:border-border-strong'
       )}
       style={{ animationDelay: `${index * 100}ms` }}
@@ -191,7 +213,7 @@ function PricingCard({ tier, index }: { tier: Tier; index: number }) {
         </div>
         <div>
           <p className="text-xs font-medium text-muted-foreground">{tier.subtitle}</p>
-          <p className="text-lg font-bold text-foreground leading-tight">{tier.name}</p>
+          <p className="text-h3 text-foreground leading-tight">{tier.name}</p>
         </div>
       </div>
 
@@ -244,15 +266,37 @@ function PricingCard({ tier, index }: { tier: Tier; index: number }) {
         >
           {tier.cta}
         </Button>
+      ) : tier.highlighted && tier.ctaDisabled ? (
+        waitlistSubmitted ? (
+          <p className="text-center text-sm font-medium text-primary py-2">
+            You&apos;re on the list! We&apos;ll notify you when Pro launches.
+          </p>
+        ) : (
+          <form onSubmit={handleWaitlistSubmit} className="flex gap-2">
+            <input
+              type="email"
+              placeholder="Enter your email"
+              value={waitlistEmail}
+              onChange={(e) => setWaitlistEmail(e.target.value)}
+              required
+              className="flex-1 px-4 py-2 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <button
+              type="submit"
+              disabled={waitlistLoading}
+              className="px-6 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {waitlistLoading ? 'Joining...' : 'Join Waitlist'}
+            </button>
+          </form>
+        )
       ) : tier.ctaDisabled ? (
         <Button
           size="lg"
           disabled
           className={cn(
             'w-full rounded-full font-semibold gap-2',
-            tier.highlighted
-              ? 'bg-primary/60 text-primary-foreground'
-              : 'bg-foreground/60 text-background'
+            'bg-foreground/60 text-background'
           )}
         >
           <Lock className="h-4 w-4" />
@@ -315,7 +359,7 @@ export default function PricingPage() {
             <Sparkles className="h-3.5 w-3.5" />
             Pricing
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
+          <h1 className="text-h1 sm:text-display tracking-tight text-foreground">
             Listen more. Understand deeper.
           </h1>
           <p className="text-muted-foreground mt-3 text-base sm:text-lg leading-relaxed">
@@ -340,7 +384,7 @@ export default function PricingPage() {
 
         {/* ── FAQ ── */}
         <div className="max-w-2xl mx-auto">
-          <h2 className="text-xl font-bold text-foreground mb-6 text-center">
+          <h2 className="text-h3 text-foreground mb-6 text-center">
             Frequently Asked Questions
           </h2>
           <div className="space-y-4">

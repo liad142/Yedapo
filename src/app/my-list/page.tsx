@@ -1,16 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Library, Youtube, Radio, RefreshCw, X, UserMinus } from 'lucide-react';
+import { Library, Youtube, Radio, RefreshCw, X, UserMinus, Undo2 } from 'lucide-react';
 import { YouTubeLogoStatic } from '@/components/YouTubeLogo';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PodcastCard } from '@/components/PodcastCard';
 import { EmptyState } from '@/components/EmptyState';
 import { SignInPrompt } from '@/components/auth/SignInPrompt';
+import { Toast } from '@/components/ui/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
@@ -45,8 +46,30 @@ interface FollowedChannel {
 }
 
 export default function MyListPage() {
+  return (
+    <Suspense fallback={null}>
+      <MyListContent />
+    </Suspense>
+  );
+}
+
+function MyListContent() {
   const { user, isLoading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<ListTab>('podcasts');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Persist active tab in URL
+  const tabFromUrl = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<ListTab>(
+    tabFromUrl === 'youtube' ? 'youtube' : 'podcasts'
+  );
+
+  const handleSetTab = (tab: ListTab) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', tab);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
 
   // Podcasts state
   const [podcasts, setPodcasts] = useState<PodcastWithStatus[]>([]);
@@ -57,6 +80,12 @@ export default function MyListPage() {
   const [channels, setChannels] = useState<FollowedChannel[]>([]);
   const [channelsLoading, setChannelsLoading] = useState(true);
   const [channelsError, setChannelsError] = useState<string | null>(null);
+
+  // Undo state for soft-delete
+  const [pendingPodcastRemoval, setPendingPodcastRemoval] = useState<{ id: string; item: PodcastWithStatus } | null>(null);
+  const [pendingChannelRemoval, setPendingChannelRemoval] = useState<{ id: string; item: FollowedChannel } | null>(null);
+  const podcastUndoTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const channelUndoTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchPodcasts = useCallback(async () => {
     if (!user) return;
@@ -105,24 +134,65 @@ export default function MyListPage() {
     }
   }, [activeTab, user, fetchPodcasts, fetchChannels]);
 
-  const handleUnsubscribe = async (podcastId: string) => {
-    try {
-      const res = await fetch(`/api/subscriptions/${podcastId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to unsubscribe');
-      setPodcasts(prev => prev.filter(p => p.id !== podcastId));
-    } catch (err) {
-      console.error('Error unsubscribing:', err);
-    }
+  const handleUnsubscribe = (podcastId: string) => {
+    const item = podcasts.find(p => p.id === podcastId);
+    if (!item) return;
+
+    // Clear any existing timer
+    if (podcastUndoTimerRef.current) clearTimeout(podcastUndoTimerRef.current);
+
+    // Optimistically remove from list
+    setPodcasts(prev => prev.filter(p => p.id !== podcastId));
+    setPendingPodcastRemoval({ id: podcastId, item });
+
+    // After 5 seconds, actually perform the deletion
+    podcastUndoTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/subscriptions/${podcastId}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to unsubscribe');
+      } catch (err) {
+        console.error('Error unsubscribing:', err);
+        // Restore on failure
+        setPodcasts(prev => [...prev, item]);
+      }
+      setPendingPodcastRemoval(null);
+    }, 5000);
   };
 
-  const handleUnfollow = async (channel: FollowedChannel) => {
-    try {
-      const res = await fetch(`/api/youtube/channels/${channel.id}/unfollow`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to unfollow');
-      setChannels(prev => prev.filter(c => c.id !== channel.id));
-    } catch (err) {
-      console.error('Error unfollowing:', err);
-    }
+  const undoPodcastRemoval = () => {
+    if (!pendingPodcastRemoval) return;
+    if (podcastUndoTimerRef.current) clearTimeout(podcastUndoTimerRef.current);
+    setPodcasts(prev => [...prev, pendingPodcastRemoval.item]);
+    setPendingPodcastRemoval(null);
+  };
+
+  const handleUnfollow = (channel: FollowedChannel) => {
+    // Clear any existing timer
+    if (channelUndoTimerRef.current) clearTimeout(channelUndoTimerRef.current);
+
+    // Optimistically remove from list
+    setChannels(prev => prev.filter(c => c.id !== channel.id));
+    setPendingChannelRemoval({ id: channel.id, item: channel });
+
+    // After 5 seconds, actually perform the deletion
+    channelUndoTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/youtube/channels/${channel.id}/unfollow`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to unfollow');
+      } catch (err) {
+        console.error('Error unfollowing:', err);
+        // Restore on failure
+        setChannels(prev => [...prev, channel]);
+      }
+      setPendingChannelRemoval(null);
+    }, 5000);
+  };
+
+  const undoChannelRemoval = () => {
+    if (!pendingChannelRemoval) return;
+    if (channelUndoTimerRef.current) clearTimeout(channelUndoTimerRef.current);
+    setChannels(prev => [...prev, pendingChannelRemoval.item]);
+    setPendingChannelRemoval(null);
   };
 
   if (authLoading) {
@@ -149,7 +219,7 @@ export default function MyListPage() {
               <Library className="h-7 w-7 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold">My List</h1>
+              <h1 className="text-h1 md:text-display">My List</h1>
               <p className="text-muted-foreground mt-1">Your podcasts and YouTube channels</p>
             </div>
           </div>
@@ -168,7 +238,7 @@ export default function MyListPage() {
             <Library className="h-7 w-7 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold">My List</h1>
+            <h1 className="text-h1 md:text-display">My List</h1>
             <p className="text-muted-foreground mt-1">
               Your podcasts and YouTube channels
             </p>
@@ -181,7 +251,7 @@ export default function MyListPage() {
             <Button
               variant={activeTab === 'podcasts' ? 'default' : 'ghost'}
               size="sm"
-              onClick={() => setActiveTab('podcasts')}
+              onClick={() => handleSetTab('podcasts')}
               className={cn(
                 'rounded-md gap-2',
                 activeTab !== 'podcasts' && 'hover:bg-secondary'
@@ -196,7 +266,7 @@ export default function MyListPage() {
             <Button
               variant={activeTab === 'youtube' ? 'default' : 'ghost'}
               size="sm"
-              onClick={() => setActiveTab('youtube')}
+              onClick={() => handleSetTab('youtube')}
               className={cn(
                 'rounded-md gap-2',
                 activeTab !== 'youtube' && 'hover:bg-secondary'
@@ -246,6 +316,32 @@ export default function MyListPage() {
           />
         )}
       </div>
+
+      {/* Undo Toast for podcast removal */}
+      <Toast open={!!pendingPodcastRemoval} onOpenChange={() => setPendingPodcastRemoval(null)} position="bottom">
+        <div className="flex items-center gap-3 pr-6">
+          <p className="text-sm font-medium text-foreground">
+            Removed &ldquo;{pendingPodcastRemoval?.item.title}&rdquo;
+          </p>
+          <Button variant="outline" size="sm" onClick={undoPodcastRemoval} className="gap-1.5 shrink-0">
+            <Undo2 className="h-3.5 w-3.5" />
+            Undo
+          </Button>
+        </div>
+      </Toast>
+
+      {/* Undo Toast for channel removal */}
+      <Toast open={!!pendingChannelRemoval} onOpenChange={() => setPendingChannelRemoval(null)} position="bottom">
+        <div className="flex items-center gap-3 pr-6">
+          <p className="text-sm font-medium text-foreground">
+            Removed &ldquo;{pendingChannelRemoval?.item.channel_name}&rdquo;
+          </p>
+          <Button variant="outline" size="sm" onClick={undoChannelRemoval} className="gap-1.5 shrink-0">
+            <Undo2 className="h-3.5 w-3.5" />
+            Undo
+          </Button>
+        </div>
+      </Toast>
     </div>
   );
 }
@@ -400,7 +496,7 @@ function YouTubeChannelCard({
 
   return (
     <Link href={`/browse/youtube/${channel.channel_id}`} className="block h-full">
-      <div className="group h-full bg-white dark:bg-[#1e202e] dark:border dark:border-white/5 rounded-2xl overflow-hidden transition-all duration-300 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:shadow-none dark:hover:shadow-none hover:scale-[1.02]">
+      <div className="group h-full bg-card dark:border dark:border-white/5 rounded-2xl overflow-hidden transition-all duration-300 shadow-sm hover:shadow-md dark:shadow-none dark:hover:shadow-none hover:scale-[1.02]">
         <div className="relative aspect-square w-full bg-secondary flex items-center justify-center">
           {channel.thumbnail_url ? (
             <Image
@@ -437,12 +533,12 @@ function YouTubeChannelCard({
         </div>
 
         <div className="p-5">
-          <h3 className="font-bold text-base leading-tight tracking-tight text-foreground line-clamp-1 mb-1 group-hover:text-primary transition-colors">
+          <h3 className="text-h4 leading-tight tracking-tight text-foreground line-clamp-1 mb-1 group-hover:text-primary transition-colors">
             {channel.channel_name}
           </h3>
 
           {channel.channel_handle && (
-            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mb-4">
+            <p className="text-xs text-muted-foreground line-clamp-1 mb-4">
               {channel.channel_handle}
             </p>
           )}

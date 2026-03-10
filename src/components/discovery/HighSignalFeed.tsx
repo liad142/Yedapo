@@ -381,7 +381,7 @@ export function HighSignalFeed({
           <p className="text-body-sm text-muted-foreground">
             {mode === 'for-you'
               ? 'Personalized picks worth your time'
-              : 'High-signal episodes worth your time'}
+              : 'Episodes worth your time'}
           </p>
         </div>
       </div>

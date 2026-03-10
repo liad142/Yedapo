@@ -40,7 +40,7 @@ export function BrandShelf({
                 showEpisodes ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              Best this week
+              Best This Week
               {showEpisodes ? (
                 <ChevronUp className="h-3.5 w-3.5" />
               ) : (

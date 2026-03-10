@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { springBouncy } from '@/lib/motion';
 import {
   Heart,
   BookOpen,
@@ -357,7 +358,8 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
   return (
     <motion.article
       initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
       className="bg-card border border-border rounded-2xl shadow-[var(--shadow-1)] p-5 hover:shadow-[var(--shadow-2)] hover:border-border/80 transition-all duration-150 cursor-pointer"
       onClick={handleNavigate}
     >
@@ -388,7 +390,7 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
             </h3>
             {/* Follow podcast */}
             {type === 'podcast' && (
-              <button
+              <motion.button
                 onClick={handleFollow}
                 disabled={isToggling}
                 className={cn(
@@ -396,6 +398,8 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
                   'hover:bg-secondary'
                 )}
                 aria-label={isFollowed ? 'Unfollow podcast' : 'Follow podcast'}
+                whileTap={{ scale: 1.3 }}
+                transition={springBouncy}
               >
                 <Heart
                   className={cn(
@@ -404,7 +408,7 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
                     isToggling && 'animate-pulse'
                   )}
                 />
-              </button>
+              </motion.button>
             )}
           </div>
 

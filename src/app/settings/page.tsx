@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import {
-  Moon, Sun, LogIn, LogOut, Loader2, Pencil, Check, X, Shield, ChevronDown, Search,
+  Moon, Sun, Monitor, LogIn, LogOut, Loader2, Pencil, Check, X, Shield, ChevronDown, Search,
   Palette, Briefcase, Smile, GraduationCap, BookOpen, Landmark, Clock, Heart,
   Users, Music, Newspaper, Church, FlaskConical, Globe, Trophy, Cpu, Film,
 } from 'lucide-react';
@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { APPLE_PODCAST_GENRES, APPLE_PODCAST_COUNTRIES } from '@/types/apple-podcasts';
+import { Toast } from '@/components/ui/toast';
 
 // ── Compact genre icon map ──
 const GENRE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -79,10 +80,12 @@ export default function SettingsPage() {
   const [countryOpen, setCountryOpen] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
   const countryRef = useRef<HTMLDivElement>(null);
+  const [errorToast, setErrorToast] = useState<string | null>(null);
 
   const themeOptions = [
     { value: 'light', label: 'Light', icon: Sun },
     { value: 'dark', label: 'Dark', icon: Moon },
+    { value: 'system', label: 'System', icon: Monitor },
   ] as const;
 
   useEffect(() => {
@@ -161,7 +164,9 @@ export default function SettingsPage() {
         setCountry(code.toUpperCase());
         posthog.capture('profile_updated', { field: 'country', country_code: code });
       }
-    } catch {}
+    } catch {
+      setErrorToast('Failed to save country preference. Please try again.');
+    }
   };
 
   const displayName = profile?.display_name
@@ -185,14 +190,14 @@ export default function SettingsPage() {
       <div className="max-w-2xl mx-auto px-4 pt-8 space-y-8">
 
         <div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">Settings</h1>
+          <h1 className="text-h1 text-foreground tracking-tight">Settings</h1>
           <p className="text-muted-foreground mt-1">Manage your account and preferences</p>
         </div>
 
         {/* ── APPEARANCE ── */}
         <section>
           <SectionLabel>Appearance</SectionLabel>
-          <div className="grid grid-cols-2 gap-3 mt-3">
+          <div className="grid grid-cols-3 gap-3 mt-3">
             {themeOptions.map(({ value, label, icon: Icon }) => (
               <button
                 key={value}
@@ -237,7 +242,7 @@ export default function SettingsPage() {
           ) : !user ? (
             <div className="mt-3 rounded-2xl border border-border bg-card p-6 text-center">
               <p className="text-muted-foreground text-sm mb-4">
-                Sign up to manage your account and personalise your experience.
+                Sign up to manage your account and personalize your experience.
               </p>
               <Button onClick={() => setShowAuthModal(true)} className="gap-2">
                 <LogIn className="h-4 w-4" /> Sign Up
@@ -443,6 +448,11 @@ export default function SettingsPage() {
         </section>
 
       </div>
+
+      {/* Error Toast */}
+      <Toast open={!!errorToast} onOpenChange={() => setErrorToast(null)} position="top">
+        <p className="text-sm text-destructive font-medium">{errorToast}</p>
+      </Toast>
     </div>
   );
 }
@@ -457,7 +467,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-sm font-semibold text-foreground">
+    <p className="text-h4 text-foreground">
       {children}
     </p>
   );

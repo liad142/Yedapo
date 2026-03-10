@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { buildEpisodeContext } from "@/lib/ask-ai-service";
-import { checkRateLimit, checkPlanQuota, isAdminEmail } from "@/lib/cache";
+import { checkRateLimit, checkPlanQuota } from "@/lib/cache";
+import { isAdminEmail } from "@/lib/admin";
 import { getUserPlan } from "@/lib/user-plan";
 import { PLAN_LIMITS } from "@/lib/plans";
 import { getAuthUser } from "@/lib/auth-helpers";
@@ -11,7 +12,12 @@ const log = createLogger('ask-ai');
 
 // Separate Gemini instance for chat (plain text, not JSON)
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
-const chatModel = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+
+const ASK_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash'] as const;
+
+function getChatModel(modelId: string) {
+  return genAI.getGenerativeModel({ model: modelId });
+}
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -32,9 +38,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    // Per-user daily quota for Ask AI (plan-based)
+    // Auth gate — require authenticated user
     const user = await getAuthUser();
-    if (user && !(user.email && isAdminEmail(user.email))) {
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Per-user daily quota for Ask AI (plan-based, skip for admins)
+    if (!(user.email && isAdminEmail(user.email))) {
       const plan = await getUserPlan(user.id, user.email ?? undefined);
       const quota = await checkPlanQuota(user.id, 'askai', PLAN_LIMITS[plan].askAiPerDay);
       if (!quota.allowed) {
@@ -95,11 +109,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       { role: "user" as const, parts: [{ text: question }] },
     ];
 
-    // Stream response
-    const result = await chatModel.generateContentStream({
-      systemInstruction: systemPrompt,
-      contents,
-    });
+    // Stream response with model fallback
+    let result;
+    let lastError;
+    for (const modelId of ASK_MODELS) {
+      try {
+        const model = getChatModel(modelId);
+        result = await model.generateContentStream({
+          systemInstruction: systemPrompt,
+          contents,
+        });
+        break; // success
+      } catch (err) {
+        lastError = err;
+        log.warn('Model failed, trying fallback', { model: modelId, error: String(err) });
+      }
+    }
+    if (!result) {
+      throw lastError || new Error('All models failed');
+    }
 
     const encoder = new TextEncoder();
     const stream = new ReadableStream({

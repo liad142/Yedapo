@@ -1,8 +1,15 @@
-import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { NextRequest, NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requestInsights, getInsightsStatus } from "@/lib/insights-service";
 import { resolvePodcastLanguage } from "@/lib/language-utils";
-import { deleteCached, CacheKeys } from "@/lib/cache";
+import { deleteCached, CacheKeys, checkRateLimit, checkPlanQuota } from "@/lib/cache";
+import { getAuthUser } from "@/lib/auth-helpers";
+import { isAdminEmail } from "@/lib/admin";
+import { getUserPlan } from "@/lib/user-plan";
+import { PLAN_LIMITS } from "@/lib/plans";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger('insights');
 
 // GET /api/episodes/[id]/insights - Get insights status and content
 export async function GET(
@@ -29,14 +36,46 @@ export async function GET(
 
 // POST /api/episodes/[id]/insights - Generate insights
 export async function POST(
-  request: Request,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await getAuthUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const isAdmin = isAdminEmail(user.email ?? '');
+
+    // Rate limit: 5 requests/min per user (skip for admins)
+    if (!isAdmin) {
+      const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+      const rlAllowed = await checkRateLimit(`insights:${user.id || ip}`, 5, 60);
+      if (!rlAllowed) {
+        return NextResponse.json({ error: 'Too many requests. Try again in a minute.' }, { status: 429 });
+      }
+    }
+
+    // Per-user daily quota (reuse summary limits, skip for admins)
+    if (!isAdmin) {
+      const plan = await getUserPlan(user.id, user.email ?? undefined);
+      const quota = await checkPlanQuota(user.id, 'insights', PLAN_LIMITS[plan].summariesPerDay);
+      if (!quota.allowed) {
+        return NextResponse.json({
+          error: 'Daily insights limit reached',
+          limit: quota.limit,
+          used: quota.used,
+          upgrade_url: '/pricing',
+        }, { status: 429 });
+      }
+    }
+
     const { id: episodeId } = await context.params;
 
     // Invalidate stale insights cache so polling picks up the new state
     await deleteCached(CacheKeys.insightsStatus(episodeId, 'en')).catch(() => {});
+
+    const supabase = createAdminClient();
 
     // Fetch episode with podcast info - language comes from RSS feed
     const { data: episode, error: episodeError } = await supabase

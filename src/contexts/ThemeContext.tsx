@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -13,7 +13,8 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'podcatch-theme';
+const STORAGE_KEY = 'yedapo-theme';
+const LEGACY_STORAGE_KEY = 'podcatch-theme';
 
 function getSystemTheme(): 'light' | 'dark' {
   if (typeof window === 'undefined') return 'light';
@@ -27,7 +28,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize theme from localStorage on mount
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
+    let stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
+    if (!stored) {
+      const legacy = localStorage.getItem(LEGACY_STORAGE_KEY) as Theme | null;
+      if (legacy && ['light', 'dark', 'system'].includes(legacy)) {
+        stored = legacy;
+        localStorage.setItem(STORAGE_KEY, legacy);
+      }
+    }
     if (stored && ['light', 'dark', 'system'].includes(stored)) {
       setThemeState(stored);
     }
@@ -64,7 +72,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, [theme, mounted]);
 
-  const setTheme = (newTheme: Theme) => {
+  const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
     localStorage.setItem(STORAGE_KEY, newTheme);
 
@@ -74,31 +82,27 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const root = document.documentElement;
     root.classList.remove('light', 'dark');
     root.classList.add(resolved);
-  };
+  }, []);
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     const newTheme = resolvedTheme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
-  };
+  }, [resolvedTheme, setTheme]);
 
-  // Prevent flash of wrong theme
-  if (!mounted) {
-    return (
-      <ThemeContext.Provider
-        value={{
-          theme: 'system',
-          resolvedTheme: 'light',
-          setTheme: () => {},
-          toggleTheme: () => {},
-        }}
-      >
-        {children}
-      </ThemeContext.Provider>
-    );
-  }
+  const value = useMemo(() => {
+    if (!mounted) {
+      return {
+        theme: 'system' as Theme,
+        resolvedTheme: 'light' as const,
+        setTheme: () => {},
+        toggleTheme: () => {},
+      };
+    }
+    return { theme, resolvedTheme, setTheme, toggleTheme };
+  }, [mounted, theme, resolvedTheme, setTheme, toggleTheme]);
 
   return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme, toggleTheme }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

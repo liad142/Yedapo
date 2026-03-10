@@ -112,7 +112,7 @@ export function StickyAudioPlayer() {
         exit={{ y: 100, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className={cn(
-          'fixed bottom-5 left-4 right-4 z-50 flex justify-center',
+          'fixed bottom-5 left-4 right-4 z-[45] flex justify-center',
           'lg:left-[17rem]' // Account for desktop sidebar
         )}
       >
@@ -125,7 +125,7 @@ export function StickyAudioPlayer() {
               className="w-full px-4 py-2 border-b border-border hover:bg-secondary/50 transition-colors cursor-pointer group"
             >
               <div className="flex items-center gap-2.5">
-                <div className="bg-gradient-to-r from-primary to-blue-500 rounded-full p-1 shrink-0">
+                <div className="bg-gradient-to-r from-primary to-primary/60 rounded-full p-1 shrink-0">
                   <Sparkles className="h-3 w-3 text-white" />
                 </div>
                 <span className="flex-1 text-sm text-muted-foreground group-hover:text-foreground transition-colors text-left truncate">
@@ -159,8 +159,9 @@ export function StickyAudioPlayer() {
                 step={0.1}
                 className="h-2"
                 trackClassName="h-2 rounded-sm bg-secondary group-hover:h-2.5 transition-all"
-                rangeClassName="bg-gradient-to-r from-primary via-primary to-blue-400"
+                rangeClassName="bg-gradient-to-r from-primary via-primary to-primary/60"
                 thumbClassName="opacity-0 group-hover:opacity-100 h-3.5 w-3.5 -mt-0.5 border-primary bg-background"
+                aria-label="Playback progress"
               />
               {/* Glow effect on progress */}
               <div
@@ -191,7 +192,7 @@ export function StickyAudioPlayer() {
             </div>
 
             {/* Track Info — two lines */}
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1" aria-live="polite">
               <h4 className="text-sm font-bold text-foreground truncate leading-tight">
                 {activeChapterTitle || currentTrack.title}
               </h4>
@@ -212,7 +213,7 @@ export function StickyAudioPlayer() {
                     seekRelative(-15);
                   }
                 }}
-                className="p-1.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+                className="p-2.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
                 aria-label={currentTrack.chapters ? 'Previous chapter' : 'Skip back 15 seconds'}
               >
                 <SkipBack className="w-4 h-4" />
@@ -223,8 +224,8 @@ export function StickyAudioPlayer() {
                 onClick={toggle}
                 disabled={isLoading}
                 className={cn(
-                  'w-10 h-10 rounded-full flex items-center justify-center transition-all',
-                  'bg-accent-green text-white shadow-lg shadow-accent-green/20',
+                  'w-11 h-11 rounded-full flex items-center justify-center transition-all',
+                  'bg-accent-brand text-white shadow-lg shadow-accent-brand/20',
                   isLoading && 'opacity-70'
                 )}
                 aria-label={isPlaying ? 'Pause' : 'Play'}
@@ -248,7 +249,7 @@ export function StickyAudioPlayer() {
                     seekRelative(15);
                   }
                 }}
-                className="p-1.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+                className="p-2.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
                 aria-label={currentTrack.chapters ? 'Next chapter' : 'Skip forward 15 seconds'}
               >
                 <SkipForward className="w-4 h-4" />
@@ -259,7 +260,7 @@ export function StickyAudioPlayer() {
                 whileTap={{ scale: 0.95 }}
                 onClick={toggleExpanded}
                 className={cn(
-                  'w-8 h-8 flex items-center justify-center rounded-full cursor-pointer transition-all duration-200 border',
+                  'w-11 h-11 flex items-center justify-center rounded-full cursor-pointer transition-all duration-200 border',
                   isExpanded
                     ? 'bg-foreground/10 border-foreground/15 text-foreground'
                     : 'bg-foreground/5 border-border/50 text-muted-foreground hover:bg-foreground/10 hover:border-foreground/15 hover:text-foreground'
@@ -277,7 +278,7 @@ export function StickyAudioPlayer() {
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onClick={clearTrack}
-                className="w-8 h-8 flex items-center justify-center cursor-pointer transition-opacity duration-200 opacity-50 hover:opacity-100"
+                className="w-11 h-11 flex items-center justify-center cursor-pointer transition-opacity duration-200 opacity-50 hover:opacity-100"
                 aria-label="Close player"
               >
                 <X className="w-4 h-4 text-muted-foreground" />

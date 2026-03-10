@@ -12,11 +12,3 @@
 
 export { createClient } from './client';
 export { createAdminClient } from './admin';
-
-import { createClient } from './client';
-
-/**
- * @deprecated Use `createClient()` for browser usage or `createAdminClient()` for server admin.
- * Kept for backward compatibility with existing code that imports `supabase`.
- */
-export const supabase = createClient();

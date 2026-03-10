@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, X, Send, Loader2, AlertCircle, Trash2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -114,6 +114,35 @@ export function AskAIChatPopup() {
     }
   }, [chatOpen, user]);
 
+  // Escape key to close
+  useEffect(() => {
+    if (!chatOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeChat();
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [chatOpen, closeChat]);
+
+  // Focus trap
+  const popupRef = useRef<HTMLDivElement>(null);
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab') return;
+    const el = popupRef.current;
+    if (!el) return;
+    const focusable = el.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+    } else {
+      if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  }, []);
+
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim() || isStreaming) return;
@@ -140,9 +169,9 @@ export function AskAIChatPopup() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.95 }}
           transition={{ duration: 0.2, ease: "easeOut" }}
-          className={`fixed ${bottomOffset} left-4 right-4 z-50 flex justify-center pointer-events-none`}
+          className={`fixed ${bottomOffset} left-4 right-4 z-[50] flex justify-center pointer-events-none`}
         >
-          <div className="pointer-events-auto w-full max-w-xl">
+          <div className="pointer-events-auto w-full max-w-xl" ref={popupRef} role="dialog" aria-label="Ask AI chat" onKeyDown={handleKeyDown}>
             <div className="bg-card/95 dark:bg-card/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-border/50 dark:border-white/10 overflow-hidden flex flex-col max-h-[60vh]">
 
               {/* Header */}
@@ -175,6 +204,7 @@ export function AskAIChatPopup() {
                     size="icon"
                     className="h-7 w-7 rounded-full"
                     onClick={handleClose}
+                    aria-label="Close chat"
                   >
                     <X className="h-4 w-4" />
                   </Button>

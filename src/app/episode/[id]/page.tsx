@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import type { Episode, Podcast, SummaryStatus } from "@/types/database";
 import posthog from "posthog-js";
 import {
@@ -39,6 +39,7 @@ interface SummariesData {
 
 export default function EpisodePage() {
   const params = useParams();
+  const supabase = createClient();
   const episodeId = params.id as string;
   const { user, setShowAuthModal } = useAuth();
 

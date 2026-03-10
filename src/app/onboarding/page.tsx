@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import posthog from 'posthog-js';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Headphones, Sparkles, ArrowRight, Check, Youtube, Loader2 } from 'lucide-react';
+import { Headphones, Sparkles, ArrowRight, ArrowLeft, Check, Youtube, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { GenreCard } from '@/components/onboarding/GenreCard';
@@ -38,6 +38,9 @@ export default function OnboardingPage() {
   const [ytError, setYtError] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [classifications, setClassifications] = useState<Record<string, string[]>>({});
+
+  // Check if user signed in with Google OAuth
+  const isGoogleUser = user?.app_metadata?.provider === 'google';
 
   const displayName = user?.user_metadata?.display_name
     || user?.user_metadata?.full_name
@@ -181,7 +184,12 @@ export default function OnboardingPage() {
 
   const handleFinishGenres = () => {
     posthog.capture('onboarding_step_completed', { step: 'genres', genre_count: selectedGenres.size });
-    setStep('youtube');
+    if (isGoogleUser) {
+      setStep('youtube');
+    } else {
+      // Skip YouTube step for non-Google users
+      saveAndFinish(Array.from(selectedGenres));
+    }
   };
 
   const saveAndFinish = async (genres: string[]) => {
@@ -211,7 +219,9 @@ export default function OnboardingPage() {
     router.push('/discover');
   };
 
-  const allSteps: Step[] = ['welcome', 'genres', 'youtube', 'done'];
+  const allSteps: Step[] = isGoogleUser
+    ? ['welcome', 'genres', 'youtube', 'done']
+    : ['welcome', 'genres', 'done'];
 
   const matchedChannels = ytChannels.filter(
     ch => (classifications[ch.channelId] || []).length > 0
@@ -256,7 +266,7 @@ export default function OnboardingPage() {
                   Welcome to Yedapo, {displayName}!
                 </h1>
                 <p className="text-muted-foreground text-lg mb-2">
-                  Your AI-powered podcast companion
+                  AI-powered insights from podcasts and YouTube
                 </p>
                 <p className="text-muted-foreground mb-8">
                   Discover podcasts, get AI summaries, and never miss an insight.
@@ -371,9 +381,15 @@ export default function OnboardingPage() {
                 )}
 
                 <div className="flex items-center justify-between">
-                  <Button variant="ghost" onClick={() => saveAndFinish(Array.from(selectedGenres))} disabled={isSaving}>
-                    Skip
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" onClick={() => setStep('genres')} className="gap-1">
+                      <ArrowLeft className="h-4 w-4" />
+                      Back
+                    </Button>
+                    <Button variant="ghost" onClick={() => saveAndFinish(Array.from(selectedGenres))} disabled={isSaving}>
+                      Skip
+                    </Button>
+                  </div>
                   <Button
                     onClick={handleImportAndContinue}
                     disabled={isImporting}
@@ -425,9 +441,15 @@ export default function OnboardingPage() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <Button variant="ghost" onClick={handleSkip} disabled={isSaving}>
-                    Skip
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" onClick={() => setStep('welcome')} className="gap-1">
+                      <ArrowLeft className="h-4 w-4" />
+                      Back
+                    </Button>
+                    <Button variant="ghost" onClick={handleSkip} disabled={isSaving}>
+                      Skip
+                    </Button>
+                  </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm text-muted-foreground">
                       {selectedGenres.size} selected
@@ -463,11 +485,26 @@ export default function OnboardingPage() {
                   <Check className="h-10 w-10 text-green-600 dark:text-green-400" />
                 </motion.div>
                 <h2 className="text-3xl font-bold mb-3">You&apos;re all set!</h2>
-                <p className="text-muted-foreground mb-8">
-                  {selectedGenres.size > 0
-                    ? "We've personalized your discovery feed based on your interests."
-                    : "You can always update your genre preferences in Settings."}
+                <p className="text-muted-foreground mb-4">
+                  {selectedGenres.size > 0 || selectedChannels.size > 0
+                    ? "We've personalized your discovery feed based on your selections."
+                    : "You can always update your preferences in Settings."}
                 </p>
+                {(selectedGenres.size > 0 || selectedChannels.size > 0) && (
+                  <div className="mb-8 inline-flex flex-col gap-1 text-sm text-muted-foreground bg-muted/50 rounded-lg px-5 py-3">
+                    {selectedGenres.size > 0 && (
+                      <span>
+                        {selectedGenres.size} genre{selectedGenres.size !== 1 ? 's' : ''} selected
+                      </span>
+                    )}
+                    {selectedChannels.size > 0 && (
+                      <span>
+                        {selectedChannels.size} YouTube channel{selectedChannels.size !== 1 ? 's' : ''} imported
+                      </span>
+                    )}
+                  </div>
+                )}
+                {selectedGenres.size === 0 && selectedChannels.size === 0 && <div className="mb-4" />}
                 <Button onClick={handleStartExploring} className="gap-2 min-w-[200px]">
                   Start Exploring
                   <ArrowRight className="h-4 w-4" />

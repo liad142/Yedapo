@@ -1,6 +1,23 @@
 const isDev = process.env.NODE_ENV === 'development';
 
-// ANSI color codes
+// ── Log-level hierarchy ──────────────────────────────────────────────
+// debug(0) < info(1) < success(2) < warn(3) < error(4)
+const LEVEL_VALUES = { debug: 0, info: 1, success: 2, warn: 3, error: 4 } as const;
+type Level = keyof typeof LEVEL_VALUES;
+
+function resolveLogLevel(): Level {
+  const env = (process.env.LOG_LEVEL || '').toLowerCase();
+  if (env in LEVEL_VALUES) return env as Level;
+  return isDev ? 'debug' : 'warn';
+}
+
+const CURRENT_LEVEL = resolveLogLevel();
+
+function shouldLog(level: Level): boolean {
+  return LEVEL_VALUES[level] >= LEVEL_VALUES[CURRENT_LEVEL];
+}
+
+// ── ANSI color codes (dev only) ──────────────────────────────────────
 const RESET = '\x1b[0m';
 const BOLD = '\x1b[1m';
 const DIM = '\x1b[2m';
@@ -67,7 +84,7 @@ function formatDuration(ms: number): string {
 }
 
 /**
- * Format structured data as key=value pairs.
+ * Format structured data as key=value pairs (dev mode).
  * Handles special keys like durationMs, truncates long strings.
  */
 function formatData(data: unknown): string {
@@ -109,6 +126,38 @@ function formatData(data: unknown): string {
   return '  ' + parts.join(' ');
 }
 
+/**
+ * Serialize data for structured JSON output (prod mode).
+ * Converts Error instances to plain strings, passes everything else through.
+ */
+function serializeData(data: unknown): unknown {
+  if (data instanceof Error) return { message: data.message, stack: data.stack };
+  return data;
+}
+
+/**
+ * Emit a structured JSON log line (prod mode).
+ */
+function emitJsonLine(level: Level, domain: string, message: string, data?: unknown): void {
+  const line: Record<string, unknown> = {
+    level,
+    domain,
+    message,
+    timestamp: new Date().toISOString(),
+  };
+  if (data !== undefined && data !== null) {
+    line.data = serializeData(data);
+  }
+  const str = JSON.stringify(line);
+  if (level === 'error') {
+    console.error(str);
+  } else if (level === 'warn') {
+    console.warn(str);
+  } else {
+    console.log(str);
+  }
+}
+
 interface Logger {
   info(message: string, data?: Record<string, unknown>): void;
   success(message: string, data?: Record<string, unknown>): void;
@@ -137,35 +186,55 @@ export function createLogger(domain: string): Logger {
 
   return {
     info(message: string, data?: Record<string, unknown>) {
-      if (!isDev) return;
-      console.log(`${prefix}  ${message}${formatData(data)}`);
+      if (!shouldLog('info')) return;
+      if (isDev) {
+        console.log(`${prefix}  ${message}${formatData(data)}`);
+      } else {
+        emitJsonLine('info', tag, message, data);
+      }
     },
 
     success(message: string, data?: Record<string, unknown>) {
-      if (!isDev) return;
-      console.log(`${LEVEL_ICONS.success}${prefix}  ${FG.green}${message}${RESET}${formatData(data)}`);
+      if (!shouldLog('success')) return;
+      if (isDev) {
+        console.log(`${LEVEL_ICONS.success}${prefix}  ${FG.green}${message}${RESET}${formatData(data)}`);
+      } else {
+        emitJsonLine('success', tag, message, data);
+      }
     },
 
     warn(message: string, data?: Record<string, unknown>) {
-      if (!isDev) return;
-      console.warn(`${LEVEL_ICONS.warn}${prefix}  ${FG.yellow}${message}${RESET}${formatData(data)}`);
+      if (!shouldLog('warn')) return;
+      if (isDev) {
+        console.warn(`${LEVEL_ICONS.warn}${prefix}  ${FG.yellow}${message}${RESET}${formatData(data)}`);
+      } else {
+        emitJsonLine('warn', tag, message, data);
+      }
     },
 
     error(message: string, data?: unknown) {
-      // Errors always log (even in production)
-      const errorStr = data instanceof Error
-        ? `  ${data.message}`
-        : data && typeof data === 'object'
-          ? formatData(data)
-          : data
-            ? `  ${String(data)}`
-            : '';
-      console.error(`${LEVEL_ICONS.error}${prefix}  ${FG.red}${message}${RESET}${errorStr}`);
+      // Errors always log regardless of level
+      if (isDev) {
+        const errorStr = data instanceof Error
+          ? `  ${data.message}`
+          : data && typeof data === 'object'
+            ? formatData(data)
+            : data
+              ? `  ${String(data)}`
+              : '';
+        console.error(`${LEVEL_ICONS.error}${prefix}  ${FG.red}${message}${RESET}${errorStr}`);
+      } else {
+        emitJsonLine('error', tag, message, data);
+      }
     },
 
     debug(message: string, data?: Record<string, unknown>) {
-      if (!isDev) return;
-      console.log(`${DIM}${icon} ${tag}  ${message}${formatData(data)}${RESET}`);
+      if (!shouldLog('debug')) return;
+      if (isDev) {
+        console.log(`${DIM}${icon} ${tag}  ${message}${formatData(data)}${RESET}`);
+      } else {
+        emitJsonLine('debug', tag, message, data);
+      }
     },
   };
 }

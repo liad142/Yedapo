@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useCountry } from '@/contexts/CountryContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUsage } from '@/contexts/UsageContext';
 import { EpisodeLookupProvider } from '@/contexts/EpisodeLookupContext';
 import { SemanticSearchBar } from '@/components/discovery/SemanticSearchBar';
 import { DailyMixCarousel } from '@/components/discovery/DailyMixCarousel';
@@ -11,6 +12,9 @@ import { TodaysInsights } from '@/components/discovery/TodaysInsights';
 import { BrandShelf } from '@/components/discovery/BrandShelf';
 import { HighSignalFeed } from '@/components/discovery/HighSignalFeed';
 import { ApplePodcast } from '@/components/ApplePodcastCard';
+import { motion } from 'framer-motion';
+import { AlertCircle, RefreshCw, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('discover');
@@ -111,6 +115,12 @@ export default function DiscoverPage() {
   const [personalizedSections, setPersonalizedSections] = useState<PersonalizedSection[]>([]);
   const [isLoadingPersonalized, setIsLoadingPersonalized] = useState(false);
 
+  // Per-section error states
+  const [dailyMixError, setDailyMixError] = useState(false);
+  const [topPodcastsError, setTopPodcastsError] = useState(false);
+  const [feedError, setFeedError] = useState(false);
+  const [personalizedError, setPersonalizedError] = useState(false);
+
   // Fire all independent fetches in parallel: daily-mix, top podcasts, and personalized
   useEffect(() => {
     let cancelled = false;
@@ -125,6 +135,10 @@ export default function DiscoverPage() {
     setHasMoreFeed(true);
     isLoadingMoreFeed.current = false;
     allPodcastsRef.current = [];
+    setDailyMixError(false);
+    setTopPodcastsError(false);
+    setFeedError(false);
+    setPersonalizedError(false);
     if (user) setIsLoadingPersonalized(true);
 
     log.info('Loading...', { userId: user?.id?.slice(0, 8) ?? 'guest', country });
@@ -148,6 +162,7 @@ export default function DiscoverPage() {
         if (!cancelled) {
           setDailyMixEpisodes([]);
           setHasMoreDailyMix(false);
+          setDailyMixError(true);
         }
       })
       .finally(() => {
@@ -211,6 +226,8 @@ export default function DiscoverPage() {
       } catch (error) {
         log.error('Error fetching discover data', error);
         if (!cancelled) {
+          setTopPodcastsError(true);
+          setFeedError(true);
           setIsLoadingPodcasts(false);
           setIsLoadingFeed(false);
         }
@@ -234,7 +251,10 @@ export default function DiscoverPage() {
             }
           } catch (error) {
             log.error('Error fetching personalized feed', error);
-            if (!cancelled) setPersonalizedSections([]);
+            if (!cancelled) {
+              setPersonalizedSections([]);
+              setPersonalizedError(true);
+            }
           } finally {
             if (!cancelled) setIsLoadingPersonalized(false);
           }
@@ -322,36 +342,132 @@ export default function DiscoverPage() {
     }
   }, [hasMoreFeed, feedPage, loadMoreFeed]);
 
+  // Retry handlers for per-section error recovery
+  const retryDailyMix = useCallback(() => {
+    setDailyMixError(false);
+    setIsLoadingDailyMix(true);
+    fetch(`/api/discover/daily-mix?country=${country.toLowerCase()}`)
+      .then(res => res.json())
+      .then(data => {
+        setDailyMixEpisodes(
+          (data.episodes || []).map((ep: any) => ({
+            ...ep,
+            publishedAt: new Date(ep.publishedAt),
+          }))
+        );
+        setDailyMixCursor(data.nextCursor || null);
+        setHasMoreDailyMix(!!data.nextCursor);
+      })
+      .catch(() => setDailyMixError(true))
+      .finally(() => setIsLoadingDailyMix(false));
+  }, [country]);
+
+  const retryTopPodcasts = useCallback(async () => {
+    setTopPodcastsError(false);
+    setFeedError(false);
+    setIsLoadingPodcasts(true);
+    setIsLoadingFeed(true);
+    try {
+      const res = await fetch(`/api/apple/top?country=${country.toLowerCase()}&limit=30`);
+      const data = await res.json();
+      const allPods = data.podcasts || [];
+      setTopPodcasts(allPods);
+      allPodcastsRef.current = allPods;
+      setIsLoadingPodcasts(false);
+
+      if (allPods.length > 0) {
+        const feedPodcasts = allPods.slice(0, 10);
+        const feedRes = await fetch('/api/apple/podcasts/batch-episodes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            podcasts: feedPodcasts.map((p: ApplePodcast) => ({ podcastId: p.id, limit: 3 })),
+            country: country.toLowerCase(),
+          }),
+        });
+        const feedData = await feedRes.json();
+        setFeedEpisodes(mapEpisodes(feedData.results, feedPodcasts, subscribedAppleIds));
+        setFeedPage(1);
+      }
+    } catch {
+      setTopPodcastsError(true);
+      setFeedError(true);
+    } finally {
+      setIsLoadingPodcasts(false);
+      setIsLoadingFeed(false);
+    }
+  }, [country, subscribedAppleIds]);
+
+  const retryPersonalized = useCallback(async () => {
+    setPersonalizedError(false);
+    setIsLoadingPersonalized(true);
+    try {
+      const response = await fetch(`/api/discover/personalized?country=${country.toLowerCase()}`);
+      const data = await response.json();
+      if (data.personalized && data.sections) {
+        setPersonalizedSections(data.sections);
+      } else {
+        setPersonalizedSections([]);
+      }
+    } catch {
+      setPersonalizedError(true);
+    } finally {
+      setIsLoadingPersonalized(false);
+    }
+  }, [country]);
+
+  // Quota visibility
+  const { usage } = useUsage();
+
   return (
     <EpisodeLookupProvider>
       <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
         {/* Sticky Semantic Search */}
         <div className="sticky top-14 lg:top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border/50 transition-colors duration-200">
           <div className="max-w-6xl mx-auto px-4 lg:px-8 py-3">
-            <SemanticSearchBar />
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <Suspense fallback={null}><SemanticSearchBar /></Suspense>
+              </div>
+              {/* Quota visibility chip */}
+              {user && usage && !usage.isUnlimited && (
+                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary border border-border text-xs font-medium text-muted-foreground shrink-0">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {usage.summary.used}/{usage.summary.limit} summaries
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Main Content */}
+        {/* Main Content — Order: TodaysInsights, Personalized, DailyMix, TopPodcasts, HighSignalFeed */}
         <main className="max-w-6xl mx-auto px-4 lg:px-8 py-8">
-          {/* 1. Daily Mix - summarized episodes with value metrics */}
-          <div className="mb-12">
-            <DailyMixCarousel
-              episodes={dailyMixEpisodes}
-              isLoading={isLoadingDailyMix}
-              hasMore={hasMoreDailyMix}
-              onLoadMore={loadMoreDailyMix}
-            />
-          </div>
-
-          {/* 2. Today's Insights - visible to all users */}
-          <div className="mb-12">
+          {/* 1. Today's Insights */}
+          <motion.div
+            className="mb-12"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.4 }}
+          >
             <TodaysInsights />
-          </div>
+          </motion.div>
 
-          {/* 3. Because you like... - upgraded with "Best this week" */}
-          {personalizedSections.length > 0 && personalizedSections.map((section) => (
-            <div key={section.genreId} className="mb-12">
+          {/* 2. Personalized Shelves */}
+          {personalizedError ? (
+            <SectionError
+              title="Personalized Recommendations"
+              onRetry={retryPersonalized}
+            />
+          ) : personalizedSections.length > 0 && personalizedSections.map((section) => (
+            <motion.div
+              key={section.genreId}
+              className="mb-12"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 0.4 }}
+            >
               <BrandShelf
                 podcasts={section.podcasts}
                 isLoading={false}
@@ -359,26 +475,84 @@ export default function DiscoverPage() {
                 genreId={section.genreId}
                 showBestThisWeek
               />
-            </div>
+            </motion.div>
           ))}
 
-          {/* 4. Top Podcasts */}
-          <div className="mb-12">
-            <BrandShelf podcasts={topPodcasts.slice(0, 15)} isLoading={isLoadingPodcasts} />
-          </div>
+          {/* 3. Daily Mix */}
+          {dailyMixError ? (
+            <SectionError title="Daily Mix" onRetry={retryDailyMix} />
+          ) : (
+            <motion.div
+              className="mb-12"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 0.4 }}
+            >
+              <DailyMixCarousel
+                episodes={dailyMixEpisodes}
+                isLoading={isLoadingDailyMix}
+                hasMore={hasMoreDailyMix}
+                onLoadMore={loadMoreDailyMix}
+              />
+            </motion.div>
+          )}
 
-          {/* 5. High-Signal Feed - unified For You + Curiosity */}
-          <div className="mb-12">
-            <HighSignalFeed
-              curiosityEpisodes={feedEpisodes}
-              isCuriosityLoading={isLoadingFeed}
-              hasCuriosityMore={hasMoreFeed}
-              onCuriosityLoadMore={handleLoadMore}
-            />
-          </div>
+          {/* 4. Top Podcasts */}
+          {topPodcastsError ? (
+            <SectionError title="Top Podcasts" onRetry={retryTopPodcasts} />
+          ) : (
+            <motion.div
+              className="mb-12"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 0.4 }}
+            >
+              <BrandShelf podcasts={topPodcasts.slice(0, 15)} isLoading={isLoadingPodcasts} />
+            </motion.div>
+          )}
+
+          {/* 5. High-Signal Feed */}
+          {feedError ? (
+            <SectionError title="Latest Episodes" onRetry={retryTopPodcasts} />
+          ) : (
+            <motion.div
+              className="mb-12"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 0.4 }}
+            >
+              <HighSignalFeed
+                curiosityEpisodes={feedEpisodes}
+                isCuriosityLoading={isLoadingFeed}
+                hasCuriosityMore={hasMoreFeed}
+                onCuriosityLoadMore={handleLoadMore}
+              />
+            </motion.div>
+          )}
 
         </main>
       </div>
     </EpisodeLookupProvider>
+  );
+}
+
+/* --- Per-section error state with retry button --- */
+function SectionError({ title, onRetry }: { title: string; onRetry: () => void }) {
+  return (
+    <div className="mb-12 rounded-2xl border border-border bg-card p-6 text-center">
+      <div className="flex flex-col items-center gap-3">
+        <AlertCircle className="h-8 w-8 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          Failed to load {title}
+        </p>
+        <Button variant="outline" size="sm" onClick={onRetry} className="gap-2">
+          <RefreshCw className="h-3.5 w-3.5" />
+          Retry
+        </Button>
+      </div>
+    </div>
   );
 }

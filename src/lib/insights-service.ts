@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI, type GenerativeModel } from "@google/generative-ai";
 import { createAdminClient } from "@/lib/supabase/admin";
 const supabase = createAdminClient();
 import { ensureTranscript } from "./summary-service";
@@ -14,58 +13,13 @@ import type {
 import { triggerPendingNotifications } from "@/lib/notifications/trigger";
 import { createLogger } from "@/lib/logger";
 import { extractYouTubeVideoId } from "@/lib/youtube/utils";
+import { repairJsonString } from "@/lib/json-repair";
+import { generateWithFallback, DEFAULT_MODELS } from "@/lib/gemini";
 
 const log = createLogger('insights');
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
-
-const INSIGHTS_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-flash'] as const;
-const insightsModelCache = new Map<string, GenerativeModel>();
-
-function getInsightsModel(modelId: string): GenerativeModel {
-  let model = insightsModelCache.get(modelId);
-  if (!model) {
-    model = genAI.getGenerativeModel({
-      model: modelId,
-      generationConfig: { responseMimeType: "application/json" }
-    });
-    insightsModelCache.set(modelId, model);
-  }
-  return model;
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`Timeout after ${ms}ms: ${label}`)), ms);
-    promise.then(
-      (val) => { clearTimeout(timer); resolve(val); },
-      (err) => { clearTimeout(timer); reject(err); }
-    );
-  });
-}
-
 async function generateInsightsWithFallback(prompt: string): Promise<{ text: string; modelUsed: string }> {
-  const TIMEOUT_MS = 30_000;
-  let lastError: Error | null = null;
-  for (const modelId of INSIGHTS_MODELS) {
-    try {
-      log.info(`Trying model ${modelId}...`);
-      const model = getInsightsModel(modelId);
-      const result = await withTimeout(model.generateContent(prompt), TIMEOUT_MS, `insights ${modelId}`);
-      return { text: result.response.text(), modelUsed: modelId };
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      const isRetryable = lastError.message.includes('503') ||
-        lastError.message.includes('429') ||
-        lastError.message.includes('500') ||
-        lastError.message.includes('overloaded') ||
-        lastError.message.includes('high demand') ||
-        lastError.message.includes('Timeout');
-      log.info(`Model ${modelId} failed: ${lastError.message.substring(0, 120)}`);
-      if (!isRetryable) throw lastError;
-    }
-  }
-  throw lastError || new Error('All insights models failed');
+  return generateWithFallback(prompt, DEFAULT_MODELS, true, 30_000);
 }
 
 // Prompt for generating all insights at once
@@ -145,7 +99,13 @@ export async function generateInsights(
     log.info('Insights generated', { modelUsed });
 
     // Parse and validate the response
-    const rawContent = JSON.parse(text);
+    let rawContent;
+    try {
+      rawContent = JSON.parse(text);
+    } catch {
+      const repaired = repairJsonString(text);
+      rawContent = JSON.parse(repaired);
+    }
 
     // Ensure required fields exist with defaults
     const content: InsightsContent = {
@@ -171,7 +131,7 @@ export async function generateInsights(
     try {
       await triggerPendingNotifications(episodeId);
     } catch (notifError) {
-      log.info('Notification trigger failed (non-blocking)', { episodeId, error: String(notifError) });
+      log.warn('Notification trigger failed (non-blocking)', { episodeId, error: String(notifError) });
     }
 
     return { status: 'ready', content };

@@ -14,7 +14,7 @@ const Dialog = ({ open, onOpenChange, children }: DialogProps) => {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-[55]">
       {/* Backdrop */}
       <div
         className={cn("fixed inset-0", "bg-black/60 backdrop-blur-sm")}
@@ -28,21 +28,65 @@ const Dialog = ({ open, onOpenChange, children }: DialogProps) => {
 const DialogContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
->(({ className, children, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn(
-      "fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%]",
-      "rounded-2xl",
-      "bg-background/95 backdrop-blur-xl border border-border shadow-[var(--shadow-floating)]",
-      "duration-200 animate-in fade-in-0 zoom-in-95 slide-in-from-left-1/2 slide-in-from-top-[48%]",
-      className
-    )}
-    {...props}
-  >
-    {children}
-  </div>
-))
+>(({ className, children, ...props }, ref) => {
+  const internalRef = React.useRef<HTMLDivElement>(null)
+  const dialogRef = (ref as React.RefObject<HTMLDivElement>) || internalRef
+
+  // Focus trap: focus the dialog on mount, trap Tab within it
+  React.useEffect(() => {
+    const el = dialogRef.current
+    if (!el) return
+
+    el.focus()
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return
+
+      const focusable = el.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )
+      if (focusable.length === 0) return
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
+
+    el.addEventListener('keydown', handleKeyDown)
+    return () => el.removeEventListener('keydown', handleKeyDown)
+  }, [dialogRef])
+
+  return (
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      tabIndex={-1}
+      className={cn(
+        "fixed left-[50%] top-[50%] z-[55] w-full max-w-lg translate-x-[-50%] translate-y-[-50%]",
+        "rounded-2xl",
+        "bg-background/95 backdrop-blur-xl border border-border shadow-[var(--shadow-floating)]",
+        "duration-200 animate-in fade-in-0 zoom-in-95 slide-in-from-left-1/2 slide-in-from-top-[48%]",
+        "focus:outline-none",
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </div>
+  )
+})
 DialogContent.displayName = "DialogContent"
 
 const DialogHeader = ({
@@ -66,7 +110,7 @@ const DialogTitle = React.forwardRef<
   <h2
     ref={ref}
     className={cn(
-      "text-lg font-semibold leading-none tracking-tight",
+      "text-h3 leading-none tracking-tight",
       className
     )}
     {...props}
@@ -81,7 +125,7 @@ const DialogClose = ({
 }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
   <button
     className={cn(
-      "absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity",
+      "absolute right-2 top-2 rounded-md opacity-70 ring-offset-background transition-opacity min-w-[44px] min-h-[44px] flex items-center justify-center",
       "hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
       "disabled:pointer-events-none",
       className

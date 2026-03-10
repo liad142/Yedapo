@@ -17,18 +17,23 @@ export function Toast({ open, onOpenChange, children, position = 'bottom' }: Toa
 
   return (
     <div className={cn(
-      "fixed left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4",
+      "fixed left-1/2 -translate-x-1/2 z-[60] w-full max-w-md px-4",
       position === 'bottom' ? 'bottom-6' : 'top-6',
       "animate-in fade-in-0 slide-in-from-bottom-2 duration-200"
     )}>
-      <div className={cn(
-        "rounded-lg p-4 shadow-lg border",
-        elevation.floating,
-        "backdrop-blur-xl"
-      )}>
+      <div
+        role="status"
+        aria-live="polite"
+        className={cn(
+          "rounded-lg p-4 shadow-lg border",
+          elevation.floating,
+          "backdrop-blur-xl"
+        )}
+      >
         {children}
         <button
           onClick={() => onOpenChange(false)}
+          aria-label="Dismiss notification"
           className="absolute top-3 right-3 p-1 rounded-md hover:bg-accent transition-colors"
         >
           <X className="h-4 w-4" />

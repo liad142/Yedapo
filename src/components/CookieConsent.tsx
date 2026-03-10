@@ -6,7 +6,8 @@ import posthog from 'posthog-js';
 import { Button } from '@/components/ui/button';
 import { Cookie } from 'lucide-react';
 
-const CONSENT_KEY = 'podcatch_cookie_consent';
+const CONSENT_KEY = 'yedapo_cookie_consent';
+const LEGACY_CONSENT_KEY = 'podcatch_cookie_consent';
 
 type ConsentValue = 'accepted' | 'declined';
 
@@ -14,7 +15,14 @@ export function CookieConsent() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const consent = localStorage.getItem(CONSENT_KEY);
+    let consent = localStorage.getItem(CONSENT_KEY);
+    if (!consent) {
+      const legacy = localStorage.getItem(LEGACY_CONSENT_KEY);
+      if (legacy) {
+        consent = legacy;
+        localStorage.setItem(CONSENT_KEY, legacy);
+      }
+    }
     if (!consent) {
       setVisible(true);
     } else if (consent === 'declined') {
@@ -38,7 +46,7 @@ export function CookieConsent() {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-16 lg:bottom-4 left-4 right-4 lg:left-auto lg:right-4 lg:max-w-md z-50 animate-in slide-in-from-bottom-4 duration-300">
+    <div className="fixed bottom-16 lg:bottom-4 left-4 right-4 lg:left-auto lg:right-4 lg:max-w-md z-[60] animate-in slide-in-from-bottom-4 duration-300">
       <div className="rounded-xl border bg-background shadow-lg p-4 space-y-3">
         <div className="flex items-start gap-3">
           <Cookie className="h-5 w-5 text-primary shrink-0 mt-0.5" />

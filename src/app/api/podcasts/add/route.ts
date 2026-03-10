@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchPodcastFeed } from "@/lib/rss";
 import { getPodcastById } from "@/lib/apple-podcasts";
 import { getAuthUser } from "@/lib/auth-helpers";
@@ -36,6 +36,8 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const supabase = createAdminClient();
 
     const body = await request.json();
     const { rss_url } = body;

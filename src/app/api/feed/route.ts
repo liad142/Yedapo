@@ -205,7 +205,7 @@ export async function GET(request: NextRequest) {
     log.error('Error', error);
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : 'Failed to get feed',
+        error: 'Failed to get feed',
       },
       { status: 500 }
     );

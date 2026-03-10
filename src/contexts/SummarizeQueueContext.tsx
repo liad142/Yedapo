@@ -1,11 +1,10 @@
 // src/contexts/SummarizeQueueContext.tsx
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import posthog from 'posthog-js';
 import type { QueueItem, QueueItemState, SummarizeQueueContextValue } from '@/types/queue';
 import { createLogger } from '@/lib/logger';
-import { UpgradeModal } from '@/components/UpgradeModal';
 import { useUsage } from '@/contexts/UsageContext';
 
 const log = createLogger('queue');
@@ -368,7 +367,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
     };
   }, []);
 
-  const value: SummarizeQueueContextValue = {
+  const value = useMemo<SummarizeQueueContextValue>(() => ({
     queue,
     processingId,
     addToQueue,
@@ -378,17 +377,15 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
     getQueueItem,
     getQueuePosition,
     stats,
-    clearStats
-  };
+    clearStats,
+    showUpgradeModal,
+    setShowUpgradeModal,
+    rateLimitInfo,
+  }), [queue, processingId, addToQueue, resumePolling, removeFromQueue, retryEpisode, getQueueItem, getQueuePosition, stats, clearStats, showUpgradeModal, rateLimitInfo]);
 
   return (
     <SummarizeQueueContext.Provider value={value}>
       {children}
-      <UpgradeModal
-        open={showUpgradeModal}
-        onClose={() => setShowUpgradeModal(false)}
-        rateLimitInfo={rateLimitInfo}
-      />
     </SummarizeQueueContext.Provider>
   );
 }

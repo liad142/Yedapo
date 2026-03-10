@@ -86,29 +86,60 @@ export async function triggerPendingNotifications(episodeId: string): Promise<vo
 
         log.success('Notification sent', { id: notification.id, channel });
       } else {
+        const retryCount = notification.retry_count ?? 0;
+        if (retryCount < 1) {
+          // Mark as pending with incremented retry_count for next pickup
+          await supabase
+            .from('notification_requests')
+            .update({
+              status: 'pending',
+              retry_count: retryCount + 1,
+              error_message: result.error || 'Unknown error',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', notification.id);
+
+          log.warn('Notification failed, will retry', { id: notification.id, channel, error: result.error, retryCount: retryCount + 1 });
+        } else {
+          await supabase
+            .from('notification_requests')
+            .update({
+              status: 'failed',
+              error_message: result.error || 'Unknown error',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', notification.id);
+
+          log.warn('Notification failed permanently', { id: notification.id, channel, error: result.error });
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unexpected error';
+      const retryCount = notification.retry_count ?? 0;
+      if (retryCount < 1) {
         await supabase
           .from('notification_requests')
           .update({
-            status: 'failed',
-            error_message: result.error || 'Unknown error',
+            status: 'pending',
+            retry_count: retryCount + 1,
+            error_message: msg,
             updated_at: new Date().toISOString(),
           })
           .eq('id', notification.id);
 
-        log.warn('Notification failed', { id: notification.id, channel, error: result.error });
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unexpected error';
-      await supabase
-        .from('notification_requests')
-        .update({
-          status: 'failed',
-          error_message: msg,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', notification.id);
+        log.warn('Notification error, will retry', { id: notification.id, error: msg, retryCount: retryCount + 1 });
+      } else {
+        await supabase
+          .from('notification_requests')
+          .update({
+            status: 'failed',
+            error_message: msg,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', notification.id);
 
-      log.error('Notification error', { id: notification.id, error: msg });
+        log.error('Notification error, max retries reached', { id: notification.id, error: msg });
+      }
     }
   }
 

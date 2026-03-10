@@ -86,8 +86,8 @@ export const ApplePodcastCard = React.memo(function ApplePodcastCard({ podcast, 
               "absolute top-2 right-2 p-2 rounded-full transition-all duration-300 shadow-sm opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0",
               isLoading ? 'opacity-50 cursor-not-allowed' : '',
               subscribed
-                ? 'bg-white dark:bg-[#27293d] text-rose-500 opacity-100 translate-y-0 shadow-md'
-                : 'bg-white/90 dark:bg-[#1e202e]/90 text-slate-400 hover:text-rose-500 hover:bg-white dark:hover:bg-[#27293d]'
+                ? 'bg-card text-rose-500 opacity-100 translate-y-0 shadow-md'
+                : 'bg-card/90 text-muted-foreground hover:text-rose-500 hover:bg-card'
             )}
             title={subscribed ? 'Remove from My Podcasts' : 'Add to My Podcasts'}
           >
@@ -98,11 +98,11 @@ export const ApplePodcastCard = React.memo(function ApplePodcastCard({ podcast, 
           <h3 className="font-bold text-foreground text-sm line-clamp-2 leading-tight group-hover:text-primary transition-colors">
             {podcast.name}
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium line-clamp-1">
+          <p className="text-xs text-muted-foreground font-medium line-clamp-1">
             {podcast.artistName}
           </p>
           {podcast.genres && podcast.genres.length > 0 && (
-            <p className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-semibold line-clamp-1">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold line-clamp-1">
               {podcast.genres[0]}
             </p>
           )}

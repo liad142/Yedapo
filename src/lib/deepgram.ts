@@ -121,7 +121,7 @@ async function resolveAudioUrl(url: string, maxRedirects = 5): Promise<string> {
       if (error instanceof Error && error.name === 'AbortError') {
         log.info('Redirect request timed out, using current URL');
       } else {
-        log.info('Error resolving URL, using current', { error: String(error) });
+        log.warn('Error resolving URL, using current', { error: String(error) });
       }
       break;
     } finally {
@@ -205,6 +205,12 @@ async function downloadAudioBuffer(url: string): Promise<Buffer> {
 
     if (!response.ok) {
       throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+    }
+
+    // Check Content-Length before downloading (reject files >200MB)
+    const contentLength = response.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > 200 * 1024 * 1024) {
+      throw new Error(`Audio file too large: ${contentLength} bytes (max 200MB)`);
     }
 
     const arrayBuffer = await response.arrayBuffer();
@@ -374,13 +380,13 @@ export async function transcribeFromUrl(
       // Not a remote content error — don't bother with fallbacks
       const duration = Date.now() - startTime;
       const errorMsg = step1Error instanceof Error ? step1Error.message : String(step1Error);
-      log.info('Step 1 FAILED (non-recoverable)', { durationMs: duration, error: errorMsg });
+      log.error('Step 1 FAILED (non-recoverable)', { durationMs: duration, error: errorMsg });
       throw new (class extends Error { name = 'TranscriptionError'; })(
         `Deepgram transcription failed: ${errorMsg}`
       );
     }
 
-    log.info('Step 1 FAILED with REMOTE_CONTENT_ERROR, trying Step 2 (force-resolve redirects)...');
+    log.warn('Step 1 FAILED with REMOTE_CONTENT_ERROR, trying Step 2 (force-resolve redirects)...');
   }
 
   // ── Step 2: Force-resolve all redirects (even for .mp3 URLs) and retry ──
@@ -413,7 +419,7 @@ export async function transcribeFromUrl(
       log.info('Step 2: URL unchanged after force-resolve, skipping to Step 3');
     }
   } catch (step2Error) {
-    log.info('Step 2 FAILED, trying Step 3 (download audio ourselves)...', {
+    log.warn('Step 2 FAILED, trying Step 3 (download audio ourselves)...', {
       error: step2Error instanceof Error ? step2Error.message : String(step2Error),
     });
   }
@@ -452,7 +458,7 @@ export async function transcribeFromUrl(
   } catch (step3Error) {
     const duration = Date.now() - startTime;
     const errorMsg = step3Error instanceof Error ? step3Error.message : String(step3Error);
-    log.info('All 3 steps FAILED', { totalDurationMs: duration, error: errorMsg });
+    log.error('All 3 steps FAILED', { totalDurationMs: duration, error: errorMsg });
 
     throw new (class extends Error { name = 'TranscriptionError'; })(
       `Deepgram transcription failed after all fallbacks: ${errorMsg}`

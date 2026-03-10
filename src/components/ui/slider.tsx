@@ -14,6 +14,7 @@ interface SliderProps {
   rangeClassName?: string;
   thumbClassName?: string;
   disabled?: boolean;
+  'aria-label'?: string;
 }
 
 const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
@@ -29,6 +30,7 @@ const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
       rangeClassName,
       thumbClassName,
       disabled = false,
+      'aria-label': ariaLabel,
     },
     ref
   ) => {
@@ -135,10 +137,38 @@ const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
           )}
           style={{ left: `calc(${percentage}% - 8px)` }}
           role="slider"
+          aria-label={ariaLabel}
           aria-valuemin={min}
           aria-valuemax={max}
           aria-valuenow={value[0]}
           tabIndex={disabled ? -1 : 0}
+          onKeyDown={(e) => {
+            if (disabled) return;
+            let newValue = value[0];
+            switch (e.key) {
+              case 'ArrowRight':
+              case 'ArrowUp':
+                e.preventDefault();
+                newValue = Math.min(max, value[0] + step);
+                break;
+              case 'ArrowLeft':
+              case 'ArrowDown':
+                e.preventDefault();
+                newValue = Math.max(min, value[0] - step);
+                break;
+              case 'Home':
+                e.preventDefault();
+                newValue = min;
+                break;
+              case 'End':
+                e.preventDefault();
+                newValue = max;
+                break;
+              default:
+                return;
+            }
+            onValueChange([newValue]);
+          }}
         />
       </div>
     );

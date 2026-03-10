@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { getAuthUser } from '@/lib/auth-helpers';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { setCached } from '@/lib/cache';
 
 const BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME;
 
@@ -44,8 +46,9 @@ export async function POST() {
       );
     }
 
-    // Generate a token encoding user_id and timestamp
-    const token = Buffer.from(`${user.id}:${Date.now()}`).toString('base64url');
+    // Generate a cryptographically random token and store mapping in Redis (30 min TTL)
+    const token = crypto.randomBytes(32).toString('hex');
+    await setCached(`telegram:connect:${token}`, user.id, 1800);
     const botLink = `https://t.me/${BOT_USERNAME}?start=${token}`;
 
     return NextResponse.json({ botLink, token });

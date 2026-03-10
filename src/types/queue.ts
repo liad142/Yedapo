@@ -41,4 +41,9 @@ export interface SummarizeQueueContextValue {
     total: number;
   };
   clearStats: () => void;
+
+  // Upgrade modal state (rendered in AppShell)
+  showUpgradeModal: boolean;
+  setShowUpgradeModal: (show: boolean) => void;
+  rateLimitInfo: { limit: number; used: number };
 }

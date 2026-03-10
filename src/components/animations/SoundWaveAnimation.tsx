@@ -8,21 +8,25 @@ interface SoundWaveAnimationProps {
 
 export function SoundWaveAnimation({ className = '' }: SoundWaveAnimationProps) {
   const barColors = [
-    'from-blue-500 to-blue-400',
-    'from-blue-500 to-blue-400',
-    'from-cyan-500 to-cyan-400',
-    'from-teal-500 to-teal-400',
+    'from-primary to-primary/80',
+    'from-primary to-primary/80',
+    'from-primary to-primary/80',
+    'from-primary to-primary/80',
   ];
 
+  // Max height for the bars (used as reference for scaleY=1)
+  const maxHeight = 24;
+
   return (
-    <div className={`flex items-center justify-center gap-1 ${className}`}>
+    <div className={`flex items-end justify-center gap-1 ${className}`}>
       {barColors.map((color, index) => (
         <motion.div
           key={index}
           className={`w-1 rounded-full bg-gradient-to-t ${color}`}
-          initial={{ height: 8 }}
+          style={{ height: maxHeight, transformOrigin: 'bottom', willChange: 'transform, opacity' }}
+          initial={{ scaleY: 8 / maxHeight }}
           animate={{
-            height: [8, 20, 12, 24, 8],
+            scaleY: [8 / maxHeight, 20 / maxHeight, 12 / maxHeight, 24 / maxHeight, 8 / maxHeight],
             opacity: [0.7, 1, 0.8, 1, 0.7],
           }}
           transition={{

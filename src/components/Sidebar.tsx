@@ -121,7 +121,7 @@ function MobileThemeToggle() {
       size="icon"
       onClick={toggleTheme}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-      className="h-9 w-9"
+      className="h-11 w-11"
     >
       {isDark ? (
         <Sun className="h-[18px] w-[18px] text-amber-400" />
@@ -137,8 +137,11 @@ function SidebarContent({ onNavigate, unreadCount = 0, showBell = false }: { onN
   const router = useRouter();
 
   const isActive = (href: string) => {
+    if (href === '/discover') {
+      return pathname === '/discover' || pathname === '/';
+    }
     if (href === '/my-list') {
-      return pathname === '/my-list' || pathname === '/my-podcasts' || pathname === '/';
+      return pathname === '/my-list' || pathname === '/my-podcasts';
     }
     return pathname.startsWith(href);
   };
@@ -249,7 +252,7 @@ function MobileDrawer({
       {/* Backdrop */}
       <div
         className={cn(
-          'fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] transition-opacity lg:hidden',
+          'fixed inset-0 bg-black/60 backdrop-blur-sm z-[55] transition-opacity lg:hidden',
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         )}
         onClick={onClose}
@@ -263,7 +266,7 @@ function MobileDrawer({
         aria-modal="true"
         aria-label="Navigation menu"
         className={cn(
-          'fixed top-0 left-0 bottom-0 w-64 z-[60] transition-transform lg:hidden bg-background border-r border-border',
+          'fixed top-0 left-0 bottom-0 w-64 z-[55] transition-transform lg:hidden bg-background border-r border-border',
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -297,8 +300,11 @@ function MobileBottomNav({ unreadCount = 0 }: { unreadCount?: number }) {
   const pathname = usePathname();
 
   const isActive = (href: string) => {
+    if (href === '/discover') {
+      return pathname === '/discover' || pathname === '/';
+    }
     if (href === '/my-list') {
-      return pathname === '/my-list' || pathname === '/my-podcasts' || pathname === '/';
+      return pathname === '/my-list' || pathname === '/my-podcasts';
     }
     return pathname.startsWith(href);
   };
@@ -325,12 +331,12 @@ function MobileBottomNav({ unreadCount = 0 }: { unreadCount?: number }) {
               <div className="relative">
                 <Icon className="h-5 w-5" />
                 {badge > 0 && (
-                  <span className="absolute -top-1.5 -right-2 bg-primary text-primary-foreground text-[8px] font-bold px-1 py-0.5 rounded-full min-w-[14px] text-center leading-none">
+                  <span className="absolute -top-1.5 -right-2 bg-primary text-primary-foreground text-[10px] font-bold px-1 py-0.5 rounded-full min-w-[14px] text-center leading-none">
                     {badge > 99 ? '99+' : badge}
                   </span>
                 )}
               </div>
-              <span className="text-[10px] font-medium leading-none">{item.label}</span>
+              <span className="text-xs font-medium leading-none">{item.label}</span>
             </Link>
           );
         })}
@@ -360,7 +366,7 @@ export function Sidebar() {
   return (
     <>
       {/* Mobile Top Bar */}
-      <header className="fixed top-0 left-0 right-0 h-14 bg-background border-b border-border z-50 lg:hidden">
+      <header className="fixed top-0 left-0 right-0 h-14 bg-background border-b border-border z-40 lg:hidden">
         <div className="flex items-center justify-between h-full px-4">
           {isRoot ? (
             <Button

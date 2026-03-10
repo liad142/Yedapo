@@ -7,7 +7,9 @@ import { InlinePlayButton } from '@/components/PlayButton';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDate, formatDuration } from '@/lib/formatters';
-import { Calendar, Clock, FileText, Loader2, Sparkles } from 'lucide-react';
+import { Calendar, Check, Clock, FileText, Loader2, Sparkles } from 'lucide-react';
+import { useAudioPlayerSafe } from '@/contexts/AudioPlayerContext';
+import type { EpisodeProgress } from '@/hooks/useListeningProgress';
 import type { PodcastDetailEpisode, SummaryAvailability } from '@/types/podcast';
 
 interface EpisodeListProps {
@@ -28,6 +30,8 @@ interface EpisodeListProps {
   user?: any;
   /** ISO date string: episodes newer than this date show a "new" indicator */
   newEpisodesSince?: string;
+  /** Map of episodeId -> listening progress */
+  progressMap?: Record<string, EpisodeProgress>;
 }
 
 export function EpisodeList({
@@ -46,6 +50,7 @@ export function EpisodeList({
   onAuthGate,
   user,
   newEpisodesSince,
+  progressMap,
 }: EpisodeListProps) {
   // --- Loading skeletons ---
   if (isLoading) {
@@ -83,6 +88,18 @@ export function EpisodeList({
   }
 
   // --- Episode list ---
+  const playerState = useAudioPlayerSafe();
+  // Merge live progress for currently playing episode
+  const mergedProgress = { ...(progressMap || {}) };
+  if (playerState?.currentTrack?.id && playerState.isPlaying) {
+    mergedProgress[playerState.currentTrack.id] = {
+      currentTime: playerState.currentTime,
+      duration: playerState.duration,
+      fraction: playerState.duration > 0 ? playerState.currentTime / playerState.duration : 0,
+      completed: playerState.duration > 0 && playerState.currentTime / playerState.duration >= 0.95,
+    };
+  }
+
   return (
     <div className="space-y-2">
       {episodes.map((episode) => {
@@ -93,6 +110,9 @@ export function EpisodeList({
         const isNew = newEpisodesSince && episode.publishedAt
           ? new Date(episode.publishedAt) > new Date(newEpisodesSince)
           : false;
+
+        const episodeId = summaryInfo?.episodeId || episode.id;
+        const progress = mergedProgress[episodeId] || null;
 
         return (
           <EpisodeItem
@@ -109,6 +129,7 @@ export function EpisodeList({
             user={user}
             variant={variant}
             isNew={isNew}
+            progress={progress}
           />
         );
       })}
@@ -152,6 +173,7 @@ interface EpisodeItemProps {
   user?: any;
   variant: 'card' | 'list';
   isNew?: boolean;
+  progress: EpisodeProgress | null;
 }
 
 function EpisodeItem({
@@ -167,6 +189,7 @@ function EpisodeItem({
   user,
   variant,
   isNew,
+  progress,
 }: EpisodeItemProps) {
   const handleSummarizeClick = (ep: PodcastDetailEpisode) => {
     if (onAuthGate && !user) {
@@ -301,6 +324,40 @@ function EpisodeItem({
 
       {/* Subtle bottom separator */}
       <div className="mx-4 border-b border-border/60" />
+
+      {/* Listening progress bar */}
+      {progress && progress.currentTime > 0 && (
+        <div className="mx-4 -mt-px pb-1">
+          {progress.completed ? (
+            <div className="flex items-center gap-1.5 py-1.5">
+              <Check className="h-3.5 w-3.5 text-green-500" />
+              <span className="text-xs font-medium text-green-500">Finished</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 py-1.5">
+              <div className="flex-1 h-1 rounded-full bg-secondary overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-green-500 transition-all duration-300"
+                  style={{ width: `${Math.min(progress.fraction * 100, 100)}%` }}
+                />
+              </div>
+              <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                {formatTimeLeft(progress.duration - progress.currentTime)}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
+}
+
+function formatTimeLeft(seconds: number): string {
+  if (seconds <= 0) return 'Finished';
+  if (seconds < 60) return '<1min left';
+  const mins = Math.round(seconds / 60);
+  if (mins < 60) return `${mins}min left`;
+  const hrs = Math.floor(mins / 60);
+  const remainMins = mins % 60;
+  return remainMins > 0 ? `${hrs}h ${remainMins}m left` : `${hrs}h left`;
 }

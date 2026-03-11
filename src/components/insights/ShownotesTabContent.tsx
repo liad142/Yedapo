@@ -34,7 +34,7 @@ export function ShownotesTabContent({
   isGenerating,
   onGenerate
 }: ShownotesTabContentProps) {
-  const { isFree } = useUserPlan();
+  const { isGuest } = useUserPlan();
   const [copied, setCopied] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set([0]));
 
@@ -157,7 +157,7 @@ export function ShownotesTabContent({
       </div>
 
       {/* Sections List */}
-      <PaywallOverlay isGated={isFree} module="shownotes">
+      <PaywallOverlay isGated={isGuest} module="shownotes">
         <div className="flex-1 overflow-auto p-4">
           <div className="space-y-2">
             {shownotes.map((section, i) => {

@@ -33,7 +33,7 @@ export function TranscriptTabContent({
   transcriptStatus,
   isLoading
 }: TranscriptTabContentProps) {
-  const { cutoffs, isFree } = useUserPlan();
+  const { cutoffs, isGuest } = useUserPlan();
   const [searchQuery, setSearchQuery] = useState("");
   const [copied, setCopied] = useState(false);
   const [selectedSpeaker, setSelectedSpeaker] = useState<string | null>(null);
@@ -292,7 +292,7 @@ export function TranscriptTabContent({
       {/* Header */}
       <div className="flex gap-3 p-6 border-b border-border/60 bg-card/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex-1 relative">
-          {isFree ? (
+          {isGuest ? (
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={18} />
               <Input
@@ -330,8 +330,8 @@ export function TranscriptTabContent({
             variant="outline"
             size="icon"
             onClick={handleCopy}
-            disabled={isFree}
-            title={isFree ? "Upgrade to Pro to copy" : "Copy transcript"}
+            disabled={isGuest}
+            title={isGuest ? "Upgrade to Pro to copy" : "Copy transcript"}
             className="h-12 w-12 rounded-full border-2 hover:bg-primary/5 hover:border-primary dark:hover:bg-primary/5 transition-all"
           >
             {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
@@ -341,8 +341,8 @@ export function TranscriptTabContent({
             variant="outline"
             size="icon"
             onClick={handleDownload}
-            disabled={isFree}
-            title={isFree ? "Upgrade to Pro to download" : "Download transcript"}
+            disabled={isGuest}
+            title={isGuest ? "Upgrade to Pro to download" : "Download transcript"}
             className="h-12 w-12 rounded-full border-2 hover:bg-primary/5 hover:border-primary dark:hover:bg-primary/5 transition-all"
           >
             <Download size={16} />
@@ -400,7 +400,7 @@ export function TranscriptTabContent({
       <div className="flex-1 overflow-y-auto p-6 sm:p-8" ref={scrollRef}>
         <div className="max-w-4xl mx-auto space-y-6">
           {(() => {
-            const visibleSegments = isFree
+            const visibleSegments = isGuest
               ? filteredSegments.slice(0, cutoffs.transcriptSegments)
               : filteredSegments;
 
@@ -423,7 +423,7 @@ export function TranscriptTabContent({
                   );
                 })}
 
-                {isFree && filteredSegments.length > cutoffs.transcriptSegments && (
+                {isGuest && filteredSegments.length > cutoffs.transcriptSegments && (
                   <PaywallOverlay isGated={true} module="transcript">
                     <div className="space-y-6">
                       {filteredSegments.slice(cutoffs.transcriptSegments, cutoffs.transcriptSegments + 2).map((segment, index) => {

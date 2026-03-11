@@ -238,7 +238,7 @@ function EpisodeItem({
 
           {/* Title */}
           {canNavigate ? (
-            <Link href={`/episode/${summaryInfo!.episodeId}`}>
+            <Link href={`/episode/${summaryInfo!.episodeId}/insights`}>
               <h3 className="text-[15px] font-semibold text-foreground leading-snug group-hover:text-primary transition-colors line-clamp-2">
                 {episode.title}
               </h3>

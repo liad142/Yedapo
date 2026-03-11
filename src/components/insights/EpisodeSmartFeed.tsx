@@ -34,7 +34,7 @@ interface EpisodeSmartFeedProps {
 
 export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtubePlayerRef, videoCurrentTime }: EpisodeSmartFeedProps) {
   const { user, setShowCompactPrompt, setShowAuthModal } = useAuth();
-  const { cutoffs, isFree } = useUserPlan();
+  const { cutoffs, isGuest } = useUserPlan();
   const [data, setData] = useState<EpisodeInsightsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -456,11 +456,11 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
                 dir={isRTL ? "rtl" : "ltr"}
               >
                 <PaywallOverlay
-                  isGated={isFree && deepContent!.comprehensive_overview.split('\n').filter(p => p.trim()).length > cutoffs.deepSummaryParagraphs}
+                  isGated={isGuest && deepContent!.comprehensive_overview.split('\n').filter(p => p.trim()).length > cutoffs.deepSummaryParagraphs}
                   module="deep summary"
-                  teaser={isFree ? <ComprehensiveOverview text={deepContent!.comprehensive_overview} isRTL={isRTL} skipParagraphs={cutoffs.deepSummaryParagraphs} maxParagraphs={cutoffs.deepSummaryParagraphs + 2} hideHeader /> : undefined}
+                  teaser={isGuest ? <ComprehensiveOverview text={deepContent!.comprehensive_overview} isRTL={isRTL} skipParagraphs={cutoffs.deepSummaryParagraphs} maxParagraphs={cutoffs.deepSummaryParagraphs + 2} hideHeader /> : undefined}
                 >
-                  <ComprehensiveOverview text={deepContent!.comprehensive_overview} isRTL={isRTL} maxParagraphs={isFree ? cutoffs.deepSummaryParagraphs : undefined} />
+                  <ComprehensiveOverview text={deepContent!.comprehensive_overview} isRTL={isRTL} maxParagraphs={isGuest ? cutoffs.deepSummaryParagraphs : undefined} />
                 </PaywallOverlay>
               </motion.section>
             )}
@@ -475,11 +475,11 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
                 dir={isRTL ? "rtl" : "ltr"}
               >
                 <PaywallOverlay
-                  isGated={isFree && deepContent!.core_concepts.length > cutoffs.coreConcepts}
+                  isGated={isGuest && deepContent!.core_concepts.length > cutoffs.coreConcepts}
                   module="core concepts"
-                  teaser={isFree ? <CoreConcepts concepts={deepContent!.core_concepts.slice(cutoffs.coreConcepts, cutoffs.coreConcepts + 2)} isRTL={isRTL} hideHeader /> : undefined}
+                  teaser={isGuest ? <CoreConcepts concepts={deepContent!.core_concepts.slice(cutoffs.coreConcepts, cutoffs.coreConcepts + 2)} isRTL={isRTL} hideHeader /> : undefined}
                 >
-                  <CoreConcepts concepts={isFree ? deepContent!.core_concepts.slice(0, cutoffs.coreConcepts) : deepContent!.core_concepts} isRTL={isRTL} />
+                  <CoreConcepts concepts={isGuest ? deepContent!.core_concepts.slice(0, cutoffs.coreConcepts) : deepContent!.core_concepts} isRTL={isRTL} />
                 </PaywallOverlay>
               </motion.section>
             )}
@@ -494,9 +494,9 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
                 dir={isRTL ? "rtl" : "ltr"}
               >
                 <PaywallOverlay
-                  isGated={isFree && deepContent!.chronological_breakdown!.length > cutoffs.chapters}
+                  isGated={isGuest && deepContent!.chronological_breakdown!.length > cutoffs.chapters}
                   module="chapters"
-                  teaser={isFree ? (
+                  teaser={isGuest ? (
                     <EpisodeChapters
                       sections={deepContent!.chronological_breakdown!.slice(cutoffs.chapters, cutoffs.chapters + 2)}
                       isRTL={isRTL}
@@ -509,12 +509,12 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
                   ) : undefined}
                 >
                   <EpisodeChapters
-                    sections={isFree ? deepContent!.chronological_breakdown!.slice(0, cutoffs.chapters) : deepContent!.chronological_breakdown}
+                    sections={isGuest ? deepContent!.chronological_breakdown!.slice(0, cutoffs.chapters) : deepContent!.chronological_breakdown}
                     isRTL={isRTL}
                     episode={episode}
                     youtubePlayerRef={youtubePlayerRef}
                     videoCurrentTime={videoCurrentTime}
-                    creatorChapters={isFree ? undefined : ytMeta?.chapters}
+                    creatorChapters={isGuest ? undefined : ytMeta?.chapters}
                     storyboardSpec={ytMeta?.storyboard_spec ?? undefined}
                   />
                 </PaywallOverlay>
@@ -543,12 +543,12 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
                 dir={isRTL ? "rtl" : "ltr"}
               >
                 <PaywallOverlay
-                  isGated={isFree}
+                  isGated={isGuest}
                   module="counterpoints"
-                  teaser={isFree ? <ContrarianViews views={deepContent!.contrarian_views.slice(0, 2)} isRTL={isRTL} /> : undefined}
+                  teaser={isGuest ? <ContrarianViews views={deepContent!.contrarian_views.slice(0, 2)} isRTL={isRTL} /> : undefined}
                 >
                   {/* Free users see no counterpoints but get the blurred teaser above */}
-                  {!isFree && <ContrarianViews views={deepContent!.contrarian_views} isRTL={isRTL} />}
+                  {!isGuest && <ContrarianViews views={deepContent!.contrarian_views} isRTL={isRTL} />}
                 </PaywallOverlay>
               </motion.section>
             )}

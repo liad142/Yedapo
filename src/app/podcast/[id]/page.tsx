@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { SafeImage } from "@/components/SafeImage";
 import { Header } from "@/components/Header";
@@ -26,6 +26,7 @@ const log = createLogger('podcast');
 
 export default function PodcastPage() {
   const params = useParams();
+  const router = useRouter();
   const supabase = createClient();
   const podcastId = params.id as string;
 
@@ -98,42 +99,24 @@ export default function PodcastPage() {
         setPodcast(podcastData);
         setIsLoading(false);
 
-        // 2. Determine Apple ID directly
+        // 2. Determine Apple ID — if this is an Apple podcast, redirect to the
+        //    browse page which shows the full episode catalogue from the API.
         const isApplePodcast = podcastData.rss_feed_url?.startsWith('apple:');
         const resolvedAppleId = isApplePodcast
           ? podcastData.rss_feed_url.replace('apple:', '')
           : null;
         setAppleId(resolvedAppleId);
 
-        log.info('Loading episodes', {
-          podcastId,
-          isApplePodcast,
-          appleId: resolvedAppleId,
-        });
-
-        // 3. Fetch episodes
         if (resolvedAppleId) {
-          // Fetch from Apple API
-          try {
-            const response = await fetch(`/api/apple/podcasts/${resolvedAppleId}/episodes?limit=50&offset=0`);
-            if (!response.ok) {
-              log.error('Apple API error', { status: response.status });
-              throw new Error('Failed to fetch from Apple');
-            }
-            const data = await response.json();
-            log.success('Apple episodes loaded', { count: data.episodes?.length });
-            setEpisodes(data.episodes || []);
-            setHasMore(data.hasMore ?? false);
-            setTotalCount(data.totalCount ?? data.episodes?.length ?? 0);
-          } catch (appleErr) {
-            log.warn('Apple fetch failed, trying local DB', { error: String(appleErr) });
-            // Fallback to local DB
-            await fetchLocalEpisodes(podcastData);
-          }
-        } else {
-          // Not an Apple podcast - fetch from local DB
-          await fetchLocalEpisodes(podcastData);
+          // Redirect to the browse page for the full episode list
+          router.replace(`/browse/podcast/${resolvedAppleId}`);
+          return;
         }
+
+        log.info('Loading episodes', { podcastId, isApplePodcast: false });
+
+        // Non-Apple podcast — fetch from local DB
+        await fetchLocalEpisodes(podcastData);
 
       } catch (err) {
         log.error('Error loading podcast', err);

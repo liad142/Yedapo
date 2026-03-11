@@ -142,13 +142,7 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, episodeI
       if (res.ok) {
         const data = await res.json();
         setLocalEpisodeId(data.episodeId);
-        if (data.summary?.status === 'ready') {
-          setLocalSummaryStatus('ready');
-          router.push(`/episode/${data.episodeId}/insights`);
-        } else {
-          setLocalSummaryStatus('ready');
-          router.push(`/episode/${data.episodeId}/insights`);
-        }
+        setLocalSummaryStatus(data.summary?.status === 'ready' ? 'ready' : 'loading');
       } else {
         setLocalSummaryStatus('none');
       }

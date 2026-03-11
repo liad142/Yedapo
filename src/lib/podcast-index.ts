@@ -183,7 +183,9 @@ export async function getPodcastByItunesId(itunesId: string): Promise<Podcast | 
 export async function getEpisodesByFeedId(feedId: string): Promise<PodcastEpisode[]> {
   const cacheKey = CacheKeys.piEpisodes(feedId);
   const cached = await getCached<PodcastEpisode[]>(cacheKey);
-  if (cached) return cached;
+  // Only trust cache if it has a reasonable number of episodes;
+  // tiny cached results likely came from an earlier partial fetch.
+  if (cached && cached.length >= 10) return cached;
 
   // Fetch a large batch and cache all; callers apply offset/limit slicing
   const data = await piRequest<PodcastIndexEpisodesResponse>('/episodes/byfeedid', {

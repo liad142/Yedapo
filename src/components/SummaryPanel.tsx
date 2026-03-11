@@ -389,7 +389,7 @@ function DeepSummaryView({
   currentVideoTime?: number;
   summaryUsage?: { used: number; limit: number };
 }) {
-  const { cutoffs, isFree } = useUserPlan();
+  const { cutoffs, isGuest } = useUserPlan();
 
   if (['queued', 'transcribing', 'summarizing'].includes(status)) {
     return (
@@ -453,9 +453,9 @@ function DeepSummaryView({
       {/* Comprehensive Overview */}
       {(() => {
         const paragraphs = summary.comprehensive_overview.split('\n').filter(p => p.trim());
-        const visibleParagraphs = isFree ? paragraphs.slice(0, cutoffs.deepSummaryParagraphs) : paragraphs;
+        const visibleParagraphs = isGuest ? paragraphs.slice(0, cutoffs.deepSummaryParagraphs) : paragraphs;
         return (
-          <PaywallOverlay isGated={isFree && paragraphs.length > cutoffs.deepSummaryParagraphs} module="deep summary">
+          <PaywallOverlay isGated={isGuest && paragraphs.length > cutoffs.deepSummaryParagraphs} module="deep summary">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -485,7 +485,7 @@ function DeepSummaryView({
           <PaywallList
             items={summary.core_concepts}
             visibleCount={cutoffs.coreConcepts}
-            isGated={isFree}
+            isGated={isGuest}
             module="core concepts"
             renderItem={(concept, i) => (
               <Card key={i}>
@@ -516,7 +516,7 @@ function DeepSummaryView({
           <PaywallList
             items={summary.chronological_breakdown}
             visibleCount={cutoffs.chapters}
-            isGated={isFree}
+            isGated={isGuest}
             module="chapters"
             renderItem={(section, i) => {
               const isActive = currentVideoTime !== undefined &&
@@ -560,7 +560,7 @@ function DeepSummaryView({
 
       {/* Counterpoints */}
       {summary.contrarian_views && summary.contrarian_views.length > 0 && (
-        <PaywallOverlay isGated={isFree} module="counterpoints">
+        <PaywallOverlay isGated={isGuest} module="counterpoints">
           <Card className="bg-primary/5 dark:bg-primary/10 border-primary/20 dark:border-primary/20">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -592,7 +592,7 @@ function DeepSummaryView({
             <PaywallList
               items={summary.actionable_takeaways}
               visibleCount={cutoffs.takeaways}
-              isGated={isFree}
+              isGated={isGuest}
               module="takeaways"
               renderItem={(action, i) => (
                 <div key={i} className="flex items-start gap-2 mb-3 last:mb-0">

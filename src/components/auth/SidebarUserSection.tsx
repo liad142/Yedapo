@@ -68,16 +68,6 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
           <User className="h-4 w-4" />
           Sign Up
         </Button>
-        <div className="flex items-center gap-2 px-1">
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Headphones className="h-3 w-3" />
-            <span className="text-[11px]">Podcasts</span>
-          </div>
-          <span className="text-muted-foreground/30 text-[11px]">+</span>
-          <YouTubeLogoStatic size="xs" />
-          <span className="text-muted-foreground/30 text-[11px]">AI summaries</span>
-        </div>
-        <p className="text-[11px] text-muted-foreground/60 px-1">3 free summaries/day</p>
       </div>
     );
   }

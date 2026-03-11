@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { PLAN_LIMITS, PLAN_CUTOFFS, type UserPlan, type PlanLimits, type ContentCutoffs } from '@/lib/plans';
+import { PLAN_LIMITS, PLAN_CUTOFFS, GUEST_CUTOFFS, type UserPlan, type PlanLimits, type ContentCutoffs } from '@/lib/plans';
 
 interface UseUserPlanResult {
   plan: UserPlan;
@@ -11,6 +11,7 @@ interface UseUserPlanResult {
   isFree: boolean;
   isPro: boolean;
   isPower: boolean;
+  isGuest: boolean;
   isLoading: boolean;
 }
 
@@ -50,13 +51,18 @@ export function useUserPlan(): UseUserPlanResult {
     return () => { cancelled = true; };
   }, [user, authLoading]);
 
+  const isGuest = !user;
+
   return useMemo(() => ({
     plan,
     limits: PLAN_LIMITS[plan],
-    cutoffs: PLAN_CUTOFFS[plan],
+    // Guests get restrictive cutoffs (blur + sign-up CTA);
+    // registered users (even free) see all content.
+    cutoffs: isGuest ? GUEST_CUTOFFS : PLAN_CUTOFFS[plan],
     isFree: plan === 'free',
     isPro: plan === 'pro',
     isPower: plan === 'power',
+    isGuest,
     isLoading: authLoading || isLoading,
-  }), [plan, authLoading, isLoading]);
+  }), [plan, isGuest, authLoading, isLoading]);
 }

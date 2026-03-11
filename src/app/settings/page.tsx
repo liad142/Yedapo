@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { APPLE_PODCAST_GENRES, APPLE_PODCAST_COUNTRIES } from '@/types/apple-podcasts';
 import { Toast } from '@/components/ui/toast';
+import { useUsage } from '@/contexts/UsageContext';
+import { UsageMeter } from '@/components/UsageMeter';
 
 // ── Compact genre icon map ──
 const GENRE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -66,6 +68,7 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { user, isLoading: authLoading, signOut, setShowAuthModal } = useAuth();
   const { setCountry } = useCountry();
+  const { usage } = useUsage();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
@@ -288,6 +291,25 @@ export default function SettingsPage() {
                   <p className="text-sm text-muted-foreground truncate mt-0.5">{user.email}</p>
                 </div>
               </div>
+
+              {/* ── Plan & Usage ── */}
+              {usage && (
+                <div>
+                  <FieldLabel>Your Plan</FieldLabel>
+                  <div className="mt-2 p-4 rounded-2xl bg-card border border-border space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-foreground capitalize">{usage.plan} Plan</span>
+                      {usage.resetsAt && (
+                        <span className="text-[11px] text-muted-foreground">
+                          Resets {new Date(usage.resetsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                    </div>
+                    <UsageMeter label="Summaries" used={usage.summary.used} limit={usage.summary.limit} variant="sidebar" />
+                    <UsageMeter label="Questions" used={usage.askAi.used} limit={usage.askAi.limit} variant="sidebar" />
+                  </div>
+                </div>
+              )}
 
               {/* ── Genres (compact chips) ── */}
               <div>

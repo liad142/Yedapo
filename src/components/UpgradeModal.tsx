@@ -125,7 +125,7 @@ export function UpgradeModal({ open, onClose, rateLimitInfo, feature = 'summary'
           </div>
 
           {/* Heading */}
-          <h3 id="upgrade-modal-title" className="text-xl font-bold mb-1.5">Upgrade to Pro</h3>
+          <h3 id="upgrade-modal-title" className="text-xl font-bold mb-1.5">Upgrade to Explorer</h3>
           <p className="text-sm text-muted-foreground mb-1">
             {FEATURE_COPY[feature].heading}
           </p>
@@ -163,7 +163,7 @@ export function UpgradeModal({ open, onClose, rateLimitInfo, feature = 'summary'
             >
               <Link href="/pricing">
                 <Sparkles className="h-5 w-5 fill-white/20" />
-                Upgrade to Pro
+                Upgrade to Explorer
               </Link>
             </Button>
             <Button

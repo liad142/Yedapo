@@ -152,6 +152,7 @@ export function DailyMixCarousel({ episodes, isLoading = false, hasMore = false,
           audioUrl={selectedEpisode.audioUrl}
           durationSeconds={selectedEpisode.durationSeconds}
           podcastId={selectedEpisode.podcastId}
+          podcastAppleId={selectedEpisode.podcastAppleId}
           summaries={selectedEpisode.summaries || {}}
           onClose={() => setSelectedEpisodeId(null)}
         />

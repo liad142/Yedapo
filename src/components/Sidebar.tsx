@@ -8,7 +8,6 @@ import {
   Library,
   BookOpen,
   Settings,
-  Menu,
   X,
   ArrowLeft,
   Sun,
@@ -368,18 +367,7 @@ export function Sidebar() {
       {/* Mobile Top Bar */}
       <header className="fixed top-0 left-0 right-0 h-14 bg-background border-b border-border z-40 lg:hidden">
         <div className="flex items-center justify-between h-full px-4">
-          {isRoot ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsMobileMenuOpen(true)}
-              aria-label="Open navigation menu"
-              aria-expanded={isMobileMenuOpen}
-              aria-controls="mobile-navigation"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-          ) : (
+          {!isRoot ? (
             <Button
               variant="ghost"
               size="icon"
@@ -388,6 +376,8 @@ export function Sidebar() {
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
+          ) : (
+            <div className="w-9" /> /* Spacer to keep logo centered */
           )}
 
           <Link href="/" className="flex items-center gap-2">

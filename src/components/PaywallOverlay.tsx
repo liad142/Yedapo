@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import Link from 'next/link';
-import { Crown } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { trackEvent } from '@/lib/analytics';
+import { useAuth } from '@/contexts/AuthContext';
 
 // ---------------------------------------------------------------------------
 // PaywallOverlay — shows free content clearly, then blurs the rest as a teaser
@@ -163,31 +163,28 @@ export function PaywallList<T>({
 // ---------------------------------------------------------------------------
 
 function UpgradeCta({ module }: { module: string }) {
+  const { setShowAuthModal } = useAuth();
+
   return (
-    <Link
-      href="/pricing"
-      onClick={() => trackEvent('paywall_cta_click', { module })}
+    <button
+      onClick={() => {
+        trackEvent('paywall_cta_click', { module });
+        setShowAuthModal(true, `Sign up to unlock the full ${module}.`);
+      }}
       className={cn(
-        'relative z-10 group',
+        'relative z-10 group cursor-pointer',
         'inline-flex items-center gap-2 px-5 py-2.5',
         'rounded-full',
-        'bg-muted/60 border border-border',
-        'shadow-sm',
-        'text-sm font-medium text-foreground',
+        'bg-primary text-primary-foreground',
+        'shadow-lg shadow-primary/25',
+        'text-sm font-medium',
         'transition-all duration-200',
-        'hover:bg-muted hover:border-border-strong hover:shadow-md',
-        'hover:scale-[1.02]',
+        'hover:shadow-primary/40 hover:scale-[1.02]',
         'active:scale-[0.98]',
       )}
     >
-      <Crown className="h-4 w-4 text-amber-400 transition-transform duration-200 group-hover:scale-110" />
-      <span>Unlock full {module} with Pro</span>
-      <span
-        className="text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5"
-        aria-hidden="true"
-      >
-        &rarr;
-      </span>
-    </Link>
+      <Lock className="h-3.5 w-3.5" />
+      <span>Sign up to unlock full {module}</span>
+    </button>
   );
 }

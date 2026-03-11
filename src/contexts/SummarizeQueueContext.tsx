@@ -179,6 +179,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
       if (state === 'ready') {
         log.success('Processing complete', { episodeId, durationMs: elapsedMs });
         setStats(prev => ({ ...prev, completed: prev.completed + 1 }));
+        refreshUsage();
         finishProcessing();
         processNext();
         return;

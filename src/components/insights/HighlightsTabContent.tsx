@@ -34,7 +34,7 @@ export function HighlightsTabContent({
   isGenerating,
   onGenerate
 }: HighlightsTabContentProps) {
-  const { cutoffs, isFree } = useUserPlan();
+  const { cutoffs, isGuest } = useUserPlan();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const handleCopy = async (quote: string, index: number) => {
@@ -121,7 +121,7 @@ export function HighlightsTabContent({
       <PaywallList
         items={highlights}
         visibleCount={cutoffs.highlights}
-        isGated={isFree}
+        isGated={isGuest}
         module="highlights"
         className="space-y-4"
         renderItem={(highlight, i) => (

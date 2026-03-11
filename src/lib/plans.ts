@@ -15,8 +15,8 @@ export interface PlanLimits {
 }
 
 export const PLAN_LIMITS: Record<UserPlan, PlanLimits> = {
-  free:  { summariesPerDay: 3,        askAiPerDay: 10 },
-  pro:   { summariesPerDay: 15,       askAiPerDay: 50 },
+  free:  { summariesPerDay: 3,        askAiPerDay: 5 },
+  pro:   { summariesPerDay: 20,       askAiPerDay: 50 },
   power: { summariesPerDay: Infinity, askAiPerDay: Infinity },
 };
 
@@ -36,15 +36,29 @@ export interface ContentCutoffs {
   shownotes: number;             // 0 = fully locked
 }
 
-export const FREE_CUTOFFS: ContentCutoffs = {
-  deepSummaryParagraphs: 2,
+// Guest users (not signed in) see a teaser with blur + sign-up CTA.
+export const GUEST_CUTOFFS: ContentCutoffs = {
+  deepSummaryParagraphs: 3,
   coreConcepts: 2,
-  chapters: 1,
-  takeaways: 3,
-  transcriptSegments: 5,
-  highlights: 1,
+  chapters: 3,
+  takeaways: 2,
+  transcriptSegments: 0,
+  highlights: 2,
   counterpoints: 0,
   shownotes: 0,
+};
+
+// Registered users (even free plan) can VIEW all summary content.
+// Gating for free plan is only on generation quotas (3 summaries/day, 5 asks/day).
+export const FREE_CUTOFFS: ContentCutoffs = {
+  deepSummaryParagraphs: Infinity,
+  coreConcepts: Infinity,
+  chapters: Infinity,
+  takeaways: Infinity,
+  transcriptSegments: Infinity,
+  highlights: Infinity,
+  counterpoints: Infinity,
+  shownotes: Infinity,
 };
 
 const FULL_ACCESS: ContentCutoffs = {
@@ -76,39 +90,46 @@ export interface PlanMeta {
 
 export const PLAN_META: Record<UserPlan, PlanMeta> = {
   free: {
-    label: 'Free',
+    label: 'Listener',
     price: '$0',
     description: 'Get instant value from any podcast',
     features: [
       '3 AI summaries per day',
-      '10 Ask AI questions per day',
-      'Quick Summary (always full)',
-      'Preview of deep insights',
-      'Keywords & discovery',
+      '5 Ask AI questions per day',
+      'Full summaries & insights',
+      'All chapters & takeaways',
+      '15 podcast subscriptions',
+      '3 YouTube channel follows',
+      '25 saved episodes',
     ],
   },
   pro: {
-    label: 'Pro',
-    price: '$6.99/mo',
+    label: 'Explorer',
+    price: '$7.99/mo',
     description: 'Unlock the full depth of every episode',
     features: [
-      '15 AI summaries per day',
+      '20 AI summaries per day',
       '50 Ask AI questions per day',
       'Full deep summaries & chapters',
       'Full transcript with search',
       'All highlights & counterpoints',
       'Complete shownotes',
+      'Unlimited subscriptions',
+      '20 YouTube channel follows',
+      'Export summaries',
+      'Priority generation queue',
     ],
   },
   power: {
-    label: 'Power',
-    price: '$13.99/mo',
+    label: 'Obsessed',
+    price: '$14.99/mo',
     description: 'For power listeners and teams',
     features: [
       'Unlimited AI summaries',
       'Unlimited Ask AI',
-      'Everything in Pro',
-      'Automations (coming soon)',
+      'Everything in Explorer',
+      'Unlimited YouTube channels',
+      'Early access to new features',
       'Priority support',
     ],
   },

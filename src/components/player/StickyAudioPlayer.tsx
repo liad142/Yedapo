@@ -32,13 +32,13 @@ export function StickyAudioPlayer() {
   const { user, setShowAuthModal } = useAuth();
   const [upsellDismissed, setUpsellDismissed] = useState(false);
 
-  // Stable ref for chapter injection to avoid re-triggering usePlayerAskAI effect
+  // Stable refs to avoid re-triggering usePlayerAskAI effect
   const playerRef = useRef(player);
   playerRef.current = player;
 
   const handleChaptersLoaded = useCallback((chapters: { title: string; timestamp: string; timestamp_seconds: number }[]) => {
     const p = playerRef.current;
-    if (p?.currentTrack && !p.currentTrack.chapters?.length && userRef.current) {
+    if (p?.currentTrack && !p.currentTrack.chapters?.length) {
       p.updateTrackMeta({ chapters });
     }
   }, []);
@@ -139,7 +139,7 @@ export function StickyAudioPlayer() {
           )}
 
           {/* 2. Progress Bar / Chapter Scrubber — padded hit area so taps don't bleed into AskAI */}
-          {user && currentTrack.chapters && currentTrack.chapters.length > 0 ? (
+          {currentTrack.chapters && currentTrack.chapters.length > 0 ? (
             <div className="relative pt-5 pb-1 px-1 group cursor-pointer">
               <div className="relative h-2 group-hover:h-2.5 transition-all">
                 <ChapterScrubber
@@ -225,7 +225,7 @@ export function StickyAudioPlayer() {
                 disabled={isLoading}
                 className={cn(
                   'w-11 h-11 rounded-full flex items-center justify-center transition-all',
-                  'bg-accent-brand text-white shadow-lg shadow-accent-brand/20',
+                  'bg-primary text-primary-foreground shadow-lg shadow-primary/20',
                   isLoading && 'opacity-70'
                 )}
                 aria-label={isPlaying ? 'Pause' : 'Play'}

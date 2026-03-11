@@ -19,6 +19,7 @@ interface SummaryModalProps {
   audioUrl: string;
   durationSeconds: number | null;
   podcastId: string;
+  podcastAppleId?: string | null;
   summaries: { quick?: any; deep?: any };
   onClose: () => void;
 }
@@ -45,6 +46,7 @@ export function SummaryModal({
   audioUrl,
   durationSeconds,
   podcastId,
+  podcastAppleId,
   summaries,
   onClose,
 }: SummaryModalProps) {
@@ -56,6 +58,7 @@ export function SummaryModal({
   const fetchedRef = useRef(false);
 
   const artwork = isValidImageUrl(podcastArtwork) ? podcastArtwork : '';
+  const podcastHref = podcastAppleId ? `/browse/podcast/${podcastAppleId}` : `/browse/podcast/${podcastId}`;
 
   // Use summary data directly from props when available
   const hasPropsData = !!(summaries?.quick || summaries?.deep);
@@ -227,7 +230,7 @@ export function SummaryModal({
 
               <div className="relative flex items-start gap-4">
                 {artwork && (
-                  <div className="w-20 h-20 rounded-xl overflow-hidden border border-border flex-shrink-0 shadow-lg">
+                  <Link href={podcastHref} onClick={onClose} className="w-20 h-20 rounded-xl overflow-hidden border border-border flex-shrink-0 shadow-lg block">
                     <Image
                       src={artwork}
                       alt={podcastName}
@@ -235,13 +238,17 @@ export function SummaryModal({
                       height={80}
                       className="object-cover w-full h-full"
                     />
-                  </div>
+                  </Link>
                 )}
                 <div className="flex-1 min-w-0 pt-1">
-                  <p className="text-sm text-muted-foreground truncate">{podcastName}</p>
-                  <h2 id="summary-modal-title" className="text-lg font-bold text-foreground line-clamp-2 leading-snug mt-1">
-                    {title}
-                  </h2>
+                  <Link href={podcastHref} onClick={onClose} className="text-sm text-muted-foreground truncate block hover:text-foreground transition-colors">
+                    {podcastName}
+                  </Link>
+                  <Link href={`/episode/${episodeId}/insights`} onClick={onClose}>
+                    <h2 id="summary-modal-title" className="text-lg font-bold text-foreground line-clamp-2 leading-snug mt-1 hover:text-primary transition-colors">
+                      {title}
+                    </h2>
+                  </Link>
                   {durationSeconds ? (
                     <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1">
                       <Clock className="h-3 w-3" />

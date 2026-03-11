@@ -288,6 +288,12 @@ export async function getPodcastEpisodes(
   // Check Redis cache for the full episode list
   let allEpisodes = await getCached<AppleEpisode[]>(cacheKey);
 
+  // Bust stale cache: if cached result has suspiciously few episodes and
+  // Podcastindex is available, re-fetch to get the full catalogue.
+  if (allEpisodes && allEpisodes.length < 10 && isPodcastIndexConfigured()) {
+    allEpisodes = null;
+  }
+
   if (!allEpisodes) {
     // Primary: try Podcastindex API (reliable single endpoint, structured JSON)
     if (isPodcastIndexConfigured()) {

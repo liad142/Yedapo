@@ -39,7 +39,7 @@ function mapInitialStatus(status: string): QueueItemState {
 export function SummarizeButton({ episodeId, initialStatus = 'not_ready', className = '' }: SummarizeButtonProps) {
   const router = useRouter();
   const { user, setShowCompactPrompt } = useAuth();
-  const { addToQueue, resumePolling, retryEpisode, getQueueItem, getQueuePosition } = useSummarizeQueue();
+  const { addToQueue, resumePolling, retryEpisode, getQueueItem, getQueuePosition, setShowUpgradeModal } = useSummarizeQueue();
   const { usage, incrementSummary } = useUsage();
   const resumedRef = useRef(false);
 
@@ -61,27 +61,40 @@ export function SummarizeButton({ episodeId, initialStatus = 'not_ready', classN
 
   const handleClick = () => {
     switch (state) {
-      case 'idle':
+      case 'idle': {
         if (!user) {
           setShowCompactPrompt(true, 'Only registered users can summarize episodes. Please sign in or create an account to continue.');
+          return;
+        }
+        // Block if at quota limit — don't queue, show upgrade modal instead
+        const atQuotaLimit = usage && usage.summary.limit !== -1 && usage.summary.used >= usage.summary.limit;
+        if (atQuotaLimit) {
+          setShowUpgradeModal(true);
           return;
         }
         addToQueue(episodeId);
         incrementSummary();
         break;
+      }
       case 'ready':
         posthog.capture('summary_viewed', { episode_id: episodeId });
         router.push(`/episode/${episodeId}/insights?tab=summary`);
         break;
-      case 'failed':
+      case 'failed': {
         if (!user) {
           setShowCompactPrompt(true, 'Only registered users can summarize episodes. Please sign in or create an account to continue.');
+          return;
+        }
+        const atRetryLimit = usage && usage.summary.limit !== -1 && usage.summary.used >= usage.summary.limit;
+        if (atRetryLimit) {
+          setShowUpgradeModal(true);
           return;
         }
         posthog.capture('summary_retried', { episode_id: episodeId });
         retryEpisode(episodeId);
         incrementSummary();
         break;
+      }
       default:
         break;
     }

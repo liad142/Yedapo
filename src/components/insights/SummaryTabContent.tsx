@@ -177,7 +177,7 @@ function QuickSummaryView({ content }: { content: QuickSummaryContent }) {
 }
 
 function DeepSummaryView({ content }: { content: DeepSummaryContent }) {
-  const { cutoffs, isFree } = useUserPlan();
+  const { cutoffs, isGuest } = useUserPlan();
 
   // Detect RTL from content
   const isRTL = useMemo(() => {
@@ -196,9 +196,9 @@ function DeepSummaryView({ content }: { content: DeepSummaryContent }) {
       {/* Comprehensive Overview */}
       {(() => {
         const paragraphs = content.comprehensive_overview.split('\n').filter(p => p.trim());
-        const visibleParagraphs = isFree ? paragraphs.slice(0, cutoffs.deepSummaryParagraphs) : paragraphs;
-        const hiddenParagraphs = isFree ? paragraphs.slice(cutoffs.deepSummaryParagraphs) : [];
-        const isGated = isFree && hiddenParagraphs.length > 0;
+        const visibleParagraphs = isGuest ? paragraphs.slice(0, cutoffs.deepSummaryParagraphs) : paragraphs;
+        const hiddenParagraphs = isGuest ? paragraphs.slice(cutoffs.deepSummaryParagraphs) : [];
+        const isGated = isGuest && hiddenParagraphs.length > 0;
         return (
           <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
             <div className={cn("flex items-center gap-2 mb-3", isRTL && "flex-row-reverse")}>
@@ -236,7 +236,7 @@ function DeepSummaryView({ content }: { content: DeepSummaryContent }) {
           <PaywallList
             items={content.core_concepts}
             visibleCount={cutoffs.coreConcepts}
-            isGated={isFree}
+            isGated={isGuest}
             module="core concepts"
             className="space-y-4"
             renderItem={(concept, i) => (
@@ -269,7 +269,7 @@ function DeepSummaryView({ content }: { content: DeepSummaryContent }) {
           <PaywallList
             items={content.chronological_breakdown}
             visibleCount={cutoffs.chapters}
-            isGated={isFree}
+            isGated={isGuest}
             module="episode flow"
             className="space-y-3"
             renderItem={(section, i) => (
@@ -288,7 +288,7 @@ function DeepSummaryView({ content }: { content: DeepSummaryContent }) {
 
       {/* Counterpoints */}
       {content.contrarian_views.length > 0 && (
-        <PaywallOverlay isGated={isFree} module="counterpoints">
+        <PaywallOverlay isGated={isGuest} module="counterpoints">
           <div className="space-y-2">
             <h3 className={cn("font-semibold flex items-center gap-2", isRTL && "flex-row-reverse")}>
               <Sparkles className="h-4 w-4 text-primary" />
@@ -318,7 +318,7 @@ function DeepSummaryView({ content }: { content: DeepSummaryContent }) {
           <PaywallList
             items={content.actionable_takeaways}
             visibleCount={cutoffs.takeaways}
-            isGated={isFree}
+            isGated={isGuest}
             module="takeaways"
             className="space-y-2"
             renderItem={(action, i) => (

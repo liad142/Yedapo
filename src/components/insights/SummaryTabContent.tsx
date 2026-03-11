@@ -203,7 +203,7 @@ function DeepSummaryView({ content }: { content: DeepSummaryContent }) {
           <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
             <div className={cn("flex items-center gap-2 mb-3", isRTL && "flex-row-reverse")}>
               <FileText className="h-4 w-4 text-primary" />
-              <span className="font-semibold">Comprehensive Overview</span>
+              <span className="font-semibold">{content.section_labels?.comprehensive_overview ?? 'Comprehensive Overview'}</span>
             </div>
             <PaywallOverlay
               isGated={isGated}
@@ -231,7 +231,7 @@ function DeepSummaryView({ content }: { content: DeepSummaryContent }) {
         <div className="space-y-4">
           <h3 className={cn("font-semibold flex items-center gap-2", isRTL && "flex-row-reverse")}>
             <Lightbulb className="h-4 w-4 text-yellow-500" />
-            Core Concepts
+            {content.section_labels?.core_concepts ?? 'Core Concepts'}
           </h3>
           <PaywallList
             items={content.core_concepts}
@@ -264,7 +264,7 @@ function DeepSummaryView({ content }: { content: DeepSummaryContent }) {
         <div className="space-y-3">
           <h3 className={cn("font-semibold flex items-center gap-2", isRTL && "flex-row-reverse")}>
             <Clock className="h-4 w-4" />
-            Episode Flow
+            {content.section_labels?.episode_flow ?? 'Episode Flow'}
           </h3>
           <PaywallList
             items={content.chronological_breakdown}
@@ -292,7 +292,7 @@ function DeepSummaryView({ content }: { content: DeepSummaryContent }) {
           <div className="space-y-2">
             <h3 className={cn("font-semibold flex items-center gap-2", isRTL && "flex-row-reverse")}>
               <Sparkles className="h-4 w-4 text-primary" />
-              Counterpoints
+              {content.section_labels?.counterpoints ?? 'Counterpoints'}
             </h3>
             <div className="space-y-2">
               {content.contrarian_views.map((view, i) => (
@@ -313,7 +313,7 @@ function DeepSummaryView({ content }: { content: DeepSummaryContent }) {
         <div className="space-y-2">
           <h3 className={cn("font-semibold flex items-center gap-2", isRTL && "flex-row-reverse")}>
             <CheckCircle className="h-4 w-4 text-green-500" />
-            Actionable Takeaways
+            {content.section_labels?.actionable_takeaways ?? 'Actionable Takeaways'}
           </h3>
           <PaywallList
             items={content.actionable_takeaways}

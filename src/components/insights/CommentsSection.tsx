@@ -12,9 +12,11 @@ import type { EpisodeCommentWithAuthor } from "@/types/database";
 
 interface CommentsSectionProps {
   episodeId: string;
+  sectionLabel?: string;
+  isRTL?: boolean;
 }
 
-export function CommentsSection({ episodeId }: CommentsSectionProps) {
+export function CommentsSection({ episodeId, sectionLabel, isRTL }: CommentsSectionProps) {
   const { user, setShowAuthModal } = useAuth();
   const [comments, setComments] = useState<EpisodeCommentWithAuthor[]>([]);
   const [total, setTotal] = useState(0);
@@ -221,7 +223,7 @@ export function CommentsSection({ episodeId }: CommentsSectionProps) {
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-h2 text-foreground flex items-center gap-2">
           <MessageCircle className="h-5 w-5" />
-          Discussion
+          {sectionLabel ?? 'Discussion'}
           {total > 0 && (
             <Badge variant="secondary" className="text-caption">
               {total}

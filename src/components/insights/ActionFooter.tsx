@@ -28,6 +28,8 @@ interface ActionFooterProps {
   episode: Episode & { podcast?: Podcast };
   actionPrompts?: (string | ActionItem)[];
   summaryReady?: boolean;
+  sectionLabel?: string;
+  isRTL?: boolean;
 }
 
 // Category icon mapping
@@ -113,7 +115,7 @@ function getLegacyStorageKey(episodeId: string) {
   return `${LEGACY_STORAGE_PREFIX}${episodeId}`;
 }
 
-export function ActionFooter({ episode, actionPrompts, summaryReady = false }: ActionFooterProps) {
+export function ActionFooter({ episode, actionPrompts, summaryReady = false, sectionLabel, isRTL }: ActionFooterProps) {
   const actions = useMemo(() => normalizeActionItems(actionPrompts), [actionPrompts]);
 
   // Sort: high priority first, then medium, then low
@@ -182,10 +184,10 @@ export function ActionFooter({ episode, actionPrompts, summaryReady = false }: A
         className="space-y-5"
       >
         {/* Section heading */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-5">
           <h2 className="text-h2 text-foreground flex items-center gap-2">
             <CheckSquare className="h-5 w-5 text-green-500" />
-            Action Items
+            {sectionLabel ?? 'Action Items'}
           </h2>
           {sortedActions.length > 0 && (
             <span className="text-caption text-muted-foreground font-medium">

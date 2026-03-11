@@ -23,6 +23,8 @@ interface TranscriptAccordionProps {
   transcriptStatus: string;
   isGenerating: boolean;
   onGenerate: () => void;
+  sectionLabel?: string;
+  isRTL?: boolean;
 }
 
 interface TranscriptSegment {
@@ -79,6 +81,8 @@ export function TranscriptAccordion({
   transcriptStatus,
   isGenerating,
   onGenerate,
+  sectionLabel,
+  isRTL,
 }: TranscriptAccordionProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -221,7 +225,7 @@ export function TranscriptAccordion({
           <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
             <FileText className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h3 className="text-h3 text-foreground mb-2">Episode Transcript</h3>
+          <h3 className="text-h3 text-foreground mb-2">{sectionLabel ?? 'Transcript'}</h3>
           <p className="text-body-sm text-muted-foreground mb-4">
             {isTranscribing || isGenerating
               ? "Transcribing audio..."
@@ -246,7 +250,7 @@ export function TranscriptAccordion({
   }
 
   return (
-    <div>
+    <div dir={isRTL ? "rtl" : "ltr"}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -257,8 +261,8 @@ export function TranscriptAccordion({
         <div className="px-5 py-4 border-b border-border">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-foreground" />
-              <h3 className="text-h3 text-foreground">Transcript</h3>
+              <FileText className="h-5 w-5" />
+              <h2 className="text-h2 text-foreground">{sectionLabel ?? 'Transcript'}</h2>
               <span className="text-caption text-muted-foreground">
                 {segments.length} segments
               </span>

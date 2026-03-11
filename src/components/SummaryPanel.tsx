@@ -460,7 +460,7 @@ function DeepSummaryView({
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <FileText className="h-4 w-4" />
-                  Comprehensive Overview
+                  {summary.section_labels?.comprehensive_overview ?? 'Comprehensive Overview'}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -480,7 +480,7 @@ function DeepSummaryView({
         <div className="space-y-4">
           <h3 className="font-semibold flex items-center gap-2">
             <Lightbulb className="h-4 w-4" />
-            Core Concepts
+            {summary.section_labels?.core_concepts ?? 'Core Concepts'}
           </h3>
           <PaywallList
             items={summary.core_concepts}
@@ -511,7 +511,7 @@ function DeepSummaryView({
         <div className="space-y-3">
           <h3 className="font-semibold flex items-center gap-2">
             <BookOpen className="h-4 w-4" />
-            Episode Flow
+            {summary.section_labels?.episode_flow ?? 'Episode Flow'}
           </h3>
           <PaywallList
             items={summary.chronological_breakdown}
@@ -565,7 +565,7 @@ function DeepSummaryView({
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
-                Counterpoints
+                {summary.section_labels?.counterpoints ?? 'Counterpoints'}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -585,7 +585,7 @@ function DeepSummaryView({
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Target className="h-4 w-4 text-primary" />
-              Actionable Takeaways
+              {summary.section_labels?.actionable_takeaways ?? 'Actionable Takeaways'}
             </CardTitle>
           </CardHeader>
           <CardContent>

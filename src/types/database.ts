@@ -86,6 +86,17 @@ export interface DeepSummaryContent {
   chronological_breakdown: ChronologicalSection[];
   contrarian_views: string[];
   actionable_takeaways: (string | ActionItem)[];  // Backward compat: old=string[], new=ActionItem[]
+  section_labels?: {
+    comprehensive_overview: string;
+    core_concepts: string;
+    episode_flow: string;
+    counterpoints: string;
+    actionable_takeaways: string;
+    counterpoints_subtitle: string;
+    transcript: string;
+    action_items: string;
+    discussion: string;
+  };
 }
 
 // Extended transcript with status

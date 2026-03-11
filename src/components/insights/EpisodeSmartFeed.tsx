@@ -344,13 +344,13 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
                 <div className="select-none blur-[4px] opacity-60 space-y-10" aria-hidden>
                   {isDeepReady && deepContent!.comprehensive_overview && (
                     <div dir={isRTL ? "rtl" : "ltr"}>
-                      <ComprehensiveOverview text={deepContent!.comprehensive_overview} isRTL={isRTL} />
+                      <ComprehensiveOverview text={deepContent!.comprehensive_overview} isRTL={isRTL} label={deepContent!.section_labels?.comprehensive_overview} />
                     </div>
                   )}
 
                   {isDeepReady && deepContent!.core_concepts?.length > 0 && (
                     <div dir={isRTL ? "rtl" : "ltr"}>
-                      <CoreConcepts concepts={deepContent!.core_concepts} isRTL={isRTL} />
+                      <CoreConcepts concepts={deepContent!.core_concepts} isRTL={isRTL} label={deepContent!.section_labels?.core_concepts} />
                     </div>
                   )}
 
@@ -364,13 +364,14 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
                         videoCurrentTime={videoCurrentTime}
                         creatorChapters={ytMeta?.chapters}
                         storyboardSpec={ytMeta?.storyboard_spec ?? undefined}
+                        label={deepContent!.section_labels?.episode_flow}
                       />
                     </div>
                   )}
 
                   {isDeepReady && deepContent!.contrarian_views?.length > 0 && (
                     <div dir={isRTL ? "rtl" : "ltr"}>
-                      <ContrarianViews views={deepContent!.contrarian_views} isRTL={isRTL} />
+                      <ContrarianViews views={deepContent!.contrarian_views} isRTL={isRTL} label={deepContent!.section_labels?.counterpoints} subtitle={deepContent!.section_labels?.counterpoints_subtitle} />
                     </div>
                   )}
 
@@ -380,6 +381,8 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
                       transcriptStatus={data?.transcript_status || "not_started"}
                       isGenerating={false}
                       onGenerate={() => {}}
+                      sectionLabel={deepContent?.section_labels?.transcript}
+                      isRTL={isRTL}
                     />
                   </div>
 
@@ -388,6 +391,8 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
                       episode={episode}
                       actionPrompts={deepContent?.actionable_takeaways}
                       summaryReady={data?.summaries?.quick?.status === 'ready' || data?.summaries?.deep?.status === 'ready'}
+                      sectionLabel={deepContent?.section_labels?.action_items}
+                      isRTL={isRTL}
                     />
                   </div>
                 </div>
@@ -460,7 +465,7 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
                   module="deep summary"
                   teaser={isGuest ? <ComprehensiveOverview text={deepContent!.comprehensive_overview} isRTL={isRTL} skipParagraphs={cutoffs.deepSummaryParagraphs} maxParagraphs={cutoffs.deepSummaryParagraphs + 2} hideHeader /> : undefined}
                 >
-                  <ComprehensiveOverview text={deepContent!.comprehensive_overview} isRTL={isRTL} maxParagraphs={isGuest ? cutoffs.deepSummaryParagraphs : undefined} />
+                  <ComprehensiveOverview text={deepContent!.comprehensive_overview} isRTL={isRTL} maxParagraphs={isGuest ? cutoffs.deepSummaryParagraphs : undefined} label={deepContent!.section_labels?.comprehensive_overview} />
                 </PaywallOverlay>
               </motion.section>
             )}
@@ -479,7 +484,7 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
                   module="core concepts"
                   teaser={isGuest ? <CoreConcepts concepts={deepContent!.core_concepts.slice(cutoffs.coreConcepts, cutoffs.coreConcepts + 2)} isRTL={isRTL} hideHeader /> : undefined}
                 >
-                  <CoreConcepts concepts={isGuest ? deepContent!.core_concepts.slice(0, cutoffs.coreConcepts) : deepContent!.core_concepts} isRTL={isRTL} />
+                  <CoreConcepts concepts={isGuest ? deepContent!.core_concepts.slice(0, cutoffs.coreConcepts) : deepContent!.core_concepts} isRTL={isRTL} label={deepContent!.section_labels?.core_concepts} />
                 </PaywallOverlay>
               </motion.section>
             )}
@@ -516,6 +521,7 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
                     videoCurrentTime={videoCurrentTime}
                     creatorChapters={isGuest ? undefined : ytMeta?.chapters}
                     storyboardSpec={ytMeta?.storyboard_spec ?? undefined}
+                    label={deepContent!.section_labels?.episode_flow}
                   />
                 </PaywallOverlay>
               </motion.section>
@@ -545,10 +551,10 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
                 <PaywallOverlay
                   isGated={isGuest}
                   module="counterpoints"
-                  teaser={isGuest ? <ContrarianViews views={deepContent!.contrarian_views.slice(0, 2)} isRTL={isRTL} /> : undefined}
+                  teaser={isGuest ? <ContrarianViews views={deepContent!.contrarian_views.slice(0, 2)} isRTL={isRTL} label={deepContent!.section_labels?.counterpoints} subtitle={deepContent!.section_labels?.counterpoints_subtitle} /> : undefined}
                 >
                   {/* Free users see no counterpoints but get the blurred teaser above */}
-                  {!isGuest && <ContrarianViews views={deepContent!.contrarian_views} isRTL={isRTL} />}
+                  {!isGuest && <ContrarianViews views={deepContent!.contrarian_views} isRTL={isRTL} label={deepContent!.section_labels?.counterpoints} subtitle={deepContent!.section_labels?.counterpoints_subtitle} />}
                 </PaywallOverlay>
               </motion.section>
             )}
@@ -560,15 +566,19 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
                 transcriptStatus={data?.transcript_status || "not_started"}
                 isGenerating={isGenerating}
                 onGenerate={handleGenerate}
+                sectionLabel={deepContent?.section_labels?.transcript}
+                isRTL={isRTL}
               />
             </section>
 
             {/* --- Section 7: Action Items --- */}
-            <section>
+            <section dir={isRTL ? "rtl" : "ltr"}>
               <ActionFooter
                 episode={episode}
                 actionPrompts={deepContent?.actionable_takeaways}
                 summaryReady={data?.summaries?.quick?.status === 'ready' || data?.summaries?.deep?.status === 'ready'}
+                sectionLabel={deepContent?.section_labels?.action_items}
+                isRTL={isRTL}
               />
             </section>
           </>
@@ -580,8 +590,9 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.4, delay: 0.25 }}
+          dir={isRTL ? "rtl" : "ltr"}
         >
-          <CommentsSection episodeId={episode.id} />
+          <CommentsSection episodeId={episode.id} sectionLabel={deepContent?.section_labels?.discussion} isRTL={isRTL} />
         </motion.section>
 
         {/* Subscription */}
@@ -614,12 +625,9 @@ function SectionHeader({ icon: Icon, label, iconClassName, subtitle, isRTL, chil
   children?: React.ReactNode;
 }) {
   return (
-    <div className={cn("flex items-center justify-between mb-5", isRTL && "flex-row-reverse")}>
+    <div className="flex items-center justify-between mb-5">
       <div>
-        <h2 className={cn(
-          "text-h2 text-foreground flex items-center gap-2",
-          isRTL && "flex-row-reverse",
-        )}>
+        <h2 className="text-h2 text-foreground flex items-center gap-2">
           <Icon className={cn("h-5 w-5", iconClassName)} />
           {label}
         </h2>
@@ -638,37 +646,26 @@ function TeaserCard({ content, isRTL }: { content: QuickSummaryContent; isRTL: b
     <div className="bg-card border border-border rounded-2xl shadow-[var(--shadow-1)] p-6 lg:p-8 space-y-6">
       {/* Headline */}
       {content.hook_headline && (
-        <h2 className={cn(
-          "text-display text-foreground",
-          isRTL && "text-right"
-        )}>
+        <h2 className="text-display text-foreground">
           {content.hook_headline}
         </h2>
       )}
 
       {/* Executive Brief */}
       {content.executive_brief && (
-        <p className={cn(
-          "text-body text-muted-foreground prose-width",
-          isRTL && "text-right"
-        )}>
+        <p className="text-body text-muted-foreground prose-width">
           {content.executive_brief}
         </p>
       )}
 
       {/* Golden Nugget */}
       {content.golden_nugget && (
-        <div className={cn(
-          "bg-[var(--accent-amber-subtle)] rounded-r-xl p-4",
-          isRTL
-            ? "border-r-4 border-[hsl(var(--accent-amber))]"
-            : "border-l-4 border-[hsl(var(--accent-amber))]"
-        )}>
-          <div className={cn("flex items-center gap-2 mb-2", isRTL && "flex-row-reverse")}>
+        <div className="bg-[var(--accent-amber-subtle)] rounded-r-xl p-4 border-s-4 border-[hsl(var(--accent-amber))]">
+          <div className="flex items-center gap-2 mb-2">
             <Quote className="h-5 w-5 text-amber-500" />
             <span className="text-caption font-bold text-[hsl(var(--accent-amber))] uppercase tracking-wider">Golden Nugget</span>
           </div>
-          <p className={cn("text-body italic text-foreground font-medium", isRTL && "text-right")}>
+          <p className="text-body italic text-foreground font-medium">
             &ldquo;{content.golden_nugget}&rdquo;
           </p>
         </div>
@@ -676,7 +673,7 @@ function TeaserCard({ content, isRTL }: { content: QuickSummaryContent; isRTL: b
 
       {/* Perfect For + Tags */}
       {(content.perfect_for || (content.tags && content.tags.length > 0)) && (
-        <div className={cn("flex flex-wrap items-center gap-2", isRTL && "flex-row-reverse")}>
+        <div className="flex flex-wrap items-center gap-2">
           {content.perfect_for && (
             <Badge variant="secondary">
               {content.perfect_for}
@@ -703,7 +700,6 @@ function GuestTeaserCard({ content, isRTL }: { content: QuickSummaryContent; isR
       {content.hook_headline && (
         <h2 className={cn(
           "text-display text-foreground",
-          isRTL && "text-right"
         )}>
           {content.hook_headline}
         </h2>
@@ -711,27 +707,19 @@ function GuestTeaserCard({ content, isRTL }: { content: QuickSummaryContent; isR
 
       {/* Truncated Executive Brief — first 300 chars visible */}
       {content.executive_brief && (
-        <p className={cn(
-          "text-body text-muted-foreground prose-width",
-          isRTL && "text-right"
-        )}>
+        <p className="text-body text-muted-foreground prose-width">
           {content.executive_brief.slice(0, 300)}{content.executive_brief.length > 300 ? '...' : ''}
         </p>
       )}
 
       {/* Golden Nugget — visible but with sign-up prompt */}
       {content.golden_nugget && (
-        <div className={cn(
-          "bg-[var(--accent-amber-subtle)] rounded-r-xl p-4 relative overflow-hidden",
-          isRTL
-            ? "border-r-4 border-[hsl(var(--accent-amber))]"
-            : "border-l-4 border-[hsl(var(--accent-amber))]"
-        )}>
-          <div className={cn("flex items-center gap-2 mb-2", isRTL && "flex-row-reverse")}>
+        <div className="bg-[var(--accent-amber-subtle)] rounded-r-xl p-4 relative overflow-hidden border-s-4 border-[hsl(var(--accent-amber))]">
+          <div className="flex items-center gap-2 mb-2">
             <Quote className="h-5 w-5 text-amber-500" />
             <span className="text-caption font-bold text-[hsl(var(--accent-amber))] uppercase tracking-wider">Golden Nugget</span>
           </div>
-          <p className={cn("text-body italic text-foreground font-medium", isRTL && "text-right")}>
+          <p className="text-body italic text-foreground font-medium">
             &ldquo;{content.golden_nugget.slice(0, 120)}{content.golden_nugget.length > 120 ? '...' : ''}&rdquo;
           </p>
         </div>
@@ -739,7 +727,7 @@ function GuestTeaserCard({ content, isRTL }: { content: QuickSummaryContent; isR
 
       {/* Tags + Perfect For — visible */}
       {(content.perfect_for || (content.tags && content.tags.length > 0)) && (
-        <div className={cn("flex flex-wrap items-center gap-2", isRTL && "flex-row-reverse")}>
+        <div className="flex flex-wrap items-center gap-2">
           {content.perfect_for && (
             <Badge variant="secondary">
               {content.perfect_for}
@@ -757,10 +745,7 @@ function GuestTeaserCard({ content, isRTL }: { content: QuickSummaryContent; isR
       <div className="border-t border-border pt-4">
         <button
           onClick={() => setShowAuthModal(true, 'Sign up to read full AI summaries for podcasts and YouTube.')}
-          className={cn(
-            "flex items-center gap-2 text-sm text-primary font-medium hover:underline cursor-pointer",
-            isRTL && "flex-row-reverse"
-          )}
+          className="flex items-center gap-2 text-sm text-primary font-medium hover:underline cursor-pointer"
         >
           <Lock className="h-3.5 w-3.5" />
           Sign up to read the full summary
@@ -771,15 +756,15 @@ function GuestTeaserCard({ content, isRTL }: { content: QuickSummaryContent; isR
 }
 
 /* --- 2. Comprehensive Overview --- */
-function ComprehensiveOverview({ text, isRTL, maxParagraphs, skipParagraphs, hideHeader }: { text: string; isRTL: boolean; maxParagraphs?: number; skipParagraphs?: number; hideHeader?: boolean }) {
+function ComprehensiveOverview({ text, isRTL, maxParagraphs, skipParagraphs, hideHeader, label }: { text: string; isRTL: boolean; maxParagraphs?: number; skipParagraphs?: number; hideHeader?: boolean; label?: string }) {
   const allParagraphs = text.split('\n').filter(p => p.trim());
   const start = skipParagraphs ?? 0;
   const visibleParagraphs = maxParagraphs !== undefined ? allParagraphs.slice(start, maxParagraphs) : allParagraphs.slice(start);
 
   return (
     <div>
-      {!hideHeader && <SectionHeader icon={FileText} label="Comprehensive Overview" isRTL={isRTL} />}
-      <div className={cn("prose-width", isRTL && "text-right")}>
+      {!hideHeader && <SectionHeader icon={FileText} label={label ?? "Comprehensive Overview"} isRTL={isRTL} />}
+      <div className="prose-width">
         {visibleParagraphs.map((paragraph, i) => (
           <AnnotatedParagraph key={i} text={paragraph} isRTL={isRTL} />
         ))}
@@ -792,7 +777,7 @@ function ComprehensiveOverview({ text, isRTL, maxParagraphs, skipParagraphs, hid
 function AnnotatedParagraph({ text, isRTL }: { text: string; isRTL: boolean }) {
   const segments = parseHighlightMarkers(text);
   return (
-    <p className={cn("text-body text-muted-foreground leading-relaxed mb-6 last:mb-0", isRTL && "text-right")}>
+    <p className="text-body text-muted-foreground leading-relaxed mb-6 last:mb-0">
       {segments.map((seg, i) =>
         seg.type === "highlight" ? (
           <mark
@@ -810,33 +795,31 @@ function AnnotatedParagraph({ text, isRTL }: { text: string; isRTL: boolean }) {
 }
 
 /* --- 3. Core Concepts --- */
-function CoreConcepts({ concepts, isRTL, hideHeader }: {
+function CoreConcepts({ concepts, isRTL, hideHeader, label }: {
   concepts: DeepSummaryContent["core_concepts"];
   isRTL: boolean;
   hideHeader?: boolean;
+  label?: string;
 }) {
   return (
     <div>
-      {!hideHeader && <SectionHeader icon={Lightbulb} label="Core Concepts" iconClassName="text-amber-500" isRTL={isRTL} />}
+      {!hideHeader && <SectionHeader icon={Lightbulb} label={label ?? "Core Concepts"} iconClassName="text-amber-500" isRTL={isRTL} />}
       <div className="grid gap-4">
         {concepts.map((concept, i) => (
           <div key={i} className="bg-card border border-border rounded-2xl shadow-[var(--shadow-1)] p-6">
-            <div className={cn("flex items-center gap-2", isRTL && "flex-row-reverse")}>
+            <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-full bg-[var(--primary-subtle)] text-primary text-sm font-bold flex items-center justify-center shrink-0">
                 {i + 1}
               </div>
-              <h3 className={cn("text-h3 text-foreground", isRTL && "text-right")}>
+              <h3 className="text-h3 text-foreground">
                 {concept.concept}
               </h3>
             </div>
-            <p className={cn("text-body text-muted-foreground mt-3", isRTL && "text-right")}>
+            <p className="text-body text-muted-foreground mt-3">
               {concept.explanation}
             </p>
             {concept.quote_reference && (
-              <blockquote className={cn(
-                "mt-4 pl-4 border-l-2 border-border-strong text-body-sm text-muted-foreground italic",
-                isRTL && "border-l-0 border-r-2 pr-4 pl-0 text-right"
-              )}>
+              <blockquote className="mt-4 ps-4 border-s-2 border-border-strong text-body-sm text-muted-foreground italic">
                 &ldquo;{concept.quote_reference}&rdquo;
               </blockquote>
             )}
@@ -848,7 +831,7 @@ function CoreConcepts({ concepts, isRTL, hideHeader }: {
 }
 
 /* --- 4. Episode Chapters --- */
-function EpisodeChapters({ sections, isRTL, episode, youtubePlayerRef, videoCurrentTime, creatorChapters, storyboardSpec, hideHeader }: {
+function EpisodeChapters({ sections, isRTL, episode, youtubePlayerRef, videoCurrentTime, creatorChapters, storyboardSpec, hideHeader, label }: {
   sections: ChronologicalSection[];
   isRTL: boolean;
   episode: Episode & { podcast?: Podcast };
@@ -857,6 +840,7 @@ function EpisodeChapters({ sections, isRTL, episode, youtubePlayerRef, videoCurr
   creatorChapters?: { title: string; startSeconds: number }[];
   storyboardSpec?: string;
   hideHeader?: boolean;
+  label?: string;
 }) {
   const { user } = useAuth();
 
@@ -967,7 +951,7 @@ function EpisodeChapters({ sections, isRTL, episode, youtubePlayerRef, videoCurr
 
   return (
     <div>
-      {!hideHeader && <SectionHeader icon={ListMusic} label="Episode Chapters" isRTL={isRTL}>
+      {!hideHeader && <SectionHeader icon={ListMusic} label={label ?? "Episode Chapters"} isRTL={isRTL}>
         {normalized.length > 1 && (
           <Button
             variant="ghost"
@@ -1009,7 +993,7 @@ function EpisodeChapters({ sections, isRTL, episode, youtubePlayerRef, videoCurr
                   isRTL ? "text-right" : "text-left",
                 )}
               >
-                <div className={cn("flex items-center gap-2 flex-wrap", isRTL && "flex-row-reverse")}>
+                <div className="flex items-center gap-2 flex-wrap">
                   {/* Storyboard thumbnail */}
                   {storyboardLevels.length > 0 && hasTimestamp && (() => {
                     const frame = getFrameUrlForTimestamp(storyboardLevels, section.timestamp_seconds ?? 0);
@@ -1056,8 +1040,7 @@ function EpisodeChapters({ sections, isRTL, episode, youtubePlayerRef, videoCurr
                   )}
                   {!isExpanded && (
                     <ChevronDown className={cn(
-                      "h-4 w-4 text-muted-foreground shrink-0",
-                      isRTL ? "mr-auto" : "ml-auto"
+                      "h-4 w-4 text-muted-foreground shrink-0 ms-auto"
                     )} />
                   )}
                 </div>
@@ -1080,10 +1063,7 @@ function EpisodeChapters({ sections, isRTL, episode, youtubePlayerRef, videoCurr
                     transition={{ duration: 0.2 }}
                     className="overflow-hidden"
                   >
-                    <div className={cn(
-                      "px-4 pb-4 space-y-2",
-                      isRTL ? "pr-4" : "pl-4"
-                    )}>
+                    <div className="px-4 pb-4 space-y-2 ps-4">
                       {section.hook && (
                         <p className="text-body-sm text-muted-foreground italic">
                           {section.hook}
@@ -1134,23 +1114,20 @@ function renderBoldMarkers(text: string) {
   );
 }
 
-function ContrarianViews({ views, isRTL, hideHeader }: { views: string[]; isRTL: boolean; hideHeader?: boolean }) {
+function ContrarianViews({ views, isRTL, hideHeader, label, subtitle }: { views: string[]; isRTL: boolean; hideHeader?: boolean; label?: string; subtitle?: string }) {
   return (
     <div>
       {!hideHeader && <SectionHeader
         icon={Scale}
-        label="Counterpoints"
+        label={label ?? "Counterpoints"}
         iconClassName="text-red-400"
-        subtitle="Alternative perspectives worth considering"
+        subtitle={subtitle ?? "Alternative perspectives worth considering"}
         isRTL={isRTL}
       />}
       <div className="grid gap-4">
         {views.map((view, i) => (
-          <div key={i} className={cn(
-            "bg-card border border-border rounded-2xl shadow-[var(--shadow-1)] p-5",
-            isRTL ? "border-r-4 border-r-red-500/50" : "border-l-4 border-l-red-500/50",
-          )}>
-            <p className={cn("text-body text-muted-foreground", isRTL && "text-right")}>{renderBoldMarkers(view)}</p>
+          <div key={i} className="bg-card border border-border rounded-2xl shadow-[var(--shadow-1)] p-5 border-s-4 border-s-red-500/50">
+            <p className="text-body text-muted-foreground">{renderBoldMarkers(view)}</p>
           </div>
         ))}
       </div>

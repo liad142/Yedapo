@@ -95,7 +95,7 @@ export function EpisodeList({
   // --- Episode list ---
   // Merge live progress for currently playing episode
   const mergedProgress = { ...progressMap };
-  if (playerState?.currentTrack?.id && playerState.isPlaying) {
+  if (playerState?.currentTrack?.id && playerState.duration > 0) {
     const trackId = playerState.currentTrack.id;
     const wasCompleted = progressMap[trackId]?.completed ?? false;
     const nowCompleted = playerState.duration > 0 && playerState.currentTime / playerState.duration >= 0.95;
@@ -251,7 +251,7 @@ function EpisodeItem({
 
           {/* Description */}
           <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
-            {episode.description}
+            {episode.description?.replace(/<[^>]*>/g, '')}
           </p>
 
           {/* Actions */}

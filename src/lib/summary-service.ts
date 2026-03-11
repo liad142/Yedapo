@@ -279,7 +279,19 @@ Return ONLY a JSON object with this EXACT structure. Every field is MANDATORY �
         { "name": "OpenTelemetry", "type": "tool", "context": "Monitoring framework discussed as the backbone for distributed tracing" }
       ]
     }
-  ]
+  ],
+
+  "section_labels": {
+    "comprehensive_overview": "<translate 'Comprehensive Overview' to transcript language>",
+    "core_concepts": "<translate 'Core Concepts' to transcript language>",
+    "episode_flow": "<translate 'Episode Flow' to transcript language>",
+    "counterpoints": "<translate 'Counterpoints' to transcript language>",
+    "actionable_takeaways": "<translate 'Actionable Takeaways' to transcript language>",
+    "counterpoints_subtitle": "<translate 'Alternative perspectives worth considering' to transcript language>",
+    "transcript": "<translate 'Transcript' to transcript language>",
+    "action_items": "<translate 'Action Items' to transcript language>",
+    "discussion": "<translate 'Discussion' to transcript language>"
+  }
 }
 
 HARD RULES (violations = invalid output):
@@ -304,11 +316,14 @@ HARD RULES (violations = invalid output):
 
 10. **Speaker Names**: The transcript may use generic labels like "Speaker 1", "Speaker 2". IGNORE these labels — they carry no meaning. Instead, identify who each speaker is from conversational context: introductions ("I'm Joe Rogan"), name mentions ("So Rachel, what do you think?"), how guests are addressed, and their role (host vs guest). ALWAYS use real names in your output (chronological_breakdown content, quotes, etc.). Never write "Speaker 1 said..." — write "Joe Rogan said..." or "the host argued...".
 
+11. **section_labels MUST be translated**: The section_labels object MUST contain all 9 keys with their values translated into the transcript's language. Hebrew transcript → Hebrew labels. English transcript → English labels. Never leave the placeholder text.
+
 SELF-CHECK before responding:
 - Does comprehensive_overview contain 3-5 << >> markers? If not → fix it.
 - Does every chronological_breakdown item have a non-empty "hook"? If not → fix it.
 - Is every actionable_takeaway an object with text/category/priority/resources where resources has ≥1 item? If not → fix it.
 - Is ALL text in the transcript's language? If not → fix it.
+- Are section_labels values translated to the transcript's language? If not → fix it.
 - Does any text say "Speaker 1" or "Speaker 2"? If so → replace with real names from context, or "the host"/"the guest" if unidentifiable.
 `;
 

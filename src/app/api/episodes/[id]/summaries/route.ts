@@ -26,8 +26,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     log.info('GET request', { episodeId: id });
     const result = await getSummariesStatus(id);
     log.info('GET completed', { episodeId: id });
+
+    // Only cache when all summaries are in a terminal state (ready/failed/none).
+    // During generation (transcribing/summarizing), don't cache so polling gets fresh data.
+    const isProcessing = result.summaries &&
+      Object.values(result.summaries).some((s: any) =>
+        s?.status && ['transcribing', 'summarizing', 'queued'].includes(s.status)
+      );
+
     return NextResponse.json(result, {
-      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+      headers: {
+        'Cache-Control': isProcessing
+          ? 'no-store'
+          : 'public, s-maxage=300, stale-while-revalidate=600',
+      },
     });
   } catch (error) {
     log.error('Error fetching summaries', error);
@@ -127,9 +139,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Use after() to keep the serverless function alive after sending the response.
-    // Without this, Vercel kills the function when the response is sent,
-    // and the background generation never completes.
+    // Pre-create the summary record so polling finds it immediately,
+    // even if the after() callback hasn't started yet.
+    const resolvedLang = language || 'en';
+    await supabase
+      .from('summaries')
+      .upsert({
+        episode_id: id,
+        level,
+        language: resolvedLang,
+        status: 'transcribing',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'episode_id,level,language' });
+
+    // Use after() to run generation after the response is sent.
+    // On Vercel Hobby plan (60s limit), long operations may get killed.
+    // The stale-check in requestSummary (3 min) will auto-retry on the next POST.
     const userId = user.id;
     const resolvedLanguage = language || undefined;
     after(async () => {
@@ -152,7 +177,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               .select('id')
               .eq('episode_id', id)
               .eq('level', level)
-              .eq('language', language || 'en')
+              .eq('language', resolvedLang)
               .order('updated_at', { ascending: false })
               .limit(1)
               .single();
@@ -181,8 +206,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     });
 
-    // Return immediately — the summary record was created by requestSummary's
-    // initial upsert, so polling will find it with status "transcribing"
     log.info('POST returning immediately (background generation started)', { episodeId: id, level });
     return NextResponse.json({
       episodeId: id,

@@ -222,8 +222,9 @@ export const CacheTTL = {
 
 /**
  * Distributed rate limiter using Redis
- * Uses a sliding window counter via INCR + EXPIRE
- * Returns true if the request is allowed, false if rate limited
+ * Uses fixed-window counters keyed by time bucket.
+ * Each window gets its own key that auto-expires, so the counter
+ * resets naturally — even if denied requests keep arriving.
  */
 export async function checkRateLimit(
   identifier: string,
@@ -232,20 +233,21 @@ export async function checkRateLimit(
 ): Promise<boolean> {
   try {
     const client = getRedis();
-    const key = `ratelimit:${identifier}`;
+    const windowId = Math.floor(Date.now() / 1000 / windowSeconds);
+    const key = `ratelimit:${identifier}:${windowId}`;
 
-    // Atomic: INCR + EXPIRE in a pipeline
     const pipeline = client.pipeline();
     pipeline.incr(key);
-    pipeline.expire(key, windowSeconds);
+    // TTL slightly longer than window to avoid premature expiry at boundary
+    pipeline.expire(key, windowSeconds + 5);
     const results = await pipeline.exec();
 
     const count = results[0] as number;
     return count <= maxRequests;
   } catch (error) {
     log.error('Rate limit check failed', { identifier, error: String(error) });
-    // Fail closed - deny the request if Redis is down
-    return false;
+    // Fail open — if Redis is down, don't block users
+    return true;
   }
 }
 

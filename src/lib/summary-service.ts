@@ -1151,8 +1151,10 @@ export async function requestSummary(
       return { status: 'ready', content: existing.content_json };
     }
     if (['queued', 'transcribing', 'summarizing'].includes(existing.status)) {
-      // Check for stale summaries stuck in processing for over 30 minutes
-      const STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+      // Check for stale summaries stuck in processing
+      // 3 minutes — on Vercel Hobby plan, functions timeout at 60s so stuck records
+      // need faster recovery than the previous 30-minute threshold.
+      const STALE_THRESHOLD_MS = 3 * 60 * 1000; // 3 minutes
       const updatedAt = existing.updated_at ? new Date(existing.updated_at).getTime() : 0;
       const isStale = Date.now() - updatedAt > STALE_THRESHOLD_MS;
 

@@ -143,11 +143,14 @@ export default function SummariesPage() {
   }, [user, fetchSummaries]);
 
   // Polling when any episode is non-terminal
-  useEffect(() => {
-    const hasNonTerminal = episodes.some(ep => NON_TERMINAL_STATUSES.includes(ep.status));
+  const hasNonTerminal = episodes.some(ep => NON_TERMINAL_STATUSES.includes(ep.status));
 
+  useEffect(() => {
     if (hasNonTerminal && user) {
       pollingRef.current = setInterval(() => fetchSummaries(true), POLL_INTERVAL);
+    } else if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
     }
 
     return () => {
@@ -156,7 +159,7 @@ export default function SummariesPage() {
         pollingRef.current = null;
       }
     };
-  }, [episodes, user, fetchSummaries]);
+  }, [hasNonTerminal, user, fetchSummaries]);
 
   const handleRetry = async (episodeId: string) => {
     setRetryingIds(prev => new Set(prev).add(episodeId));

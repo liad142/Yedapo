@@ -424,7 +424,8 @@ export default function SettingsPage() {
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <Youtube className="h-5 w-5 text-red-500" />
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/youtube-logo.svg" alt="YouTube" className="h-4 w-auto" />
                       <FieldLabel>YouTube Channels</FieldLabel>
                     </div>
                     {ytFetched && !ytImportDone && (

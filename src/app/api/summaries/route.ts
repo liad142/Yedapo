@@ -12,10 +12,10 @@ export async function GET(request: NextRequest) {
 
     const admin = createAdminClient();
 
-    // Get this user's summary IDs from the junction table
+    // Get this user's summary IDs and episode IDs from the junction table
     const { data: userSummaries, error: userSummariesError } = await admin
       .from('user_summaries')
-      .select('summary_id')
+      .select('summary_id, episode_id')
       .eq('user_id', user.id);
 
     if (userSummariesError) {
@@ -28,38 +28,45 @@ export async function GET(request: NextRequest) {
     }
 
     const summaryIds = userSummaries.map(us => us.summary_id);
+    const episodeIds = [...new Set(userSummaries.map(us => us.episode_id))];
 
-    // Get the actual summaries with episode/podcast data, filtered to user's summaries
-    const { data: summaries, error: summariesError } = await admin
-      .from('summaries')
-      .select(`
-        id,
-        episode_id,
-        updated_at,
-        episodes!inner (
-          id,
-          title,
-          description,
-          published_at,
-          duration_seconds,
-          podcast_id,
-          podcasts (
-            id,
-            title,
-            image_url,
-            author
+    // Query by both summary_id (direct match) and episode_id (catches cases where
+    // the summary row was recreated but the junction still points to the old ID)
+    const [{ data: byId }, { data: byEpisode }] = await Promise.all([
+      admin
+        .from('summaries')
+        .select(`
+          id, episode_id, status, updated_at,
+          episodes!inner (
+            id, title, description, published_at, duration_seconds, podcast_id,
+            podcasts ( id, title, image_url, author )
           )
-        )
-      `)
-      .in('id', summaryIds)
-      .eq('level', 'deep')
-      .eq('status', 'ready')
-      .order('updated_at', { ascending: false });
+        `)
+        .in('id', summaryIds)
+        .eq('level', 'deep')
+        .order('updated_at', { ascending: false }),
+      admin
+        .from('summaries')
+        .select(`
+          id, episode_id, status, updated_at,
+          episodes!inner (
+            id, title, description, published_at, duration_seconds, podcast_id,
+            podcasts ( id, title, image_url, author )
+          )
+        `)
+        .in('episode_id', episodeIds)
+        .eq('level', 'deep')
+        .in('status', ['queued', 'transcribing', 'summarizing'])
+        .order('updated_at', { ascending: false }),
+    ]);
 
-    if (summariesError) {
-      console.error('Error fetching summaries:', summariesError);
-      return NextResponse.json({ error: 'Failed to fetch summaries' }, { status: 500 });
-    }
+    // Merge and deduplicate by summary id
+    const seenIds = new Set<string>();
+    const summaries = [...(byId ?? []), ...(byEpisode ?? [])].filter((s: any) => {
+      if (seenIds.has(s.id)) return false;
+      seenIds.add(s.id);
+      return true;
+    });
 
     if (!summaries || summaries.length === 0) {
       return NextResponse.json({ episodes: [] });
@@ -67,6 +74,11 @@ export async function GET(request: NextRequest) {
 
     // Deduplicate by episode_id (keep the first/most recent due to order above)
     const seen = new Set<string>();
+    const NON_TERMINAL = ['queued', 'transcribing', 'summarizing'];
+    const statusOrder: Record<string, number> = {
+      queued: 0, transcribing: 0, summarizing: 0, ready: 1, failed: 2,
+    };
+
     const result = summaries
       .filter((s: any) => {
         if (seen.has(s.episode_id)) return false;
@@ -82,12 +94,26 @@ export async function GET(request: NextRequest) {
           published_at: ep.published_at,
           duration_seconds: ep.duration_seconds,
           summary_updated_at: s.updated_at,
+          status: s.status as string,
           podcast: Array.isArray(ep.podcasts) ? ep.podcasts[0] : ep.podcasts,
         };
+      })
+      // Sort: in-progress first, then ready by date, failed last
+      .sort((a, b) => {
+        const aOrder = statusOrder[a.status] ?? 1;
+        const bOrder = statusOrder[b.status] ?? 1;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        return new Date(b.summary_updated_at || 0).getTime() - new Date(a.summary_updated_at || 0).getTime();
       });
 
+    const hasNonTerminal = result.some(r => NON_TERMINAL.includes(r.status));
+
     return NextResponse.json({ episodes: result }, {
-      headers: { 'Cache-Control': 'private, s-maxage=300, stale-while-revalidate=600' },
+      headers: {
+        'Cache-Control': hasNonTerminal
+          ? 'no-store'
+          : 'private, s-maxage=300, stale-while-revalidate=600',
+      },
     });
   } catch (error) {
     console.error('Error in summaries API:', error);

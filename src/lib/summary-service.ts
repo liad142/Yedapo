@@ -1088,7 +1088,7 @@ export async function checkExistingSummary(
   if (best.status === 'ready' && best.content_json) {
     return { status: 'ready', content: best.content_json };
   }
-  if (['queued', 'transcribing', 'summarizing'].includes(best.status)) {
+  if (['transcribing', 'summarizing'].includes(best.status)) {
     // Check for stale summaries (stuck > 30 min)
     const STALE_THRESHOLD_MS = 30 * 60 * 1000;
     const updatedAt = best.updated_at ? new Date(best.updated_at).getTime() : 0;
@@ -1097,6 +1097,7 @@ export async function checkExistingSummary(
     }
     return { status: best.status as SummaryStatus };
   }
+  // 'queued' means eagerly created — don't treat as in-progress, let generation proceed
   // Failed or other — let requestSummary retry
   return null;
 }
@@ -1150,7 +1151,7 @@ export async function requestSummary(
       log.info('Returning cached summary', { totalDurationMs: Date.now() - startTime });
       return { status: 'ready', content: existing.content_json };
     }
-    if (['queued', 'transcribing', 'summarizing'].includes(existing.status)) {
+    if (['transcribing', 'summarizing'].includes(existing.status)) {
       // Check for stale summaries stuck in processing
       // 3 minutes — on Vercel Hobby plan, functions timeout at 60s so stuck records
       // need faster recovery than the previous 30-minute threshold.
@@ -1174,6 +1175,7 @@ export async function requestSummary(
         return { status: existing.status as SummaryStatus };
       }
     }
+    // 'queued' means the API route eagerly created the row — proceed to generation
     log.info('Summary exists but needs retry', { status: existing.status });
     // If failed or not_ready, we'll try again
   }

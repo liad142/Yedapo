@@ -1,9 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { FileText, Search, Calendar, Clock, Mic2 } from 'lucide-react';
+
+import { useRouter } from 'next/navigation';
+import { FileText, Search, Calendar, Clock, Mic2, Loader2, RotateCcw, CheckCircle2, AlertCircle, XCircle, ArrowLeft } from 'lucide-react';
+import {
+  SoundWaveAnimation,
+  ParticleGemAnimation,
+  QueuePositionIndicator,
+  GemCompleteAnimation,
+} from '@/components/animations';
+import { SafeImage } from '@/components/SafeImage';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +33,7 @@ interface EpisodeWithSummary {
     author: string | null;
   } | null;
   summary_updated_at: string | null;
+  status: string;
 }
 
 function formatDuration(seconds: number | null): string {
@@ -44,39 +53,150 @@ function formatDate(dateString: string | null): string {
   });
 }
 
+const NON_TERMINAL_STATUSES = ['queued', 'transcribing', 'summarizing'];
+const POLL_INTERVAL = 10_000;
+
+function StatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case 'queued':
+      return (
+        <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-border/50 bg-background/80 px-3 py-1.5">
+          <QueuePositionIndicator position={0} className="[&>span]:hidden" />
+          <span className="text-xs font-medium text-muted-foreground">Queued</span>
+        </div>
+      );
+    case 'transcribing':
+      return (
+        <div className="shrink-0 flex items-center gap-2 rounded-full border border-border/50 bg-background/80 px-3 py-1.5">
+          <SoundWaveAnimation className="h-4" />
+          <span className="text-xs font-medium">Transcribing...</span>
+        </div>
+      );
+    case 'summarizing':
+      return (
+        <div className="shrink-0 flex items-center gap-2 rounded-full border border-border/50 bg-background/80 px-3 py-1.5">
+          <ParticleGemAnimation className="h-5 w-6" />
+          <span className="text-xs font-medium">Summarizing...</span>
+        </div>
+      );
+    case 'ready':
+      return (
+        <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-border/50 bg-background/80 px-3 py-1.5">
+          <GemCompleteAnimation className="h-4 w-4" />
+          <span className="text-xs font-medium text-green-600 dark:text-green-400">Ready</span>
+        </div>
+      );
+    case 'failed':
+      return (
+        <Badge variant="destructive" className="shrink-0">
+          <AlertCircle className="h-3 w-3 mr-1" />
+          Failed
+        </Badge>
+      );
+    default:
+      return (
+        <Badge variant="secondary" className="shrink-0">
+          <FileText className="h-3 w-3 mr-1" />
+          {status}
+        </Badge>
+      );
+  }
+}
+
 export default function SummariesPage() {
+  const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   const [episodes, setEpisodes] = useState<EpisodeWithSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const fetchSummaries = useCallback(async (silent = false) => {
+    try {
+      if (!silent) {
+        setIsLoading(true);
+        setError(null);
+      }
+
+      const response = await fetch('/api/summaries');
+      if (!response.ok) throw new Error('Failed to fetch');
+
+      const data = await response.json();
+      setEpisodes(data.episodes || []);
+    } catch (err) {
+      console.error('Error fetching summaries:', err);
+      if (!silent) setError('Failed to load summaries');
+    } finally {
+      if (!silent) setIsLoading(false);
+    }
+  }, []);
+
+  // Initial fetch
   useEffect(() => {
     if (!user) {
       setIsLoading(false);
       return;
     }
+    fetchSummaries();
+  }, [user, fetchSummaries]);
 
-    async function fetchSummaries() {
-      try {
-        setIsLoading(true);
-        setError(null);
+  // Polling when any episode is non-terminal
+  useEffect(() => {
+    const hasNonTerminal = episodes.some(ep => NON_TERMINAL_STATUSES.includes(ep.status));
 
-        const response = await fetch('/api/summaries');
-        if (!response.ok) throw new Error('Failed to fetch');
-
-        const data = await response.json();
-        setEpisodes(data.episodes || []);
-      } catch (err) {
-        console.error('Error fetching summaries:', err);
-        setError('Failed to load summaries');
-      } finally {
-        setIsLoading(false);
-      }
+    if (hasNonTerminal && user) {
+      pollingRef.current = setInterval(() => fetchSummaries(true), POLL_INTERVAL);
     }
 
-    fetchSummaries();
-  }, [user]);
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [episodes, user, fetchSummaries]);
+
+  const handleRetry = async (episodeId: string) => {
+    setRetryingIds(prev => new Set(prev).add(episodeId));
+    try {
+      const res = await fetch(`/api/episodes/${episodeId}/summaries`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level: 'deep' }),
+      });
+      if (res.ok) {
+        await fetchSummaries(true);
+      }
+    } catch (err) {
+      console.error('Retry failed:', err);
+    } finally {
+      setRetryingIds(prev => {
+        const next = new Set(prev);
+        next.delete(episodeId);
+        return next;
+      });
+    }
+  };
+
+  const handleCancel = async (episodeId: string) => {
+    setRetryingIds(prev => new Set(prev).add(episodeId));
+    try {
+      const res = await fetch(`/api/summaries/${episodeId}/cancel`, { method: 'POST' });
+      if (res.ok) {
+        await fetchSummaries(true);
+      }
+    } catch (err) {
+      console.error('Cancel failed:', err);
+    } finally {
+      setRetryingIds(prev => {
+        const next = new Set(prev);
+        next.delete(episodeId);
+        return next;
+      });
+    }
+  };
 
   // Filter episodes by search query
   const filteredEpisodes = episodes.filter(episode => {
@@ -94,6 +214,10 @@ export default function SummariesPage() {
       <div className="px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
+            <Button variant="ghost" size="sm" className="mb-3 -ml-2" onClick={() => router.back()}>
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back
+            </Button>
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 rounded-lg bg-primary/10">
                 <FileText className="h-6 w-6 text-primary" />
@@ -127,6 +251,10 @@ export default function SummariesPage() {
       <div className="px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
+            <Button variant="ghost" size="sm" className="mb-3 -ml-2" onClick={() => router.back()}>
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back
+            </Button>
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 rounded-lg bg-primary/10">
                 <FileText className="h-6 w-6 text-primary" />
@@ -148,6 +276,10 @@ export default function SummariesPage() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
+          <Button variant="ghost" size="sm" className="mb-3 -ml-2" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 rounded-lg bg-primary/10">
               <FileText className="h-6 w-6 text-primary" />
@@ -225,15 +357,19 @@ export default function SummariesPage() {
               {filteredEpisodes.length} {filteredEpisodes.length === 1 ? 'summary' : 'summaries'}
             </p>
 
-            {filteredEpisodes.map((episode) => (
-              <Link key={episode.id} href={`/episode/${episode.id}/insights`}>
-                <Card className="hover:bg-accent/50 transition-colors cursor-pointer">
+            {filteredEpisodes.map((episode) => {
+              const isInProgress = NON_TERMINAL_STATUSES.includes(episode.status);
+              const isFailed = episode.status === 'failed';
+              const isReady = episode.status === 'ready';
+
+              const cardContent = (
+                <Card className={`transition-colors ${isReady ? 'hover:bg-accent/50 cursor-pointer' : ''} ${isInProgress ? 'border-blue-200 dark:border-blue-800' : ''} ${isFailed ? 'border-destructive/30' : ''}`}>
                   <CardContent className="p-4">
                     <div className="flex gap-4">
                       {/* Podcast Artwork */}
-                      <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
+                      <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-muted relative">
                         {episode.podcast?.image_url ? (
-                          <Image
+                          <SafeImage
                             src={episode.podcast.image_url}
                             alt={episode.podcast.title}
                             width={64}
@@ -251,17 +387,14 @@ export default function SummariesPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <h3 className="font-medium line-clamp-1 hover:text-primary transition-colors">
+                            <h3 className={`font-medium line-clamp-1 ${isReady ? 'hover:text-primary' : ''} transition-colors`}>
                               {episode.title}
                             </h3>
                             <p className="text-sm text-muted-foreground line-clamp-1">
                               {episode.podcast?.title}
                             </p>
                           </div>
-                          <Badge variant="secondary" className="shrink-0">
-                            <FileText className="h-3 w-3 mr-1" />
-                            Summary
-                          </Badge>
+                          <StatusBadge status={episode.status} />
                         </div>
 
                         <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
@@ -277,13 +410,63 @@ export default function SummariesPage() {
                               {formatDuration(episode.duration_seconds)}
                             </span>
                           )}
+                          {isFailed && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs text-destructive hover:text-destructive"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleRetry(episode.id);
+                              }}
+                              disabled={retryingIds.has(episode.id)}
+                            >
+                              {retryingIds.has(episode.id) ? (
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              ) : (
+                                <RotateCcw className="h-3 w-3 mr-1" />
+                              )}
+                              Retry
+                            </Button>
+                          )}
+                          {isInProgress && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleCancel(episode.id);
+                              }}
+                              disabled={retryingIds.has(episode.id)}
+                            >
+                              {retryingIds.has(episode.id) ? (
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              ) : (
+                                <XCircle className="h-3 w-3 mr-1" />
+                              )}
+                              Cancel
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-              </Link>
-            ))}
+              );
+
+              if (isReady) {
+                return (
+                  <Link key={episode.id} href={`/episode/${episode.id}/insights`}>
+                    {cardContent}
+                  </Link>
+                );
+              }
+
+              return <div key={episode.id}>{cardContent}</div>;
+            })}
           </div>
         )}
       </div>

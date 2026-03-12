@@ -123,6 +123,31 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const existing = await checkExistingSummary(id, level, language || 'en');
     if (existing) {
       log.info('Returning existing summary (cached, free)', { status: existing.status });
+
+      // Ensure user ownership even for cached/in-progress summaries
+      try {
+        const { data: existingRow } = await supabase
+          .from('summaries')
+          .select('id')
+          .eq('episode_id', id)
+          .eq('level', level)
+          .eq('language', language || 'en')
+          .limit(1)
+          .single();
+
+        if (existingRow) {
+          await supabase
+            .from('user_summaries')
+            .upsert({
+              user_id: user.id,
+              summary_id: existingRow.id,
+              episode_id: id,
+            }, { onConflict: 'user_id,summary_id', ignoreDuplicates: true });
+        }
+      } catch (err) {
+        log.warn('Failed to ensure user_summary on cached path', { error: String(err) });
+      }
+
       return NextResponse.json({ episodeId: id, level, source: 'cached', ...existing });
     }
 
@@ -144,6 +169,31 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // The stale-check in requestSummary (3 min) will auto-retry on the next POST.
     const userId = user.id;
     const resolvedLanguage = language || undefined;
+
+    // Eagerly create the summary row as 'queued' so the user sees it immediately
+    const { data: summaryRow } = await supabase
+      .from('summaries')
+      .upsert({
+        episode_id: id,
+        level,
+        language: language || 'en',
+        status: 'queued',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'episode_id,level,language' })
+      .select('id')
+      .single();
+
+    // Record user ownership eagerly (before background work)
+    if (summaryRow) {
+      await supabase
+        .from('user_summaries')
+        .upsert({
+          user_id: userId,
+          summary_id: summaryRow.id,
+          episode_id: id,
+        }, { onConflict: 'user_id,summary_id', ignoreDuplicates: true });
+    }
+
     after(async () => {
       try {
         const result = await requestSummary(
@@ -155,33 +205,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           metadata
         );
 
-        // Record user ownership after completion
-        if (result.status === 'ready') {
-          try {
-            const admin = createAdminClient();
-            const { data: summaryRecord } = await admin
-              .from('summaries')
-              .select('id')
-              .eq('episode_id', id)
-              .eq('level', level)
-              .eq('language', language || 'en')
-              .order('updated_at', { ascending: false })
-              .limit(1)
-              .single();
-
-            if (summaryRecord) {
-              await admin
-                .from('user_summaries')
-                .upsert({
-                  user_id: userId,
-                  summary_id: summaryRecord.id,
-                  episode_id: id,
-                }, { onConflict: 'user_id,summary_id', ignoreDuplicates: true });
-            }
-          } catch (err) {
-            log.warn('Failed to record user_summary (non-blocking)', { error: String(err) });
-          }
-        }
         log.success('Background generation completed', {
           episodeId: id,
           level,
@@ -198,7 +221,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       episodeId: id,
       level,
       source: 'generated',
-      status: 'transcribing',
+      status: 'queued',
     });
   } catch (error) {
     log.error('POST request FAILED', {

@@ -265,7 +265,7 @@ export default function DiscoverPage() {
     Promise.all([dailyMixPromise, topPodcastsPromise, personalizedPromise]);
 
     return () => { cancelled = true; };
-  }, [country, user]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [country, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadMoreDailyMix = useCallback(async () => {
     if (isLoadingMoreDailyMix.current || !dailyMixCursor) return;

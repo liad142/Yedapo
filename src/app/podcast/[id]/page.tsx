@@ -246,9 +246,9 @@ export default function PodcastPage() {
         ) : podcast ? (
           <div className="space-y-8">
             {/* Immersive Header */}
-            <div className="relative overflow-hidden rounded-3xl bg-slate-900 mb-8 border border-white/10 shadow-2xl">
-              {/* Blurred Background Backdrop */}
-              <div className="absolute inset-0 z-0">
+            <div className="relative rounded-3xl bg-slate-900 mb-8 border border-white/10 shadow-2xl">
+              {/* Blurred Background Backdrop — overflow-hidden only on this layer */}
+              <div className="absolute inset-0 z-0 overflow-hidden rounded-3xl">
                 {podcast.image_url ? (
                   <SafeImage
                     src={Array.isArray(podcast.image_url) ? podcast.image_url[0] : podcast.image_url}

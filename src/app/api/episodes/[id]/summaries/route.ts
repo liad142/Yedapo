@@ -139,19 +139,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Pre-create the summary record so polling finds it immediately,
-    // even if the after() callback hasn't started yet.
-    const resolvedLang = language || 'en';
-    await supabase
-      .from('summaries')
-      .upsert({
-        episode_id: id,
-        level,
-        language: resolvedLang,
-        status: 'transcribing',
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'episode_id,level,language' });
-
     // Use after() to run generation after the response is sent.
     // On Vercel Hobby plan (60s limit), long operations may get killed.
     // The stale-check in requestSummary (3 min) will auto-retry on the next POST.
@@ -177,7 +164,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               .select('id')
               .eq('episode_id', id)
               .eq('level', level)
-              .eq('language', resolvedLang)
+              .eq('language', language || 'en')
               .order('updated_at', { ascending: false })
               .limit(1)
               .single();

@@ -5,6 +5,7 @@ import {
   Moon, Sun, Monitor, LogIn, LogOut, Loader2, Pencil, Check, X, Shield, ChevronDown, Search,
   Palette, Briefcase, Smile, GraduationCap, BookOpen, Landmark, Clock, Heart,
   Users, Music, Newspaper, Church, FlaskConical, Globe, Trophy, Cpu, Film,
+  Youtube, RefreshCw,
 } from 'lucide-react';
 import { Search as SearchIcon } from 'lucide-react';
 import Link from 'next/link';
@@ -20,6 +21,7 @@ import { APPLE_PODCAST_GENRES, APPLE_PODCAST_COUNTRIES } from '@/types/apple-pod
 import { Toast } from '@/components/ui/toast';
 import { useUsage } from '@/contexts/UsageContext';
 import { UsageMeter } from '@/components/UsageMeter';
+import { YouTubeChannelCard } from '@/components/onboarding/YouTubeChannelCard';
 
 // ── Compact genre icon map ──
 const GENRE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -84,6 +86,15 @@ export default function SettingsPage() {
   const [countrySearch, setCountrySearch] = useState('');
   const countryRef = useRef<HTMLDivElement>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
+
+  // YouTube import state
+  const [ytChannels, setYtChannels] = useState<{ channelId: string; title: string; description: string; thumbnailUrl: string }[]>([]);
+  const [selectedYtChannels, setSelectedYtChannels] = useState<Set<string>>(new Set());
+  const [isLoadingYt, setIsLoadingYt] = useState(false);
+  const [ytFetched, setYtFetched] = useState(false);
+  const [isImportingYt, setIsImportingYt] = useState(false);
+  const [ytImportDone, setYtImportDone] = useState(false);
+  const isGoogleUser = user?.app_metadata?.provider === 'google';
 
   const themeOptions = [
     { value: 'light', label: 'Light', icon: Sun },
@@ -170,6 +181,50 @@ export default function SettingsPage() {
     } catch {
       setErrorToast('Failed to save country preference. Please try again.');
     }
+  };
+
+  const fetchYouTubeChannels = async () => {
+    setIsLoadingYt(true);
+    setYtFetched(false);
+    setYtImportDone(false);
+    try {
+      const res = await fetch('/api/youtube/subscriptions');
+      const data = await res.json();
+      const subs: { channelId: string; title: string; description: string; thumbnailUrl: string }[] = data.subscriptions || [];
+      setYtChannels(subs);
+      setSelectedYtChannels(new Set(subs.map(ch => ch.channelId)));
+    } catch {
+      setErrorToast('Could not load YouTube subscriptions.');
+    } finally {
+      setIsLoadingYt(false);
+      setYtFetched(true);
+    }
+  };
+
+  const handleImportYouTube = async () => {
+    setIsImportingYt(true);
+    try {
+      const channelsToImport = ytChannels.filter(ch => selectedYtChannels.has(ch.channelId));
+      await fetch('/api/youtube/subscriptions/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channels: channelsToImport }),
+      });
+      posthog.capture('settings_youtube_imported', { count: channelsToImport.length });
+      setYtImportDone(true);
+    } catch {
+      setErrorToast('Failed to import YouTube channels. Please try again.');
+    } finally {
+      setIsImportingYt(false);
+    }
+  };
+
+  const toggleYtChannel = (channelId: string) => {
+    setSelectedYtChannels(prev => {
+      const next = new Set(prev);
+      if (next.has(channelId)) next.delete(channelId); else next.add(channelId);
+      return next;
+    });
   };
 
   const displayName = profile?.display_name
@@ -363,6 +418,101 @@ export default function SettingsPage() {
                   </div>
                 )}
               </div>
+
+              {/* ── YouTube Import (Google users only) ── */}
+              {isGoogleUser && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <FieldLabel>YouTube Channels</FieldLabel>
+                    {ytFetched && !ytImportDone && (
+                      <button
+                        onClick={fetchYouTubeChannels}
+                        className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                        title="Refresh"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {!ytFetched && !isLoadingYt && (
+                    <div className="p-4 rounded-2xl bg-card border border-border">
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Import your YouTube subscriptions to follow channels and get insights from their videos.
+                      </p>
+                      <Button onClick={fetchYouTubeChannels} variant="outline" className="gap-2">
+                        <Youtube className="h-4 w-4 text-red-500" />
+                        Fetch YouTube Channels
+                      </Button>
+                    </div>
+                  )}
+
+                  {isLoadingYt && (
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm p-4 rounded-2xl bg-card border border-border">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading your YouTube subscriptions...
+                    </div>
+                  )}
+
+                  {ytFetched && ytChannels.length === 0 && (
+                    <div className="p-4 rounded-2xl bg-card border border-border text-center">
+                      <p className="text-sm text-muted-foreground">No YouTube subscriptions found on your account.</p>
+                    </div>
+                  )}
+
+                  {ytFetched && ytChannels.length > 0 && !ytImportDone && (
+                    <div className="rounded-2xl bg-card border border-border overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                        <span className="text-sm text-muted-foreground">{selectedYtChannels.size} of {ytChannels.length} selected</span>
+                        <button
+                          onClick={() => setSelectedYtChannels(
+                            selectedYtChannels.size === ytChannels.length
+                              ? new Set()
+                              : new Set(ytChannels.map(ch => ch.channelId))
+                          )}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          {selectedYtChannels.size === ytChannels.length ? 'Deselect All' : 'Select All'}
+                        </button>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto p-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {ytChannels.map(channel => (
+                          <YouTubeChannelCard
+                            key={channel.channelId}
+                            channelId={channel.channelId}
+                            name={channel.title}
+                            thumbnailUrl={channel.thumbnailUrl}
+                            description={channel.description}
+                            selected={selectedYtChannels.has(channel.channelId)}
+                            onToggle={toggleYtChannel}
+                          />
+                        ))}
+                      </div>
+                      <div className="px-4 py-3 border-t border-border flex justify-end">
+                        <Button
+                          onClick={handleImportYouTube}
+                          disabled={isImportingYt || selectedYtChannels.size === 0}
+                          className="gap-2"
+                          size="sm"
+                        >
+                          {isImportingYt ? (
+                            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Importing...</>
+                          ) : (
+                            <><Youtube className="h-3.5 w-3.5" /> Import Selected</>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {ytImportDone && (
+                    <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 p-4 rounded-2xl bg-green-500/10 border border-green-500/20">
+                      <Check className="h-4 w-4 shrink-0" />
+                      {selectedYtChannels.size} channel{selectedYtChannels.size !== 1 ? 's' : ''} imported successfully.
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* ── Country ── */}
               <div>

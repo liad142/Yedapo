@@ -293,15 +293,27 @@ export default function OnboardingPage() {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
             >
-              <Card className="p-8">
+              <Card className="p-4 sm:p-8">
                 <div className="text-center mb-6">
                   <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-500/10 mb-4">
                     <Youtube className="h-6 w-6 text-red-500" />
                   </div>
                   <h2 className="text-2xl font-bold mb-2">Import YouTube Channels</h2>
-                  <p className="text-muted-foreground">
-                    We found your YouTube subscriptions. Select channels to follow.
-                  </p>
+                  {!isLoadingYt && ytChannels.length > 0 && (
+                    <p className="text-muted-foreground">
+                      We found your YouTube subscriptions. Select channels to follow.
+                    </p>
+                  )}
+                  {!isLoadingYt && ytChannels.length === 0 && !ytError && (
+                    <p className="text-muted-foreground">
+                      No YouTube subscriptions found on your account.
+                    </p>
+                  )}
+                  {isLoadingYt && (
+                    <p className="text-muted-foreground">
+                      Checking your YouTube subscriptions...
+                    </p>
+                  )}
                 </div>
 
                 {isLoadingYt ? (
@@ -311,13 +323,11 @@ export default function OnboardingPage() {
                   </div>
                 ) : ytError || ytChannels.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-muted-foreground mb-2">
-                      {ytError
-                        ? 'Could not load YouTube subscriptions.'
-                        : 'No YouTube subscriptions found.'}
-                    </p>
+                    {ytError && (
+                      <p className="text-muted-foreground mb-2">Could not load YouTube subscriptions.</p>
+                    )}
                     <p className="text-sm text-muted-foreground">
-                      You can always add YouTube channels later from Discover.
+                      You can import YouTube channels later from Settings.
                     </p>
                   </div>
                 ) : (
@@ -420,7 +430,7 @@ export default function OnboardingPage() {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
             >
-              <Card className="p-8">
+              <Card className="p-4 sm:p-8">
                 <div className="text-center mb-6">
                   <h2 className="text-2xl font-bold mb-2">What topics interest you?</h2>
                   <p className="text-muted-foreground">

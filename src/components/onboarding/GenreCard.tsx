@@ -62,7 +62,7 @@ export function GenreCard({ id, name, selected, onToggle }: GenreCardProps) {
       className={cn(
         'flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
-        'min-h-[100px]',
+        'min-h-[80px] sm:min-h-[100px]',
         selected
           ? 'border-primary bg-primary/10 text-primary'
           : 'border-border hover:border-primary/50 text-muted-foreground hover:text-foreground'

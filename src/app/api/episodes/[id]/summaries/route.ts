@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requestSummary, checkExistingSummary, getSummariesStatus } from "@/lib/summary-service";
 import { getAuthUser } from "@/lib/auth-helpers";
@@ -126,53 +127,58 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Fire off the heavy generation in the background (non-blocking)
-    // The frontend polls GET /summaries to track progress
+    // Use after() to keep the serverless function alive after sending the response.
+    // Without this, Vercel kills the function when the response is sent,
+    // and the background generation never completes.
     const userId = user.id;
     const resolvedLanguage = language || undefined;
-    requestSummary(
-      id,
-      level,
-      episode.audio_url,
-      resolvedLanguage,
-      episode.transcript_url || undefined,
-      metadata
-    ).then(async (result) => {
-      // Record user ownership after completion (non-blocking)
-      if (result.status === 'ready') {
-        try {
-          const admin = createAdminClient();
-          const { data: summaryRecord } = await admin
-            .from('summaries')
-            .select('id')
-            .eq('episode_id', id)
-            .eq('level', level)
-            .eq('language', language || 'en')
-            .order('updated_at', { ascending: false })
-            .limit(1)
-            .single();
+    after(async () => {
+      try {
+        const result = await requestSummary(
+          id,
+          level,
+          episode.audio_url,
+          resolvedLanguage,
+          episode.transcript_url || undefined,
+          metadata
+        );
 
-          if (summaryRecord) {
-            await admin
-              .from('user_summaries')
-              .upsert({
-                user_id: userId,
-                summary_id: summaryRecord.id,
-                episode_id: id,
-              }, { onConflict: 'user_id,summary_id', ignoreDuplicates: true });
+        // Record user ownership after completion
+        if (result.status === 'ready') {
+          try {
+            const admin = createAdminClient();
+            const { data: summaryRecord } = await admin
+              .from('summaries')
+              .select('id')
+              .eq('episode_id', id)
+              .eq('level', level)
+              .eq('language', language || 'en')
+              .order('updated_at', { ascending: false })
+              .limit(1)
+              .single();
+
+            if (summaryRecord) {
+              await admin
+                .from('user_summaries')
+                .upsert({
+                  user_id: userId,
+                  summary_id: summaryRecord.id,
+                  episode_id: id,
+                }, { onConflict: 'user_id,summary_id', ignoreDuplicates: true });
+            }
+          } catch (err) {
+            log.warn('Failed to record user_summary (non-blocking)', { error: String(err) });
           }
-        } catch (err) {
-          log.warn('Failed to record user_summary (non-blocking)', { error: String(err) });
         }
+        log.success('Background generation completed', {
+          episodeId: id,
+          level,
+          status: result.status,
+          totalDurationMs: Date.now() - startTime,
+        });
+      } catch (err) {
+        log.error('Background generation FAILED', { episodeId: id, level, error: String(err) });
       }
-      log.success('Background generation completed', {
-        episodeId: id,
-        level,
-        status: result.status,
-        totalDurationMs: Date.now() - startTime,
-      });
-    }).catch((err) => {
-      log.error('Background generation FAILED', { episodeId: id, level, error: String(err) });
     });
 
     // Return immediately — the summary record was created by requestSummary's

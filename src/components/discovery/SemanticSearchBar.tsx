@@ -303,12 +303,11 @@ export function SemanticSearchBar() {
                           }`}
                         >
                           <div className="relative w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
-                            <Image
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
                               src={podcast.artworkUrl || '/placeholder-podcast.png'}
                               alt={podcast.title}
-                              fill
-                              className="object-cover"
-                              sizes="36px"
+                              className="absolute inset-0 w-full h-full object-cover"
                             />
                           </div>
                           <div className="flex-1 min-w-0">

@@ -398,7 +398,7 @@ function ExpandableDescription({ text }: { text: string }) {
           <button
             type="button"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsExpanded(true); }}
-            className="absolute bottom-0 end-0 text-sm font-medium text-primary/70 hover:text-primary transition-colors duration-150 bg-gradient-to-l rtl:bg-gradient-to-r from-secondary/50 from-60% to-transparent ps-8 pe-0"
+            className="absolute bottom-0 end-0 text-sm font-medium text-primary/70 hover:text-primary transition-colors duration-150 bg-gradient-to-l rtl:bg-gradient-to-r from-secondary/50 from-50% to-transparent ps-14 pe-0"
             aria-expanded={false}
           >
             more

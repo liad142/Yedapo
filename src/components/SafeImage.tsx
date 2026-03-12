@@ -78,7 +78,21 @@ function ImgFallback({ alt, ...props }: ImageProps) {
 export function SafeImage({ alt, ...props }: ImageProps) {
   const [useFallback, setUseFallback] = useState(false);
 
-  const src = typeof props.src === 'string' ? props.src : '';
+  let src = typeof props.src === 'string' ? props.src : '';
+
+  // Some RSS feeds return artwork as a JSON array string e.g. '["https://..."]'
+  if (src.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(src);
+      src = Array.isArray(parsed) ? parsed[0] || '' : src;
+    } catch { /* keep original */ }
+  }
+
+  // Override props.src with the cleaned value
+  if (src !== props.src) {
+    props = { ...props, src };
+  }
+
   const isExternal = src.startsWith('http://') || src.startsWith('https://');
 
   if (useFallback || (isExternal && !isAllowedHostname(src))) {

@@ -75,6 +75,17 @@ export async function GET() {
     .sort(([, a], [, b]) => b - a)
     .map(([label, count]) => ({ label, count }));
 
+  // Fetch auth emails for recent users
+  const emailMap: Record<string, string> = {};
+  if (recentUsers && recentUsers.length > 0) {
+    const { data: authUsers } = await admin.auth.admin.listUsers({ perPage: 50 });
+    if (authUsers?.users) {
+      for (const au of authUsers.users) {
+        emailMap[au.id] = au.email ?? '';
+      }
+    }
+  }
+
   const data: UserAnalytics = {
     totalUsers: totalUsers ?? 0,
     usersThisWeek,
@@ -85,7 +96,7 @@ export async function GET() {
     planDistribution,
     recentUsers: (recentUsers ?? []).map(u => ({
       id: u.id,
-      email: '',
+      email: emailMap[u.id] || '',
       display_name: u.display_name,
       created_at: u.created_at,
       onboarding_completed: u.onboarding_completed ?? false,

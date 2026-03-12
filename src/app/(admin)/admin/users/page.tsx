@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Users, UserPlus, CheckCircle, ChevronDown } from 'lucide-react';
+import { Users, UserPlus, CheckCircle, ChevronDown, Trash2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { StatCard } from '@/components/admin/StatCard';
 import { ChartCard } from '@/components/admin/ChartCard';
@@ -134,6 +134,29 @@ export default function UsersPage() {
     });
   }
 
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  async function handleDeleteUser(userId: string) {
+    setDeletingId(userId);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            totalUsers: prev.totalUsers - 1,
+            recentUsers: prev.recentUsers.filter((u: any) => u.id !== userId),
+          };
+        });
+      }
+    } finally {
+      setDeletingId(null);
+      setConfirmDeleteId(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -191,6 +214,41 @@ export default function UsersPage() {
             label: 'Joined',
             sortable: true,
             render: (row) => new Date(row.created_at as string).toLocaleDateString(),
+          },
+          {
+            key: 'actions',
+            label: '',
+            render: (row) => {
+              const userId = row.id as string;
+              if (confirmDeleteId === userId) {
+                return (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleDeleteUser(userId)}
+                      disabled={deletingId === userId}
+                      className="px-2 py-1 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {deletingId === userId ? '...' : 'Confirm'}
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteId(null)}
+                      className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                );
+              }
+              return (
+                <button
+                  onClick={() => setConfirmDeleteId(userId)}
+                  className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50 transition-colors"
+                  title="Delete user"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              );
+            },
           },
         ]}
         data={data.recentUsers as unknown as Record<string, unknown>[]}

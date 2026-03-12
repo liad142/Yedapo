@@ -552,7 +552,7 @@ function ExpandableCardDescription({ text }: { text: string }) {
   if (!text) return null;
 
   return (
-    <div className="relative">
+    <div>
       <p
         ref={ref}
         className={cn(
@@ -563,25 +563,14 @@ function ExpandableCardDescription({ text }: { text: string }) {
         {text}
       </p>
       {isClamped && (
-        isExpanded ? (
-          <button
-            type="button"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsExpanded(false); }}
-            className="text-body-sm font-medium text-primary/70 hover:text-primary transition-colors duration-150 mt-1 block"
-            aria-expanded={true}
-          >
-            less
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsExpanded(true); }}
-            className="absolute bottom-0 end-0 text-body-sm font-medium text-primary/70 hover:text-primary transition-colors duration-150 bg-gradient-to-l rtl:bg-gradient-to-r from-[hsl(var(--card))] from-50% to-transparent ps-14 pe-0"
-            aria-expanded={false}
-          >
-            more
-          </button>
-        )
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsExpanded(!isExpanded); }}
+          className="text-xs text-primary/70 hover:text-primary transition-colors duration-150 mt-0.5"
+          aria-expanded={isExpanded}
+        >
+          {isExpanded ? 'Show less' : 'Show more'}
+        </button>
       )}
     </div>
   );

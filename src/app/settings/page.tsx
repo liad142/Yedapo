@@ -423,7 +423,10 @@ export default function SettingsPage() {
               {isGoogleUser && (
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <FieldLabel>YouTube Channels</FieldLabel>
+                    <div className="flex items-center gap-2">
+                      <Youtube className="h-5 w-5 text-red-500" />
+                      <FieldLabel>YouTube Channels</FieldLabel>
+                    </div>
                     {ytFetched && !ytImportDone && (
                       <button
                         onClick={fetchYouTubeChannels}

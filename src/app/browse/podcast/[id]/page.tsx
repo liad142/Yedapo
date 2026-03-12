@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, use } from 'react';
 import { redirect } from 'next/navigation';
 import { SafeImage } from '@/components/SafeImage';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Heart } from 'lucide-react';
+import { ArrowLeft, Loader2, Heart, Globe, Calendar, Rss, Mic2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { springBouncy } from '@/lib/motion';
 import { EpisodeList } from '@/components/EpisodeList';
@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCountry } from '@/contexts/CountryContext';
-import { cn } from '@/lib/utils';
+import { cn, stripHtml } from '@/lib/utils';
 import type { PodcastDetailEpisode } from '@/types/podcast';
 
 interface BrowsePodcast {
@@ -228,120 +228,139 @@ export default function PodcastPage({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
-        {/* Back Button */}
-        <Link href="/discover">
-          <Button variant="ghost" className="mb-6 -ml-2 text-muted-foreground hover:text-foreground hover:bg-secondary">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Discover
-          </Button>
-        </Link>
-
         {isLoadingPodcast ? (
           <div className="space-y-8">
-            <div className="relative overflow-hidden rounded-2xl bg-secondary h-80 animate-pulse" />
+            <div className="relative overflow-hidden rounded-3xl bg-secondary h-80 animate-pulse" />
           </div>
         ) : podcast && (
-          <div className="space-y-12">
-            {/* Podcast Header */}
-            <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
-              {/* Podcast Artwork */}
-              <div className="w-40 h-40 shrink-0 rounded-2xl overflow-hidden shadow-[var(--shadow-3)]">
+          <div className="space-y-8">
+            {/* Immersive Header */}
+            <div className="relative overflow-hidden rounded-3xl bg-slate-900 border border-white/10 shadow-2xl">
+              {/* Blurred Background Backdrop */}
+              <div className="absolute inset-0 z-0">
                 <SafeImage
                   src={imageUrl}
-                  alt={podcast.name}
-                  width={160}
-                  height={160}
-                  className="w-full h-full object-cover"
-                  priority
+                  alt=""
+                  fill
+                  className="object-cover blur-3xl scale-110 opacity-60"
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />
               </div>
 
-              <div className="flex-1 space-y-4 text-center md:text-left max-w-3xl">
-                {/* Title */}
-                <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-foreground tracking-tight leading-tight">
-                  {podcast.name}
-                </h1>
-
-                {/* Publisher */}
-                <p className="text-base text-muted-foreground">
-                  {podcast.artistName}
-                </p>
-
-                {/* Tags */}
-                <div className="flex flex-wrap justify-center md:justify-start gap-2">
-                  {podcast.contentAdvisoryRating === 'Explicit' && (
-                    <Badge variant="destructive">Explicit</Badge>
-                  )}
-                  {podcast.genres?.slice(0, 3).map((genre) => (
-                    <Badge key={genre} variant="secondary">
-                      {genre}
-                    </Badge>
-                  ))}
+              {/* Content Overlay */}
+              <div className="relative z-10 p-8 md:p-12 flex flex-col md:flex-row gap-8 items-center md:items-start text-center md:text-left">
+                <div className="w-48 h-48 md:w-56 md:h-56 shrink-0 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/10">
+                  <SafeImage
+                    src={imageUrl}
+                    alt={podcast.name}
+                    width={224}
+                    height={224}
+                    className="w-full h-full object-cover"
+                    priority
+                  />
                 </div>
 
-                {/* Stats */}
-                <p className="text-sm text-muted-foreground">
-                  {podcast.trackCount > 0 && `${podcast.trackCount} episodes`}
-                </p>
+                <div className="flex-1 space-y-4">
+                  <div>
+                    <h1 className="text-h1 md:text-display text-white mb-3 tracking-tight leading-tight drop-shadow-sm">
+                      {podcast.name}
+                    </h1>
+                    {podcast.artistName && (
+                      <p className="text-lg md:text-xl text-slate-300 font-medium tracking-wide">
+                        {podcast.artistName}
+                      </p>
+                    )}
+                  </div>
 
-                {/* Description */}
-                <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3 md:line-clamp-4 max-w-2xl">
-                  {podcast.description}
-                </p>
+                  {/* Badges */}
+                  <div className="flex flex-wrap justify-center md:justify-start gap-2">
+                    {totalCount > 0 && (
+                      <span className="px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 text-xs font-semibold text-white/90">
+                        {totalCount} episodes
+                      </span>
+                    )}
+                    {podcast.contentAdvisoryRating === 'Explicit' && (
+                      <span className="px-3 py-1 rounded-full bg-red-500/20 backdrop-blur-sm border border-red-500/20 text-xs font-semibold text-red-300">
+                        Explicit
+                      </span>
+                    )}
+                    {podcast.genres?.slice(0, 3).map((genre) => (
+                      <span key={genre} className="px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 text-xs font-semibold text-white/90">
+                        {genre}
+                      </span>
+                    ))}
+                  </div>
 
-                {/* Action Buttons */}
-                <div className="flex items-center gap-1 pt-2 justify-center md:justify-start">
-                  {!isPiPodcast && (
-                    <motion.div
-                      whileTap={{ scale: 1.3 }}
-                      transition={isSubscribed ? { duration: 0.4, ease: 'easeInOut' } : springBouncy}
-                      animate={isSubscribed ? { scale: [1, 1.25, 1] } : undefined}
-                    >
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleToggleSubscription}
-                        disabled={isTogglingSubscription}
-                        className={cn(
-                          'rounded-full',
-                          isSubscribed && 'text-red-500 hover:text-red-600'
-                        )}
-                        aria-label={isSubscribed ? 'Remove from library' : 'Save to library'}
-                      >
-                        {isTogglingSubscription ? (
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                        ) : (
-                          <Heart className={cn('h-5 w-5', isSubscribed && 'fill-current')} />
-                        )}
-                      </Button>
-                    </motion.div>
+                  {/* Description */}
+                  {podcast.description && (
+                    <p className="text-slate-300 leading-relaxed max-w-2xl line-clamp-3 text-sm md:text-base border-l-2 border-white/20 pl-4">
+                      {stripHtml(podcast.description)}
+                    </p>
                   )}
 
-                  {/* Secondary actions — icon row, scales with future integrations (Notion, etc.) */}
-                  {!isPiPodcast && isSubscribed && (() => {
-                    const prefs = getNotificationPrefs(podcastId);
-                    return (
-                      <NotifyToggle
-                        enabled={prefs.notifyEnabled}
-                        channels={prefs.notifyChannels}
-                        onUpdate={(enabled, channels) => updateNotificationPrefs(podcastId, enabled, channels)}
-                      />
-                    );
-                  })()}
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-1 pt-2 justify-center md:justify-start">
+                    {!isPiPodcast && (
+                      <motion.div
+                        whileTap={{ scale: 1.3 }}
+                        transition={isSubscribed ? { duration: 0.4, ease: 'easeInOut' } : springBouncy}
+                        animate={isSubscribed ? { scale: [1, 1.25, 1] } : undefined}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleToggleSubscription}
+                          disabled={isTogglingSubscription}
+                          className={cn(
+                            'rounded-full text-white hover:bg-white/10',
+                            isSubscribed && 'text-red-500 hover:text-red-600'
+                          )}
+                          aria-label={isSubscribed ? 'Remove from library' : 'Save to library'}
+                        >
+                          {isTogglingSubscription ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Heart className={cn('h-5 w-5', isSubscribed && 'fill-current')} />
+                          )}
+                        </Button>
+                      </motion.div>
+                    )}
+
+                    {!isPiPodcast && isSubscribed && (() => {
+                      const prefs = getNotificationPrefs(podcastId);
+                      return (
+                        <NotifyToggle
+                          enabled={prefs.notifyEnabled}
+                          channels={prefs.notifyChannels}
+                          onUpdate={(enabled, channels) => updateNotificationPrefs(podcastId, enabled, channels)}
+                        />
+                      );
+                    })()}
+
+                    {podcast.feedUrl && (
+                      <a
+                        href={podcast.feedUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 ml-2 text-xs font-medium text-blue-300 hover:text-blue-200 transition-colors"
+                      >
+                        <Rss className="h-3.5 w-3.5" />
+                        RSS Feed
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Episodes Section */}
-            <div>
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-3">
-                  Latest Episodes
-                  <Badge variant="secondary">
-                    {totalCount}
-                  </Badge>
-                </h2>
-              </div>
+            <section className="bg-secondary/50 md:bg-transparent -mx-4 px-4 py-8 md:px-0 md:mx-0 md:py-0">
+              <h2 className="text-h2 tracking-tight text-foreground mb-6 flex items-center gap-3">
+                Latest Episodes
+                {totalCount > 0 && (
+                  <Badge variant="secondary">{totalCount}</Badge>
+                )}
+              </h2>
 
               <EpisodeList
                 episodes={episodes}
@@ -355,12 +374,12 @@ export default function PodcastPage({ params }: PageProps) {
                 isLoadingMore={isLoadingMore}
                 totalCount={totalCount}
                 onLoadMore={handleLoadMore}
-                variant="list"
+                variant="card"
                 onAuthGate={() => setShowAuthModal(true, 'Sign up to generate AI summaries and insights for any episode.')}
                 user={user}
                 newEpisodesSince={isSubscribed ? getLastViewedAt(podcastId) ?? undefined : undefined}
               />
-            </div>
+            </section>
           </div>
         )}
       </div>

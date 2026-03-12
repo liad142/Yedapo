@@ -19,7 +19,7 @@ import { ArrowLeft, Mic2, Calendar, Globe, Rss, Heart, Loader2 } from "lucide-re
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { NotifyToggle } from "@/components/NotifyToggle";
-import { cn } from "@/lib/utils";
+import { cn, stripHtml } from "@/lib/utils";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger('podcast');
@@ -310,7 +310,7 @@ export default function PodcastPage() {
 
                   {podcast.description && (
                     <p className="text-slate-300 leading-relaxed max-w-2xl line-clamp-3 text-sm md:text-base border-l-2 border-white/20 pl-4">
-                      {podcast.description}
+                      {stripHtml(podcast.description)}
                     </p>
                   )}
 

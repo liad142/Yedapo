@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { SafeImage } from '@/components/SafeImage';
 import { SummarizeButton } from '@/components/SummarizeButton';
@@ -10,6 +11,7 @@ import { formatDate, formatDuration } from '@/lib/formatters';
 import { Calendar, Check, Clock, FileText, Loader2, Sparkles } from 'lucide-react';
 import { useAudioPlayerSafe } from '@/contexts/AudioPlayerContext';
 import { useListeningProgressBatch, type EpisodeProgress } from '@/hooks/useListeningProgress';
+import { cn } from '@/lib/utils';
 import type { PodcastDetailEpisode, SummaryAvailability } from '@/types/podcast';
 
 interface EpisodeListProps {
@@ -209,7 +211,7 @@ function EpisodeItem({
   const artworkSrc = episode.artworkUrl || podcastArtworkUrl;
 
   return (
-    <div className="group relative rounded-2xl hover:bg-secondary/50 transition-colors duration-200 cursor-pointer">
+    <div className="group relative rounded-2xl hover:bg-secondary/50 transition-colors duration-200">
       <div className="flex gap-4 p-4 items-start">
         {/* Left: Text content */}
         <div className="flex-1 min-w-0 space-y-1.5">
@@ -249,10 +251,8 @@ function EpisodeItem({
             </h3>
           )}
 
-          {/* Description */}
-          <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
-            {episode.description?.replace(/<[^>]*>/g, '')}
-          </p>
+          {/* Description (expandable) */}
+          <ExpandableDescription text={episode.description?.replace(/<[^>]*>/g, '') || ''} />
 
           {/* Actions */}
           <div className="flex items-center gap-2 pt-1.5">
@@ -354,6 +354,49 @@ function EpisodeItem({
             </div>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+function ExpandableDescription({ text }: { text: string }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isClamped, setIsClamped] = useState(false);
+  const ref = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (el) {
+      setIsClamped(el.scrollHeight > el.clientHeight + 1);
+    }
+  }, [text]);
+
+  if (!text) return null;
+
+  return (
+    <div>
+      <p
+        ref={ref}
+        className={cn(
+          'text-sm text-muted-foreground leading-relaxed',
+          !isExpanded && 'line-clamp-2'
+        )}
+      >
+        {text}
+      </p>
+      {isClamped && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsExpanded(!isExpanded);
+          }}
+          className="text-sm font-medium text-foreground/60 hover:text-foreground/80 transition-colors duration-150 mt-0.5"
+          aria-expanded={isExpanded}
+        >
+          {isExpanded ? 'less' : 'more'}
+        </button>
       )}
     </div>
   );

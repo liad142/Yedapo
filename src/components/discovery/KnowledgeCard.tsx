@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -159,7 +159,6 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
   const [isToggling, setIsToggling] = useState(false);
   const [localSummaryStatus, setLocalSummaryStatus] = useState(summaryStatus);
   const [localEpisodeId, setLocalEpisodeId] = useState(episodeId);
-  const [isImporting, setIsImporting] = useState(false);
 
   // Subscription uses the Apple ID when available
   const subscriptionId = sourceAppleId || sourceId;
@@ -238,46 +237,6 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
       });
     } finally {
       setIsToggling(false);
-    }
-  };
-
-  const handleNavigate = async () => {
-    posthog.capture('knowledge_card_clicked', { content_id: id, type, title });
-
-    if (localEpisodeId) {
-      router.push(`/episode/${localEpisodeId}/insights`);
-      return;
-    }
-
-    if (type === 'youtube') {
-      if (!user || isImporting) return;
-      setIsImporting(true);
-      try {
-        const res = await fetch(`/api/youtube/${id}/summary`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            level: 'quick',
-            title,
-            description,
-            channelId: sourceId,
-            channelTitle: sourceName,
-            thumbnailUrl: sourceArtwork,
-            publishedAt,
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setLocalEpisodeId(data.episodeId);
-          router.push(`/episode/${data.episodeId}/insights`);
-        } else {
-          window.open(url, '_blank', 'noopener,noreferrer');
-        }
-      } catch {
-        window.open(url, '_blank', 'noopener,noreferrer');
-      } finally {
-        setIsImporting(false);
-      }
     }
   };
 
@@ -360,15 +319,13 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      className="bg-card border border-border rounded-2xl shadow-[var(--shadow-1)] p-5 hover:shadow-[var(--shadow-2)] hover:border-border/80 transition-all duration-150 cursor-pointer"
-      onClick={handleNavigate}
+      className="bg-card border border-border rounded-2xl shadow-[var(--shadow-1)] p-5 hover:shadow-[var(--shadow-2)] hover:border-border/80 transition-all duration-150"
     >
       {/* Top row: Artwork + Title + Meta + Save */}
       <div className="flex gap-4">
         {/* Artwork */}
         <Link
           href={sourceHref}
-          onClick={(e) => e.stopPropagation()}
           className="relative w-14 h-14 rounded-full overflow-hidden border border-border flex-shrink-0 hover:opacity-80 transition-opacity"
           aria-label={`Go to ${sourceName}`}
         >
@@ -385,9 +342,17 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
         <div className="flex-1 min-w-0">
           {/* Title row */}
           <div className="flex items-start justify-between gap-2">
-            <h3 className="text-h4 text-foreground line-clamp-2 leading-snug">
-              {title}
-            </h3>
+            {localSummaryStatus === 'ready' && localEpisodeId ? (
+              <Link href={`/episode/${localEpisodeId}/insights`} onClick={(e) => e.stopPropagation()}>
+                <h3 className="text-h4 text-foreground line-clamp-2 leading-snug hover:text-primary transition-colors cursor-pointer">
+                  {title}
+                </h3>
+              </Link>
+            ) : (
+              <h3 className="text-h4 text-foreground line-clamp-2 leading-snug">
+                {title}
+              </h3>
+            )}
             {/* Follow podcast */}
             {type === 'podcast' && (
               <motion.button
@@ -416,7 +381,6 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
           <div className="flex items-center gap-1.5 mt-0.5 text-body-sm text-muted-foreground flex-wrap">
             <Link
               href={sourceHref}
-              onClick={(e) => e.stopPropagation()}
               className="hover:text-foreground transition-colors truncate max-w-[200px]"
             >
               {sourceName}
@@ -466,12 +430,12 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
         </div>
       ) : (
         <div className="space-y-1.5">
-          {/* Fallback: Description (cleaned for YouTube) */}
-          <p className="text-body-sm text-muted-foreground line-clamp-2 leading-relaxed">
-            {type === 'youtube' && localSummaryStatus !== 'ready'
+          {/* Fallback: Description (cleaned for YouTube) — expandable */}
+          <ExpandableCardDescription
+            text={type === 'youtube' && localSummaryStatus !== 'ready'
               ? cleanYoutubeDescription(description)
               : description}
-          </p>
+          />
 
           {/* Recommend reason */}
           {recommendReason && (
@@ -510,7 +474,7 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
       )}
 
       {/* CTA row */}
-      <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center gap-2 mt-3">
         {/* Primary CTA: Curiosity mode podcasts get full DiscoverySummarizeButton */}
         {type === 'podcast' && podcastFeedData ? (
           <DiscoverySummarizeButton
@@ -572,3 +536,46 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
     </motion.article>
   );
 });
+
+function ExpandableCardDescription({ text }: { text: string }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isClamped, setIsClamped] = useState(false);
+  const ref = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (el) {
+      setIsClamped(el.scrollHeight > el.clientHeight + 1);
+    }
+  }, [text]);
+
+  if (!text) return null;
+
+  return (
+    <div>
+      <p
+        ref={ref}
+        className={cn(
+          'text-body-sm text-muted-foreground leading-relaxed',
+          !isExpanded && 'line-clamp-2'
+        )}
+      >
+        {text}
+      </p>
+      {isClamped && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsExpanded(!isExpanded);
+          }}
+          className="text-body-sm font-medium text-foreground/60 hover:text-foreground/80 transition-colors duration-150 mt-0.5"
+          aria-expanded={isExpanded}
+        >
+          {isExpanded ? 'less' : 'more'}
+        </button>
+      )}
+    </div>
+  );
+}

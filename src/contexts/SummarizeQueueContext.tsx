@@ -186,6 +186,14 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
       }
 
       if (state === 'failed') {
+        // Grace period: ignore "failed" in early polls — the after() background
+        // job may not have updated the DB status from the previous failed attempt yet.
+        if (pollCount <= 3) {
+          log.info('Ignoring stale "failed" status during grace period', { episodeId, pollCount });
+          const nextInterval = getNextPollInterval('transcribing');
+          pollingRef.current = setTimeout(poll, nextInterval);
+          return;
+        }
         log.error('Processing failed', { episodeId, durationMs: elapsedMs });
         setQueue(currentQueue => {
           const item = currentQueue.find(i => i.episodeId === episodeId);

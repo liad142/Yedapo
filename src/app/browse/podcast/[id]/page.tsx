@@ -235,7 +235,7 @@ export default function PodcastPage({ params }: PageProps) {
         ) : podcast && (
           <div className="space-y-8">
             {/* Immersive Header */}
-            <div className="relative rounded-3xl bg-slate-900 border border-white/10 shadow-2xl">
+            <div className="relative z-10 rounded-3xl bg-slate-900 border border-white/10 shadow-2xl">
               {/* Blurred Background Backdrop — overflow-hidden only on this layer */}
               <div className="absolute inset-0 z-0 overflow-hidden rounded-3xl">
                 <SafeImage

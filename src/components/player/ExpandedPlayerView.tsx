@@ -58,7 +58,7 @@ export function ExpandedPlayerView({
           transition={{ duration: 0.3 }}
           className="overflow-hidden border-t border-border/30"
         >
-          <div className="px-4 py-4">
+          <div className="px-4 py-2.5 sm:py-4">
             {/* Full Progress Bar — hidden when chapters are shown (chapter scrubber is above) */}
             {!(chapters && chapters.length > 0) && (
               <div className="mb-4">
@@ -103,7 +103,7 @@ export function ExpandedPlayerView({
             </div>
 
             {/* Mobile Volume */}
-            <div className="flex md:hidden items-center gap-3 mt-4 pt-4 border-t border-border/30">
+            <div className="flex md:hidden items-center gap-3 mt-3 pt-3 border-t border-border/30">
               <VolumeIcon className="w-4 h-4 text-muted-foreground" />
               <Slider
                 value={[volume * 100]}

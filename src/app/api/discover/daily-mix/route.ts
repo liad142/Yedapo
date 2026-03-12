@@ -289,10 +289,10 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 7. Sort by score DESC, then by date DESC
+  // 7. Sort by date DESC (recent first), then by score DESC as tiebreaker
   filtered.sort((a, b) => {
-    if (a._score !== b._score) return b._score - a._score;
-    return b._publishedAt - a._publishedAt;
+    if (a._publishedAt !== b._publishedAt) return b._publishedAt - a._publishedAt;
+    return b._score - a._score;
   });
 
   // 8. Apply cursor-based pagination
@@ -313,6 +313,6 @@ export async function GET(request: NextRequest) {
   const result = page.map(({ _score, _publishedAt, ...ep }) => ep);
 
   return NextResponse.json({ episodes: result, nextCursor }, {
-    headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },
+    headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300' },
   });
 }

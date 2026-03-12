@@ -216,23 +216,23 @@ function EpisodeItem({
         {/* Left: Text content */}
         <div className="flex-1 min-w-0 space-y-1.5">
           {/* Meta line */}
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            {isNew && (
-              <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                NEW
-              </span>
-            )}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
             <span>{formatDate(episode.publishedAt)}</span>
             {episode.duration > 0 && (
               <>
-                <span className="text-border">&#8226;</span>
+                <span className="text-border">·</span>
                 <span>{formatDuration(episode.duration)}</span>
               </>
             )}
+            {isNew && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-[10px] font-semibold uppercase tracking-wide">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                New
+              </span>
+            )}
             {hasSummary && (
-              <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold uppercase tracking-wide">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary" />
                 Summary
               </span>
             )}

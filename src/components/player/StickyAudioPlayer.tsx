@@ -172,7 +172,7 @@ export function StickyAudioPlayer() {
           )}
 
           {/* 3. Slim Player Controls — Spotify-style single row */}
-          <div className="flex items-center gap-3 px-3 py-2">
+          <div className="flex items-center gap-2.5 px-3 py-1.5 sm:gap-3 sm:py-2">
             {/* Album Art */}
             <div className="relative shrink-0">
               <div className="relative w-10 h-10 rounded-md overflow-hidden ring-1 ring-border">

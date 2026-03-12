@@ -9,8 +9,10 @@ export function useUnreadCount() {
   const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
 
+  const userId = user?.id;
+
   const fetchCount = useCallback(async () => {
-    if (!user) {
+    if (!userId) {
       setUnreadCount(0);
       return;
     }
@@ -23,16 +25,16 @@ export function useUnreadCount() {
     } catch {
       // Silently fail
     }
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
     fetchCount();
 
-    if (!user) return;
+    if (!userId) return;
 
     const interval = setInterval(fetchCount, POLL_INTERVAL);
     return () => clearInterval(interval);
-  }, [user, fetchCount]);
+  }, [userId, fetchCount]);
 
   const markAllRead = useCallback(async () => {
     try {

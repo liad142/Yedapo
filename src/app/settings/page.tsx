@@ -445,7 +445,8 @@ export default function SettingsPage() {
                         Import your YouTube subscriptions to follow channels and get insights from their videos.
                       </p>
                       <Button onClick={fetchYouTubeChannels} variant="outline" className="gap-2">
-                        <Youtube className="h-4 w-4 text-red-500" />
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src="/youtube-logo.svg" alt="" className="h-3.5 w-auto" />
                         Fetch YouTube Channels
                       </Button>
                     </div>

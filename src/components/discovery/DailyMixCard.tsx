@@ -4,6 +4,7 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { BookOpen, ArrowRight, Target, Layers } from 'lucide-react';
+import { stripHtml } from '@/lib/utils';
 
 interface DailyMixCardProps {
   title: string;
@@ -61,7 +62,7 @@ export const DailyMixCard = React.memo(function DailyMixCard({
 
   const valueLine = summaryPreview?.hookHeadline
     || summaryPreview?.executiveBrief
-    || description;
+    || stripHtml(description);
 
   return (
     <div

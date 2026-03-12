@@ -11,7 +11,7 @@ import { formatDate, formatDuration } from '@/lib/formatters';
 import { Calendar, Check, Clock, FileText, Loader2, Sparkles } from 'lucide-react';
 import { useAudioPlayerSafe } from '@/contexts/AudioPlayerContext';
 import { useListeningProgressBatch, type EpisodeProgress } from '@/hooks/useListeningProgress';
-import { cn } from '@/lib/utils';
+import { cn, stripHtml } from '@/lib/utils';
 import type { PodcastDetailEpisode, SummaryAvailability } from '@/types/podcast';
 
 interface EpisodeListProps {
@@ -252,7 +252,7 @@ function EpisodeItem({
           )}
 
           {/* Description (expandable) */}
-          <ExpandableDescription text={episode.description?.replace(/<[^>]*>/g, '') || ''} />
+          <ExpandableDescription text={stripHtml(episode.description || '')} />
 
           {/* Actions */}
           <div className="flex items-center gap-2 pt-1.5">

@@ -24,7 +24,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useEpisodeLookup } from '@/contexts/EpisodeLookupContext';
 import { useRouter } from 'next/navigation';
-import { cn } from '@/lib/utils';
+import { cn, stripHtml } from '@/lib/utils';
 import posthog from 'posthog-js';
 
 export interface KnowledgeCardProps {
@@ -434,7 +434,7 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
           <ExpandableCardDescription
             text={type === 'youtube' && localSummaryStatus !== 'ready'
               ? cleanYoutubeDescription(description)
-              : description}
+              : stripHtml(description)}
           />
 
           {/* Recommend reason */}

@@ -32,8 +32,17 @@ jobs:
         run: npm run test
 
       - name: Build
-        run: npm run build 2>&1
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee build-output.txt
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
           NEXT_PUBLIC_POSTHOG_KEY: placeholder
+
+      - name: Show build errors
+        if: failure()
+        run: |
+          echo "::group::Last 80 lines of build output"
+          tail -80 build-output.txt 2>/dev/null || echo "No build output captured"
+          echo "::endgroup::"

@@ -58,7 +58,7 @@ describe('Rate Limiting', () => {
     expect(result).toBe(true);
   });
 
-  it('checkRateLimit fails closed when Redis is down', async () => {
+  it('checkRateLimit fails open when Redis is down', async () => {
     // Mock Redis to throw
     vi.doMock('@upstash/redis', () => ({
       Redis: vi.fn(() => ({
@@ -72,7 +72,8 @@ describe('Rate Limiting', () => {
 
     const { checkRateLimit } = await import('@/lib/cache');
     const result = await checkRateLimit('test-user', 5, 60);
-    expect(result).toBe(false);
+    // Rate limiting fails open — don't block users when Redis is down
+    expect(result).toBe(true);
   });
 });
 

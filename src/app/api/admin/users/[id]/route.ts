@@ -30,7 +30,18 @@ export async function DELETE(
     // Continue — still try to delete auth user
   }
 
-  // 2. Delete from auth.users (cascades to notification_requests, telegram_connections, etc.)
+  // 2. Delete analytics_events (FK has no ON DELETE CASCADE)
+  const { error: analyticsError } = await admin
+    .from('analytics_events')
+    .delete()
+    .eq('user_id', userId);
+
+  if (analyticsError) {
+    log.error('Failed to delete analytics events', { userId, message: analyticsError.message });
+    // Continue — still try to delete auth user
+  }
+
+  // 3. Delete from auth.users (cascades to notification_requests, telegram_connections, etc.)
   const { error: authError } = await admin.auth.admin.deleteUser(userId);
 
   if (authError) {

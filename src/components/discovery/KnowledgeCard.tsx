@@ -12,8 +12,11 @@ import {
   ExternalLink,
   Target,
   Clock,
-  Loader2,
 } from 'lucide-react';
+import {
+  ParticleGemAnimation,
+  GemCompleteAnimation,
+} from '@/components/animations';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { YouTubeLogo } from '@/components/YouTubeLogo';
@@ -498,13 +501,13 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
             }}
             className="gap-1.5 rounded-full"
           >
-            <BookOpen className="h-3.5 w-3.5" />
+            <GemCompleteAnimation className="h-4 w-4" />
             Read Summary
           </Button>
         ) : localSummaryStatus === 'loading' ? (
-          <Button size="sm" disabled className="gap-1.5 rounded-full">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Summarizing...
+          <Button size="sm" disabled variant="outline" className="gap-1.5 rounded-full">
+            <ParticleGemAnimation className="h-5 w-6" />
+            <span className="text-xs">Summarizing...</span>
           </Button>
         ) : (
           <Button

@@ -104,6 +104,8 @@ function PlanSelector({ userId, currentPlan, onChanged }: { userId: string; curr
 export default function UsersPage() {
   const [data, setData] = useState<UserAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -133,9 +135,6 @@ export default function UsersPage() {
       };
     });
   }
-
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   async function handleDeleteUser(userId: string) {
     setDeletingId(userId);

@@ -131,7 +131,7 @@ function MobileThemeToggle() {
   );
 }
 
-function SidebarContent({ onNavigate, unreadCount = 0, showBell = false }: { onNavigate?: () => void; unreadCount?: number; showBell?: boolean }) {
+function SidebarContent({ onNavigate, unreadCount = 0, showBell = false, markAllRead }: { onNavigate?: () => void; unreadCount?: number; showBell?: boolean; markAllRead?: () => Promise<void> }) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -158,7 +158,7 @@ function SidebarContent({ onNavigate, unreadCount = 0, showBell = false }: { onN
             Yedapo
           </span>
         </Link>
-        {showBell && <NotificationBell />}
+        {showBell && markAllRead && <NotificationBell unreadCount={unreadCount} markAllRead={markAllRead} />}
       </div>
 
       {/* Separator */}
@@ -211,11 +211,13 @@ function MobileDrawer({
   onClose,
   unreadCount = 0,
   showBell = false,
+  markAllRead,
 }: {
   isOpen: boolean;
   onClose: () => void;
   unreadCount?: number;
   showBell?: boolean;
+  markAllRead?: () => Promise<void>;
 }) {
   // Handle escape key
   useEffect(() => {
@@ -281,7 +283,7 @@ function MobileDrawer({
           <X className="h-5 w-5" />
         </button>
 
-        <SidebarContent onNavigate={onClose} unreadCount={unreadCount} showBell={showBell} />
+        <SidebarContent onNavigate={onClose} unreadCount={unreadCount} showBell={showBell} markAllRead={markAllRead} />
       </div>
     </>
   );
@@ -347,7 +349,7 @@ function MobileBottomNav({ unreadCount = 0 }: { unreadCount?: number }) {
 export function Sidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
-  const { unreadCount } = useUnreadCount();
+  const { unreadCount, markAllRead } = useUnreadCount();
   const { user } = useAuth();
 
   const closeMobileMenu = useCallback(() => {
@@ -396,7 +398,7 @@ export function Sidebar() {
       </header>
 
       {/* Mobile Drawer */}
-      <MobileDrawer isOpen={isMobileMenuOpen} onClose={closeMobileMenu} unreadCount={unreadCount} showBell={!!user} />
+      <MobileDrawer isOpen={isMobileMenuOpen} onClose={closeMobileMenu} unreadCount={unreadCount} showBell={!!user} markAllRead={markAllRead} />
 
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav unreadCount={unreadCount} />
@@ -406,7 +408,7 @@ export function Sidebar() {
         className="fixed top-0 left-0 bottom-0 w-64 hidden lg:flex flex-col z-30 bg-background border-r border-border"
         aria-label="Main navigation"
       >
-        <SidebarContent unreadCount={unreadCount} showBell={!!user} />
+        <SidebarContent unreadCount={unreadCount} showBell={!!user} markAllRead={markAllRead} />
       </aside>
     </>
   );

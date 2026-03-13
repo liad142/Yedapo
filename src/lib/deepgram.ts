@@ -233,7 +233,10 @@ function buildDeepgramConfig(language?: string): Record<string, unknown> {
     detect_language: false,
   };
 
-  config.language = language || 'en';
+  // Map deprecated ISO 639-1 codes to modern equivalents
+  const langMap: Record<string, string> = { iw: 'he', in: 'id', ji: 'yi' };
+  const lang = language || 'en';
+  config.language = langMap[lang] || lang;
   return config;
 }
 

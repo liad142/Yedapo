@@ -13,6 +13,7 @@ import {
   QueuePositionIndicator
 } from '@/components/animations';
 import { Sparkles, AlertCircle, RefreshCw, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface DiscoverySummarizeButtonProps {
   // External episode data (from Apple/RSS feed)
@@ -279,6 +280,7 @@ export function DiscoverySummarizeButton({
   };
 
   const isInteractive = ['idle', 'ready', 'failed', 'import_failed'].includes(state);
+  const isGradientState = state === 'idle' || state === 'ready';
 
   return (
     <Button
@@ -286,7 +288,11 @@ export function DiscoverySummarizeButton({
       size="sm"
       onClick={handleClick}
       disabled={!isInteractive}
-      className={`rounded-full px-5 transition-all shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:scale-105 active:scale-95 bg-primary border-0 ${className}`}
+      className={cn(
+        'rounded-full px-5 transition-all hover:scale-105 active:scale-95',
+        isGradientState && 'bg-primary border-0 shadow-lg shadow-primary/20 hover:shadow-primary/40',
+        className
+      )}
     >
       {renderContent()}
     </Button>

@@ -5,8 +5,6 @@ import Link from 'next/link';
 import { Bell, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useUnreadCount } from '@/hooks/useUnreadCount';
-
 interface InAppNotification {
   id: string;
   episode_id: string | null;
@@ -17,8 +15,12 @@ interface InAppNotification {
   created_at: string;
 }
 
-export function NotificationBell() {
-  const { unreadCount, markAllRead, refetchCount } = useUnreadCount();
+interface NotificationBellProps {
+  unreadCount: number;
+  markAllRead: () => Promise<void>;
+}
+
+export function NotificationBell({ unreadCount, markAllRead }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [isLoading, setIsLoading] = useState(false);

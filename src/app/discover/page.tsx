@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useCountry } from '@/contexts/CountryContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -427,7 +427,7 @@ export default function DiscoverPage() {
           <div className="max-w-6xl mx-auto px-4 lg:px-8 py-3">
             <div className="flex items-center gap-3">
               <div className="flex-1">
-                <Suspense fallback={null}><SemanticSearchBar /></Suspense>
+                <SemanticSearchBar />
               </div>
               {/* Quota visibility chip */}
               {user && usage && !usage.isUnlimited && (

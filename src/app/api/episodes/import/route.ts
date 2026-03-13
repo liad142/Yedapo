@@ -60,54 +60,76 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // Check if podcast exists by external ID stored in rss_feed_url
-    // We use a convention: apple:podcastId as rss_feed_url for imported podcasts
     const externalPodcastRef = `apple:${podcast.externalId}`;
+    let podcastId: string;
 
+    // Look up existing podcast by apple_id (most reliable), then by feed URL, then by apple: ref
     let { data: existingPodcast } = await supabase
       .from('podcasts')
       .select('id')
-      .eq('rss_feed_url', podcast.feedUrl || externalPodcastRef)
+      .eq('apple_id', podcast.externalId)
       .single();
 
-    let podcastId: string;
+    if (!existingPodcast && podcast.feedUrl) {
+      const { data: byFeedUrl } = await supabase
+        .from('podcasts')
+        .select('id')
+        .eq('rss_feed_url', podcast.feedUrl)
+        .single();
+      existingPodcast = byFeedUrl;
+    }
 
     if (!existingPodcast) {
-      // Also check by the apple: reference
-      const { data: podcastByRef } = await supabase
+      const { data: byRef } = await supabase
         .from('podcasts')
         .select('id')
         .eq('rss_feed_url', externalPodcastRef)
         .single();
+      existingPodcast = byRef;
+    }
 
-      if (podcastByRef) {
-        podcastId = podcastByRef.id;
-      } else {
-        // Create podcast
-        const { data: newPodcast, error: podcastError } = await supabase
-          .from('podcasts')
-          .insert({
-            title: podcast.name,
-            author: podcast.artistName,
-            description: null,
-            rss_feed_url: podcast.feedUrl || externalPodcastRef,
-            image_url: podcast.artworkUrl,
-            language: 'en',
-          })
-          .select('id')
-          .single();
+    if (existingPodcast) {
+      podcastId = existingPodcast.id;
+      // Backfill apple_id if missing
+      await supabase.from('podcasts').update({ apple_id: podcast.externalId }).eq('id', podcastId).is('apple_id', null);
+    } else {
+      // Create podcast — handle duplicate key race condition gracefully
+      const { data: newPodcast, error: podcastError } = await supabase
+        .from('podcasts')
+        .insert({
+          title: podcast.name,
+          author: podcast.artistName,
+          description: null,
+          rss_feed_url: podcast.feedUrl || externalPodcastRef,
+          image_url: podcast.artworkUrl,
+          language: 'en',
+          apple_id: podcast.externalId,
+        })
+        .select('id')
+        .single();
 
-        if (podcastError) {
+      if (podcastError) {
+        // Duplicate key = another request created it concurrently — look it up
+        if (podcastError.code === '23505') {
+          const { data: raced } = await supabase
+            .from('podcasts')
+            .select('id')
+            .eq('rss_feed_url', podcast.feedUrl || externalPodcastRef)
+            .single();
+          if (raced) {
+            podcastId = raced.id;
+            await supabase.from('podcasts').update({ apple_id: podcast.externalId }).eq('id', podcastId).is('apple_id', null);
+          } else {
+            console.error('Error creating podcast (duplicate but not found):', podcastError);
+            return NextResponse.json({ error: 'Failed to create podcast' }, { status: 500 });
+          }
+        } else {
           console.error('Error creating podcast:', podcastError);
-          return NextResponse.json(
-            { error: 'Failed to create podcast' },
-            { status: 500 }
-          );
+          return NextResponse.json({ error: 'Failed to create podcast' }, { status: 500 });
         }
+      } else {
         podcastId = newPodcast.id;
       }
-    } else {
-      podcastId = existingPodcast.id;
     }
 
     // Check if episode exists by external ID

@@ -108,8 +108,8 @@ export function saveListeningProgress(
   // Always save to localStorage
   setLocalProgress(episodeId, currentTime, duration, isCompleted);
 
-  // Save to DB if authenticated
-  if (userId) {
+  // Save to DB if authenticated and episodeId is a valid UUID (not an Apple/external ID)
+  if (userId && episodeId.includes('-')) {
     fetch('/api/listening-progress', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

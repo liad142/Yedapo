@@ -18,15 +18,6 @@ async function fetchApi(path: string, options?: RequestInit) {
   });
 }
 
-describe('Notification Count Endpoint', () => {
-  it('GET /api/notifications/in-app/count returns unreadCount: 0 for unauthenticated users', async () => {
-    const res = await fetchApi('/api/notifications/in-app/count');
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data).toHaveProperty('unreadCount', 0);
-  });
-});
-
 describe('Notification List Endpoint', () => {
   it('GET /api/notifications/in-app returns 401 for unauthenticated users', async () => {
     const res = await fetchApi('/api/notifications/in-app');

@@ -8,6 +8,7 @@ export interface DbPodcast {
   language: string;
   created_at: string;
   latest_episode_date: string | null;
+  apple_id: string | null;
 }
 
 /** @deprecated Use DbPodcast for DB row types. Alias kept for backward compatibility. */

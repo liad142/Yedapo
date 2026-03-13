@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPodcastById } from '@/lib/apple-podcasts';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -18,6 +19,30 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         { error: 'Podcast not found' },
         { status: 404 }
       );
+    }
+
+    // Backfill apple_id for existing podcasts that were created before the column was added.
+    // Use separate queries to avoid URL special chars breaking PostgREST .or() filters.
+    try {
+      const supabase = createAdminClient();
+
+      // Match by apple: convention
+      await supabase
+        .from('podcasts')
+        .update({ apple_id: podcastId })
+        .eq('rss_feed_url', `apple:${podcastId}`)
+        .is('apple_id', null);
+
+      // Match by real RSS feed URL (if available from Apple API)
+      if (podcast.feedUrl) {
+        await supabase
+          .from('podcasts')
+          .update({ apple_id: podcastId })
+          .eq('rss_feed_url', podcast.feedUrl)
+          .is('apple_id', null);
+      }
+    } catch {
+      // Non-critical — don't fail the response if backfill fails
     }
 
     return NextResponse.json({ podcast }, {

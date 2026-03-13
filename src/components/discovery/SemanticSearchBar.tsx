@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import posthog from 'posthog-js';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Search, Loader2, X, Podcast, Play } from 'lucide-react';
 import { YouTubeLogoStatic } from '@/components/YouTubeLogo';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,9 +36,11 @@ interface SearchVideo {
 
 export function SemanticSearchBar() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const initialQuery = searchParams.get('q') || '';
-  const [query, setQuery] = useState(initialQuery);
+  // Read initial query from URL without useSearchParams() to avoid dynamic rendering / RSC refetches
+  const [query, setQuery] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    return new URLSearchParams(window.location.search).get('q') || '';
+  });
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<SearchPodcast[]>([]);
   const [channels, setChannels] = useState<SearchChannel[]>([]);
@@ -60,17 +62,24 @@ export function SemanticSearchBar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Sync query to URL params
+  // Sync query to URL params (skip the initial mount to avoid unnecessary RSC refetch)
+  const isInitialMount = useRef(true);
   useEffect(() => {
-    const params = new URLSearchParams(searchParams.toString());
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
     if (query.trim()) {
       params.set('q', query.trim());
     } else {
       params.delete('q');
     }
     const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname;
-    router.replace(newUrl, { scroll: false });
-  }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Use native replaceState to update URL without triggering RSC refetches.
+    // We call the original (unpatched) history method to avoid Next.js router intercepting it.
+    window.history.replaceState(window.history.state, '', newUrl);
+  }, [query]);
 
   // Debounced search
   useEffect(() => {
@@ -204,11 +213,11 @@ export function SemanticSearchBar() {
     setShowResults(false);
     setSelectedIndex(-1);
     inputRef.current?.focus();
-    // Clear URL param
-    const params = new URLSearchParams(searchParams.toString());
+    // Clear URL param without triggering RSC refetch
+    const params = new URLSearchParams(window.location.search);
     params.delete('q');
     const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname;
-    router.replace(newUrl, { scroll: false });
+    window.history.replaceState(window.history.state, '', newUrl);
   };
 
   const hasYouTube = channels.length > 0 || videos.length > 0;

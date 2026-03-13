@@ -151,7 +151,7 @@ function SidebarContent({ onNavigate, unreadCount = 0, showBell = false, markAll
     <div className="flex flex-col h-full">
       {/* Brand Header */}
       <div className="px-5 pt-6 pb-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2" onClick={onNavigate}>
+        <Link href="/discover" className="flex items-center gap-2" onClick={onNavigate}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-icon.png" alt="Yedapo" className="h-7 w-auto" />
           <span className="text-lg font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
@@ -382,7 +382,7 @@ export function Sidebar() {
             <div className="w-9" /> /* Spacer to keep logo centered */
           )}
 
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/discover" className="flex items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-icon.png" alt="Yedapo" className="h-7 w-auto" />
             <span className="text-lg font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">

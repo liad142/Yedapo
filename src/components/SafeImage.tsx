@@ -73,10 +73,12 @@ function ImgFallback({ alt, ...props }: ImageProps) {
  * SafeImage wraps next/image with error handling.
  * - Pre-checks hostname against configured remotePatterns to avoid render errors
  * - Catches load-time errors via onError callback
+ * - Supports fallbackSrc: if primary image fails, tries fallbackSrc before showing broken <img>
  * Falls back to a plain <img> tag for unconfigured/failing hosts.
  */
-export function SafeImage({ alt, ...props }: ImageProps) {
+export function SafeImage({ alt, fallbackSrc, ...props }: ImageProps & { fallbackSrc?: string }) {
   const [useFallback, setUseFallback] = useState(false);
+  const [useFallbackSrc, setUseFallbackSrc] = useState(false);
 
   let src = typeof props.src === 'string' ? props.src : '';
 
@@ -88,8 +90,11 @@ export function SafeImage({ alt, ...props }: ImageProps) {
     } catch { /* keep original */ }
   }
 
-  // Override props.src with the cleaned value
-  if (src !== props.src) {
+  // If primary image failed and we have a fallbackSrc, use it
+  if (useFallbackSrc && fallbackSrc) {
+    props = { ...props, src: fallbackSrc };
+    src = fallbackSrc;
+  } else if (src !== props.src) {
     props = { ...props, src };
   }
 
@@ -103,7 +108,13 @@ export function SafeImage({ alt, ...props }: ImageProps) {
     <Image
       {...props}
       alt={alt}
-      onError={() => setUseFallback(true)}
+      onError={() => {
+        if (!useFallbackSrc && fallbackSrc) {
+          setUseFallbackSrc(true);
+        } else {
+          setUseFallback(true);
+        }
+      }}
     />
   );
 }

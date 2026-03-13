@@ -111,6 +111,7 @@ export async function POST(request: NextRequest) {
           rss_feed_url: rss_url, // Keep the apple:ID format
           image_url: applePodcast.artworkUrl || null,
           language: "en",
+          apple_id: appleId,
         })
         .select()
         .single();

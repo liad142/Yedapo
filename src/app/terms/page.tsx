@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Terms of Service - Yedapo",
@@ -57,7 +58,7 @@ export default function TermsPage() {
           </p>
           <p className="text-sm text-muted-foreground leading-relaxed">
             If you are a content creator and believe your rights are being infringed, please review our{' '}
-            <a href="/dmca" className="text-primary hover:underline">DMCA & Takedown Policy</a>.
+            <Link href="/dmca" className="text-primary hover:underline">DMCA & Takedown Policy</Link>.
           </p>
         </section>
 
@@ -120,7 +121,7 @@ export default function TermsPage() {
           <h2 className="text-xl font-semibold text-foreground">11. Contact</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             For questions about these Terms, please contact us through the channels listed on our{' '}
-            <a href="/dmca" className="text-primary hover:underline">DMCA & Takedown Policy</a> page.
+            <Link href="/dmca" className="text-primary hover:underline">DMCA & Takedown Policy</Link> page.
           </p>
         </section>
       </div>

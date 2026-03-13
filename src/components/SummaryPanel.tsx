@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useAudioPlayerSafe } from '@/contexts/AudioPlayerContext';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -206,10 +207,10 @@ function SummaryLimitReached() {
         Resets in {resetTime}
       </p>
       <Button asChild variant="outline" size="sm" className="gap-2">
-        <a href="/pricing">
+        <Link href="/pricing">
           <Sparkles className="h-3.5 w-3.5" />
           Upgrade for more
-        </a>
+        </Link>
       </Button>
     </div>
   );

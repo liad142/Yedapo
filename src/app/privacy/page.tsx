@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Privacy Policy - Yedapo",
@@ -139,7 +140,7 @@ export default function PrivacyPage() {
           </ul>
           <p className="text-sm text-muted-foreground leading-relaxed">
             To exercise any of these rights, contact us through the channels listed on our{' '}
-            <a href="/dmca" className="text-primary hover:underline">contact page</a>.
+            <Link href="/dmca" className="text-primary hover:underline">contact page</Link>.
           </p>
         </section>
 

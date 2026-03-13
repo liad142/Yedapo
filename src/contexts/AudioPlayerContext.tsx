@@ -134,9 +134,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     const handleTimeUpdate = () => {
       setCurrentTime(audio.currentTime);
-      // Debounced save every 10 seconds
+      // Debounced save every 30 seconds
       const now = Date.now();
-      if (now - lastSaveRef.current >= 10000 && currentTrackRef.current?.id) {
+      if (now - lastSaveRef.current >= 30000 && currentTrackRef.current?.id) {
         lastSaveRef.current = now;
         saveListeningProgress(
           currentTrackRef.current.id,
@@ -162,6 +162,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           userRef.current?.id
         );
       }
+      lastSaveRef.current = Date.now();
       setCurrentTime(0);
     };
 
@@ -171,7 +172,10 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     const handlePause = () => {
       setIsPlaying(false);
-      if (currentTrackRef.current?.id && audio.currentTime > 0) {
+      // Only save if enough time has passed since last save (avoids spam from buffer stalls)
+      const now = Date.now();
+      if (currentTrackRef.current?.id && audio.currentTime > 0 && now - lastSaveRef.current >= 5000) {
+        lastSaveRef.current = now;
         saveListeningProgress(
           currentTrackRef.current.id,
           audio.currentTime,

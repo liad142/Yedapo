@@ -319,6 +319,7 @@ function EpisodeItem({
                 fill
                 className="object-cover"
                 sizes="(min-width: 640px) 96px, 80px"
+                fallbackSrc={podcastArtworkUrl?.replace('100x100', '300x300')}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground">

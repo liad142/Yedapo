@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import posthog from "posthog-js";
-import { Header } from "@/components/Header";
 import { EpisodeSmartFeed } from "@/components/insights/EpisodeSmartFeed";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -101,24 +100,46 @@ export default function EpisodeInsightsPage() {
 
   const isYouTube = isYouTubeContent(episode?.podcast);
 
-  // Extract Apple podcast ID from rss_feed_url (format: "apple:123456" or actual RSS URL)
-  const getBackLink = () => {
-    const rssUrl = episode?.podcast?.rss_feed_url;
-    if (rssUrl?.startsWith('youtube:channel:')) {
-      return '/discover';
+  // Navigate to the podcast's browse page
+  const navigateToPodcast = useCallback(async () => {
+    const podcast = episode?.podcast;
+    if (!podcast) { router.back(); return; }
+
+    // 1. Use apple_id column if available
+    if (podcast.apple_id) {
+      router.push(`/browse/podcast/${podcast.apple_id}`);
+      return;
     }
-    if (rssUrl?.startsWith('apple:')) {
-      const appleId = rssUrl.replace('apple:', '');
-      return `/browse/podcast/${appleId}`;
+    // 2. Extract from apple: prefixed rss_feed_url
+    if (podcast.rss_feed_url?.startsWith('apple:')) {
+      router.push(`/browse/podcast/${podcast.rss_feed_url.replace('apple:', '')}`);
+      return;
     }
-    // Fallback to internal podcast page if not an Apple import
-    return `/podcast/${episode?.podcast_id}`;
-  };
+    // 3. YouTube channel
+    if (podcast.rss_feed_url?.startsWith('youtube:channel:')) {
+      router.push(`/browse/youtube/${podcast.rss_feed_url.replace('youtube:channel:', '')}`);
+      return;
+    }
+    // 4. Resolve Apple ID via API (for podcasts imported before apple_id column)
+    try {
+      const res = await fetch(`/api/podcasts/${podcast.id}/resolve-apple-id`);
+      if (res.ok) {
+        const { apple_id } = await res.json();
+        if (apple_id) {
+          router.push(`/browse/podcast/${apple_id}`);
+          return;
+        }
+      }
+    } catch {
+      // Resolve failed — fall through
+    }
+    // Last resort: go back
+    router.back();
+  }, [episode, router]);
 
   if (error && !episode) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
         <div className="flex items-center justify-center h-[60vh]">
           <div className="text-center">
             <p className="text-destructive mb-4">{error}</p>
@@ -144,8 +165,6 @@ export default function EpisodeInsightsPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header />
-
       {/* ── Hero Header ── */}
       <div className="border-b border-border mb-8">
         <div className="container mx-auto px-4 pt-5 pb-8 max-w-3xl">
@@ -180,7 +199,7 @@ export default function EpisodeInsightsPage() {
                 </button>
                 <ChevronRight className="h-3.5 w-3.5" />
                 <button
-                  onClick={() => router.push(getBackLink())}
+                  onClick={navigateToPodcast}
                   className="hover:text-foreground transition-colors truncate max-w-[200px]"
                 >
                   {episode.podcast?.title || "Podcast"}
@@ -215,7 +234,7 @@ export default function EpisodeInsightsPage() {
                 <div className="flex-1 min-w-0 space-y-2">
                   {/* Podcast name */}
                   <button
-                    onClick={() => router.push(getBackLink())}
+                    onClick={navigateToPodcast}
                     className="text-body-sm text-muted-foreground font-medium hover:text-foreground transition-colors truncate block max-w-full"
                   >
                     {episode.podcast?.title || "Unknown Podcast"}

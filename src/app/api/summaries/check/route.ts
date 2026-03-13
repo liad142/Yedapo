@@ -43,24 +43,31 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // Find episodes by audio URLs
-    const { data: episodes, error: episodesError } = await supabase
-      .from('episodes')
-      .select('id, audio_url')
-      .in('audio_url', audioUrls);
+    // Find episodes by audio URLs — batch to avoid HeadersOverflowError
+    // (Supabase encodes .in() filter as URL query params, 50 long CDN URLs exceeds limits)
+    const BATCH_SIZE = 10;
+    const episodes: { id: string; audio_url: string }[] = [];
+    for (let i = 0; i < audioUrls.length; i += BATCH_SIZE) {
+      const batch = audioUrls.slice(i, i + BATCH_SIZE);
+      const { data, error: batchError } = await supabase
+        .from('episodes')
+        .select('id, audio_url')
+        .in('audio_url', batch);
+
+      if (batchError) {
+        log.error('Error fetching episodes', batchError);
+        return NextResponse.json(
+          { error: 'Database error' },
+          { status: 500 }
+        );
+      }
+      if (data) episodes.push(...data);
+    }
 
     log.info('Episodes lookup', {
       queriedUrls: audioUrls.length,
-      foundEpisodes: episodes?.length || 0,
+      foundEpisodes: episodes.length,
     });
-
-    if (episodesError) {
-      log.error('Error fetching episodes', episodesError);
-      return NextResponse.json(
-        { error: 'Database error' },
-        { status: 500 }
-      );
-    }
 
     // If no episodes found, return empty availability
     if (!episodes || episodes.length === 0) {

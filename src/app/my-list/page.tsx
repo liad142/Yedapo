@@ -27,6 +27,7 @@ interface PodcastWithStatus {
   language: string;
   created_at: string;
   latest_episode_date: string | null;
+  apple_id: string | null;
   subscription: {
     id: string;
     created_at: string;

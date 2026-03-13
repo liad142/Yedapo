@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 
 import { useRouter } from 'next/navigation';
-import { FileText, Search, Calendar, Clock, Mic2, Loader2, RotateCcw, CheckCircle2, AlertCircle, XCircle, ArrowLeft } from 'lucide-react';
+import { FileText, Search, Calendar, Clock, Mic2, Loader2, RotateCcw, AlertCircle, XCircle, ArrowLeft } from 'lucide-react';
 import {
   SoundWaveAnimation,
   ParticleGemAnimation,

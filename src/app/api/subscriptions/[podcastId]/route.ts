@@ -64,11 +64,23 @@ export async function PATCH(
       return NextResponse.json({ message: 'Nothing to update' });
     }
 
+    // Resolve Apple ID to internal podcast ID if needed
+    let resolvedPodcastId = podcastId;
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID_RE.test(podcastId)) {
+      const { data: podcast } = await createAdminClient()
+        .from('podcasts')
+        .select('id')
+        .eq('rss_feed_url', `apple:${podcastId}`)
+        .single();
+      if (podcast) resolvedPodcastId = podcast.id;
+    }
+
     const { error } = await createAdminClient()
       .from('podcast_subscriptions')
       .update(updateData)
       .eq('user_id', user.id)
-      .eq('podcast_id', podcastId);
+      .eq('podcast_id', resolvedPodcastId);
 
     if (error) throw error;
 

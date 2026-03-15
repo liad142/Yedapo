@@ -225,16 +225,7 @@ function EpisodeItem({
               </>
             )}
             {isNew && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-[10px] font-semibold uppercase tracking-wide">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                New
-              </span>
-            )}
-            {hasSummary && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold uppercase tracking-wide">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                Summary
-              </span>
+              <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
             )}
           </div>
 

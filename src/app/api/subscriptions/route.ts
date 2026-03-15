@@ -42,30 +42,48 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    // Get episode counts per podcast
+    // Get new episode counts per podcast (episodes published after last_viewed_at)
+    const admin = createAdminClient();
     const podcastIds = (subscriptions || []).map((sub: any) => sub.podcasts?.id).filter(Boolean);
-    const episodeCounts = new Map<string, number>();
+    const newEpisodeCounts = new Map<string, number>();
+    const totalEpisodeCounts = new Map<string, number>();
+
     if (podcastIds.length > 0) {
-      const { data: episodeRows } = await createAdminClient()
+      const { data: episodeRows } = await admin
         .from('episodes')
-        .select('podcast_id')
+        .select('podcast_id, published_at')
         .in('podcast_id', podcastIds);
+
       if (episodeRows) {
+        // Build a last_viewed_at lookup per podcast
+        const lastViewedMap = new Map<string, string | null>();
+        for (const sub of subscriptions || []) {
+          const s = sub as any;
+          lastViewedMap.set(s.podcasts?.id, s.last_viewed_at);
+        }
+
         for (const row of episodeRows) {
-          episodeCounts.set(row.podcast_id, (episodeCounts.get(row.podcast_id) || 0) + 1);
+          totalEpisodeCounts.set(row.podcast_id, (totalEpisodeCounts.get(row.podcast_id) || 0) + 1);
+
+          const lastViewed = lastViewedMap.get(row.podcast_id);
+          if (lastViewed && row.published_at && new Date(row.published_at) > new Date(lastViewed)) {
+            newEpisodeCounts.set(row.podcast_id, (newEpisodeCounts.get(row.podcast_id) || 0) + 1);
+          } else if (!lastViewed) {
+            // Never viewed — all episodes are "new"
+            newEpisodeCounts.set(row.podcast_id, (newEpisodeCounts.get(row.podcast_id) || 0) + 1);
+          }
         }
       }
     }
 
     const podcastsWithStatus = (subscriptions || []).map((sub: any) => {
       const podcast = sub.podcasts;
-      const hasNewEpisodes = podcast.latest_episode_date && sub.last_viewed_at
-        ? new Date(podcast.latest_episode_date) > new Date(sub.last_viewed_at)
-        : false;
+      const newCount = newEpisodeCounts.get(podcast.id) ?? 0;
 
       return {
         ...podcast,
-        episode_count: episodeCounts.get(podcast.id) ?? 0,
+        episode_count: totalEpisodeCounts.get(podcast.id) ?? 0,
+        new_episode_count: newCount,
         subscription: {
           id: sub.id,
           created_at: sub.created_at,
@@ -73,7 +91,7 @@ export async function GET(request: NextRequest) {
           notify_enabled: sub.notify_enabled ?? false,
           notify_channels: sub.notify_channels ?? [],
         },
-        has_new_episodes: hasNewEpisodes,
+        has_new_episodes: newCount > 0,
       };
     });
 

@@ -3,20 +3,19 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import type { Podcast } from "@/types/database";
 import { Mic2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PodcastCardProps {
-  podcast: Podcast & { episode_count?: number };
+  podcast: Podcast & { episode_count?: number; new_episode_count?: number };
   onRemove?: (id: string) => void;
   hasNewEpisodes?: boolean;
 }
 
-export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, hasNewEpisodes }: PodcastCardProps) {
+export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove }: PodcastCardProps) {
   const [isRemoving, setIsRemoving] = useState(false);
+  const newCount = (podcast as any).new_episode_count ?? 0;
 
   const handleRemove = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -93,17 +92,10 @@ export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, 
             </div>
           )}
 
-          {/* NEW Badge */}
-          {hasNewEpisodes && (
-            <div className="absolute top-3 left-3 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm z-10">
-              NEW
-            </div>
-          )}
-
-          {/* Episode count badge */}
-          {podcast.episode_count !== undefined && podcast.episode_count > 0 && (
-            <div className="absolute bottom-3 right-3 bg-black/70 backdrop-blur-sm text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[22px] text-center shadow-sm z-10">
-              {podcast.episode_count}
+          {/* New episodes count badge */}
+          {newCount > 0 && (
+            <div className="absolute bottom-3 left-3 bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[22px] text-center shadow-sm z-10">
+              {newCount} new
             </div>
           )}
 

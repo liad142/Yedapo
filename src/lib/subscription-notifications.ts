@@ -9,12 +9,32 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createLogger } from '@/lib/logger';
 import { getCached, setCached } from '@/lib/cache';
 import { refreshSinglePodcastFeed } from '@/lib/rsshub-db';
+import { requestSummary } from '@/lib/summary-service';
+import type { SummaryLevel } from '@/types/database';
 
 const log = createLogger('sub-notifications');
 
 const MAX_SOURCES_PER_TICK = 50;
 const MAX_AUTO_SUMMARIES_PER_RUN = 10;
 const SUMMARY_COUNTER_KEY = 'cron:auto-summary-count';
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Parse a date safely, returning null for NULL/invalid values */
+function safeDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/** Get the earliest valid last_checked_at from a list of subscribers, defaulting to 7 days ago */
+function getEarliestChecked(subscribers: Array<{ last_checked_at: string | null }>): Date {
+  const sevenDaysAgo = new Date(Date.now() - SEVEN_DAYS_MS);
+  return subscribers.reduce((min, sub) => {
+    const d = safeDate(sub.last_checked_at);
+    if (!d) return min;
+    return d < min ? d : min;
+  }, sevenDaysAgo);
+}
 
 /**
  * Check all podcast subscriptions with notifications enabled for new episodes.
@@ -58,10 +78,7 @@ export async function checkNewPodcastEpisodes(): Promise<{
   for (const [podcastId, subscribers] of podcastGroups) {
     try {
       // Use the earliest last_checked_at among subscribers as our cursor
-      const earliestChecked = subscribers.reduce((min, sub) => {
-        const d = new Date(sub.last_checked_at);
-        return d < min ? d : min;
-      }, new Date());
+      const earliestChecked = getEarliestChecked(subscribers);
 
       // Refresh the podcast feed (this imports new episodes into the episodes table)
       // We use the first subscriber's user_id for the feed_items population
@@ -70,7 +87,7 @@ export async function checkNewPodcastEpisodes(): Promise<{
       // Find new episodes since earliest last_checked_at
       const { data: newEpisodes, error: epError } = await supabase
         .from('episodes')
-        .select('id, title, published_at')
+        .select('id, title, published_at, audio_url, transcript_url')
         .eq('podcast_id', podcastId)
         .gt('published_at', earliestChecked.toISOString())
         .order('published_at', { ascending: false })
@@ -96,20 +113,32 @@ export async function checkNewPodcastEpisodes(): Promise<{
       // Get podcast info for notification messages
       const { data: podcast } = await supabase
         .from('podcasts')
-        .select('title')
+        .select('title, language')
         .eq('id', podcastId)
         .single();
 
       const podcastTitle = podcast?.title || 'Unknown Podcast';
+      const podcastLanguage = podcast?.language?.split('-')[0] || 'en';
+      const subscriberUserIds = subscribers.map(s => s.user_id);
 
       for (const episode of newEpisodes) {
-        // Queue auto-summary if under limit
-        summariesQueued += await maybeQueueAutoSummary(episode.id);
+        // Queue auto-summary if under limit, and create user_summaries for subscribers
+        summariesQueued += await maybeQueueAutoSummary(
+          episode.id,
+          episode.audio_url,
+          'quick',
+          podcastLanguage,
+          episode.transcript_url,
+          { podcastTitle, episodeTitle: episode.title },
+          subscriberUserIds
+        );
 
         // Create notifications for each subscriber
         for (const sub of subscribers) {
-          const subLastChecked = new Date(sub.last_checked_at);
-          if (new Date(episode.published_at) <= subLastChecked) continue;
+          const subLastChecked = safeDate(sub.last_checked_at);
+          const episodePubDate = safeDate(episode.published_at);
+          // Skip if subscriber already saw this episode (guard against NULL dates)
+          if (subLastChecked && episodePubDate && episodePubDate <= subLastChecked) continue;
 
           const channels: string[] = sub.notify_channels || [];
           const created = await createNotificationsForSubscriber(
@@ -186,10 +215,7 @@ export async function checkNewYouTubeVideos(): Promise<{
 
   for (const [channelDbId, subscribers] of channelGroups) {
     try {
-      const earliestChecked = subscribers.reduce((min, sub) => {
-        const d = new Date(sub.last_checked_at);
-        return d < min ? d : min;
-      }, new Date());
+      const earliestChecked = getEarliestChecked(subscribers);
 
       // Get channel info
       const { data: channel } = await supabase
@@ -226,25 +252,36 @@ export async function checkNewYouTubeVideos(): Promise<{
       }
 
       newEpisodesFound += newItems.length;
+      const subscriberUserIds = subscribers.map(s => s.user_id);
 
       for (const item of newItems) {
         // Try to find a corresponding episode record for summary queueing
         if (item.video_id) {
+          const videoUrl = `https://www.youtube.com/watch?v=${item.video_id}`;
           const { data: episode } = await supabase
             .from('episodes')
             .select('id')
-            .eq('audio_url', `https://www.youtube.com/watch?v=${item.video_id}`)
+            .eq('audio_url', videoUrl)
             .single();
 
           if (episode) {
-            summariesQueued += await maybeQueueAutoSummary(episode.id);
+            summariesQueued += await maybeQueueAutoSummary(
+              episode.id,
+              videoUrl,
+              'quick',
+              'en',
+              undefined,
+              { podcastTitle: channel.channel_name, episodeTitle: item.title },
+              subscriberUserIds
+            );
           }
         }
 
         // Create notifications for each subscriber
         for (const sub of subscribers) {
-          const subLastChecked = new Date(sub.last_checked_at);
-          if (new Date(item.published_at) <= subLastChecked) continue;
+          const subLastChecked = safeDate(sub.last_checked_at);
+          const itemPubDate = safeDate(item.published_at);
+          if (subLastChecked && itemPubDate && itemPubDate <= subLastChecked) continue;
 
           const channels: string[] = sub.notify_channels || [];
           const created = await createNotificationsForSubscriber(
@@ -357,20 +394,36 @@ async function createNotificationsForSubscriber(
 
 /**
  * Queue an auto-summary for an episode if under the per-run limit and not already processed.
+ * Actually triggers summary generation (not just a DB insert) and creates user_summaries
+ * for subscribing users so it appears on their Summaries page.
  * Returns 1 if queued, 0 if skipped.
  */
-async function maybeQueueAutoSummary(episodeId: string): Promise<number> {
+async function maybeQueueAutoSummary(
+  episodeId: string,
+  audioUrl: string,
+  level: SummaryLevel = 'quick',
+  language: string = 'en',
+  transcriptUrl?: string | null,
+  metadata?: { podcastTitle: string; episodeTitle: string },
+  subscriberUserIds?: string[]
+): Promise<number> {
   const supabase = createAdminClient();
 
   // Check if summary already exists
   const { data: existing } = await supabase
     .from('summaries')
-    .select('status')
+    .select('id, status')
     .eq('episode_id', episodeId)
     .in('status', ['ready', 'summarizing', 'queued', 'transcribing'])
     .limit(1);
 
-  if (existing && existing.length > 0) return 0;
+  if (existing && existing.length > 0) {
+    // Summary exists — still create user_summaries for subscribers if missing
+    if (subscriberUserIds?.length && existing[0].id) {
+      await createUserSummaries(existing[0].id, episodeId, subscriberUserIds);
+    }
+    return 0;
+  }
 
   // Check rate limit counter
   try {
@@ -384,28 +437,66 @@ async function maybeQueueAutoSummary(episodeId: string): Promise<number> {
     // Fail open on Redis issues
   }
 
-  // Queue the summary by calling the summarize API internally
-  // This creates the summary record with status 'queued'
+  // Actually trigger summary generation (fire-and-forget)
   try {
-    const { error } = await supabase
-      .from('summaries')
-      .insert({
-        episode_id: episodeId,
-        status: 'queued',
-        level: 'quick',
-        language: 'en',
-      });
+    log.info('Triggering auto-summary', { episodeId, level, language });
 
-    if (error && !error.message.includes('duplicate')) {
-      log.error('Failed to queue auto-summary', { episodeId, error: error.message });
-      return 0;
-    }
+    // requestSummary handles creating the DB record and processing
+    requestSummary(
+      episodeId,
+      level,
+      audioUrl,
+      language,
+      transcriptUrl || undefined,
+      metadata
+    ).then(async (result) => {
+      log.info('Auto-summary result', { episodeId, status: result.status });
 
-    log.info('Auto-summary queued', { episodeId });
+      // Create user_summaries for subscribers after summary record exists
+      if (subscriberUserIds?.length) {
+        const { data: summaryRow } = await supabase
+          .from('summaries')
+          .select('id')
+          .eq('episode_id', episodeId)
+          .eq('level', level)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (summaryRow) {
+          await createUserSummaries(summaryRow.id, episodeId, subscriberUserIds);
+        }
+      }
+    }).catch(err => {
+      log.error('Auto-summary generation failed', { episodeId, error: err instanceof Error ? err.message : 'Unknown' });
+    });
+
     return 1;
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
-    log.error('Error queueing auto-summary', { episodeId, error: msg });
+    log.error('Error triggering auto-summary', { episodeId, error: msg });
     return 0;
+  }
+}
+
+/** Create user_summaries junction records for subscribers */
+async function createUserSummaries(
+  summaryId: string,
+  episodeId: string,
+  userIds: string[]
+): Promise<void> {
+  const supabase = createAdminClient();
+  const records = userIds.map(userId => ({
+    user_id: userId,
+    summary_id: summaryId,
+    episode_id: episodeId,
+  }));
+
+  const { error } = await supabase
+    .from('user_summaries')
+    .upsert(records, { onConflict: 'user_id,summary_id', ignoreDuplicates: true });
+
+  if (error) {
+    log.error('Failed to create user_summaries', { summaryId, error: error.message });
   }
 }

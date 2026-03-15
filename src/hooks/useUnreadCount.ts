@@ -1,25 +1,30 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
-import type { RealtimeChannel } from '@supabase/supabase-js';
+
+const POLL_INTERVAL_MS = 30_000; // 30 seconds
 
 export function useUnreadCount() {
   const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  const [newEpisodeCount, setNewEpisodeCount] = useState(0);
 
   const userId = user?.id;
 
-  // Fetch the initial count directly via the browser Supabase client (no API route)
+  // Fetch notification count via Supabase client
   const fetchCount = useCallback(async () => {
     if (!userId) {
       setUnreadCount(0);
+      setNewEpisodeCount(0);
       return;
     }
     try {
-      const { count, error } = await createClient()
+      const supabase = createClient();
+
+      // Notification count (for bell icon)
+      const { count, error } = await supabase
         .from('in_app_notifications')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', userId)
@@ -27,6 +32,17 @@ export function useUnreadCount() {
 
       if (!error) {
         setUnreadCount(count ?? 0);
+      }
+
+      // New episode count across all subscriptions (for My List badge)
+      const res = await fetch('/api/subscriptions?limit=200');
+      if (res.ok) {
+        const data = await res.json();
+        const total = (data.podcasts || []).reduce(
+          (sum: number, p: any) => sum + (p.new_episode_count || 0),
+          0
+        );
+        setNewEpisodeCount(total);
       }
     } catch {
       // Silently fail
@@ -36,71 +52,13 @@ export function useUnreadCount() {
   useEffect(() => {
     if (!userId) {
       setUnreadCount(0);
+      setNewEpisodeCount(0);
       return;
     }
 
-    // Fetch once on mount
     fetchCount();
-
-    // Subscribe to realtime changes on this user's notifications
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`unread-count:${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'in_app_notifications',
-          filter: `user_id=eq.${userId}`,
-        },
-        () => {
-          // New notification — increment
-          setUnreadCount((prev) => prev + 1);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'in_app_notifications',
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload: { old: Record<string, unknown>; new: Record<string, unknown> }) => {
-          const oldRead = payload.old?.read;
-          const newRead = payload.new?.read;
-          // Only adjust if read status actually changed
-          if (oldRead === false && newRead === true) {
-            setUnreadCount((prev) => Math.max(0, prev - 1));
-          } else if (oldRead === true && newRead === false) {
-            setUnreadCount((prev) => prev + 1);
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'in_app_notifications',
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload: { old: Record<string, unknown> }) => {
-          // If deleted notification was unread, decrement
-          if (payload.old?.read === false) {
-            setUnreadCount((prev) => Math.max(0, prev - 1));
-          }
-        }
-      )
-      .subscribe();
-
-    channelRef.current = channel;
-
-    return () => {
-      supabase.removeChannel(channel);
-      channelRef.current = null;
-    };
+    const interval = setInterval(fetchCount, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
   }, [userId, fetchCount]);
 
   const markAllRead = useCallback(async () => {
@@ -120,5 +78,5 @@ export function useUnreadCount() {
     }
   }, [userId]);
 
-  return { unreadCount, refetchCount: fetchCount, markAllRead };
+  return { unreadCount, newEpisodeCount, refetchCount: fetchCount, markAllRead };
 }

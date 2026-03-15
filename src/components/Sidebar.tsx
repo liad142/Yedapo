@@ -131,7 +131,7 @@ function MobileThemeToggle() {
   );
 }
 
-function SidebarContent({ onNavigate, unreadCount = 0, showBell = false, markAllRead }: { onNavigate?: () => void; unreadCount?: number; showBell?: boolean; markAllRead?: () => Promise<void> }) {
+function SidebarContent({ onNavigate, unreadCount = 0, newEpisodeCount = 0, showBell = false, markAllRead }: { onNavigate?: () => void; unreadCount?: number; newEpisodeCount?: number; showBell?: boolean; markAllRead?: () => Promise<void> }) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -185,7 +185,7 @@ function SidebarContent({ onNavigate, unreadCount = 0, showBell = false, markAll
             item={item}
             isActive={isActive(item.href)}
             onClick={onNavigate}
-            badge={item.href === '/my-list' ? unreadCount : undefined}
+            badge={item.href === '/my-list' ? newEpisodeCount : undefined}
           />
         ))}
       </nav>
@@ -210,12 +210,14 @@ function MobileDrawer({
   isOpen,
   onClose,
   unreadCount = 0,
+  newEpisodeCount = 0,
   showBell = false,
   markAllRead,
 }: {
   isOpen: boolean;
   onClose: () => void;
   unreadCount?: number;
+  newEpisodeCount?: number;
   showBell?: boolean;
   markAllRead?: () => Promise<void>;
 }) {
@@ -283,7 +285,7 @@ function MobileDrawer({
           <X className="h-5 w-5" />
         </button>
 
-        <SidebarContent onNavigate={onClose} unreadCount={unreadCount} showBell={showBell} markAllRead={markAllRead} />
+        <SidebarContent onNavigate={onClose} unreadCount={unreadCount} newEpisodeCount={newEpisodeCount} showBell={showBell} markAllRead={markAllRead} />
       </div>
     </>
   );
@@ -297,7 +299,7 @@ const BOTTOM_NAV_ITEMS = [
   { label: 'Settings', href: '/settings', icon: Settings },
 ] as const;
 
-function MobileBottomNav({ unreadCount = 0 }: { unreadCount?: number }) {
+function MobileBottomNav({ newEpisodeCount = 0 }: { newEpisodeCount?: number }) {
   const pathname = usePathname();
 
   const isActive = (href: string) => {
@@ -319,7 +321,7 @@ function MobileBottomNav({ unreadCount = 0 }: { unreadCount?: number }) {
         {BOTTOM_NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);
-          const badge = item.href === '/my-list' ? unreadCount : 0;
+          const badge = item.href === '/my-list' ? newEpisodeCount : 0;
           return (
             <Link
               key={item.href}
@@ -349,7 +351,7 @@ function MobileBottomNav({ unreadCount = 0 }: { unreadCount?: number }) {
 export function Sidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
-  const { unreadCount, markAllRead } = useUnreadCount();
+  const { unreadCount, newEpisodeCount, markAllRead } = useUnreadCount();
   const { user } = useAuth();
 
   const closeMobileMenu = useCallback(() => {
@@ -398,17 +400,17 @@ export function Sidebar() {
       </header>
 
       {/* Mobile Drawer */}
-      <MobileDrawer isOpen={isMobileMenuOpen} onClose={closeMobileMenu} unreadCount={unreadCount} showBell={!!user} markAllRead={markAllRead} />
+      <MobileDrawer isOpen={isMobileMenuOpen} onClose={closeMobileMenu} unreadCount={unreadCount} newEpisodeCount={newEpisodeCount} showBell={!!user} markAllRead={markAllRead} />
 
       {/* Mobile Bottom Navigation */}
-      <MobileBottomNav unreadCount={unreadCount} />
+      <MobileBottomNav newEpisodeCount={newEpisodeCount} />
 
       {/* Desktop Sidebar */}
       <aside
         className="fixed top-0 left-0 bottom-0 w-64 hidden lg:flex flex-col z-30 bg-background border-r border-border"
         aria-label="Main navigation"
       >
-        <SidebarContent unreadCount={unreadCount} showBell={!!user} markAllRead={markAllRead} />
+        <SidebarContent unreadCount={unreadCount} newEpisodeCount={newEpisodeCount} showBell={!!user} markAllRead={markAllRead} />
       </aside>
     </>
   );

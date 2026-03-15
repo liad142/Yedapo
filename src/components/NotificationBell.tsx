@@ -95,7 +95,7 @@ export function NotificationBell({ unreadCount, markAllRead }: NotificationBellP
       </Button>
 
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 w-80 max-h-[400px] rounded-xl border border-border bg-card shadow-lg z-50 overflow-hidden">
+        <div className="absolute top-full left-0 mt-2 w-80 max-h-[400px] rounded-xl border border-border bg-card shadow-lg z-50 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <span className="text-sm font-semibold text-foreground">Notifications</span>

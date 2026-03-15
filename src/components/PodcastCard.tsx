@@ -13,9 +13,8 @@ interface PodcastCardProps {
   hasNewEpisodes?: boolean;
 }
 
-export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove }: PodcastCardProps) {
+export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, hasNewEpisodes }: PodcastCardProps) {
   const [isRemoving, setIsRemoving] = useState(false);
-  const newCount = (podcast as any).new_episode_count ?? 0;
 
   const handleRemove = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -93,7 +92,7 @@ export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove }
           )}
 
           {/* Green dot for new episodes */}
-          {newCount > 0 && (
+          {hasNewEpisodes && (
             <div className="absolute top-3 left-3 w-3 h-3 rounded-full bg-green-500 shadow-sm z-10 ring-2 ring-black/20" />
           )}
 

@@ -139,6 +139,26 @@ export async function POST(
       level as SummaryLevel
     );
 
+    // Record user ownership so this shows on the Summaries page
+    const { data: summaryRow } = await supabase
+      .from('summaries')
+      .select('id')
+      .eq('episode_id', episodeId)
+      .eq('level', level)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (summaryRow) {
+      await supabase
+        .from('user_summaries')
+        .upsert({
+          user_id: user.id,
+          summary_id: summaryRow.id,
+          episode_id: episodeId,
+        }, { onConflict: 'user_id,summary_id', ignoreDuplicates: true });
+    }
+
     return NextResponse.json({
       episodeId,
       podcastId,

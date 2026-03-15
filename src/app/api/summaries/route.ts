@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
           )
         `)
         .in('id', summaryIds)
-        .eq('level', 'deep')
+        .in('level', ['deep', 'quick'])
         .order('updated_at', { ascending: false }),
       admin
         .from('summaries')
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
           )
         `)
         .in('episode_id', episodeIds)
-        .eq('level', 'deep')
+        .in('level', ['deep', 'quick'])
         .in('status', ['queued', 'transcribing', 'summarizing'])
         .order('updated_at', { ascending: false }),
     ]);

@@ -42,6 +42,21 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
+    // Get episode counts per podcast
+    const podcastIds = (subscriptions || []).map((sub: any) => sub.podcasts?.id).filter(Boolean);
+    const episodeCounts = new Map<string, number>();
+    if (podcastIds.length > 0) {
+      const { data: episodeRows } = await createAdminClient()
+        .from('episodes')
+        .select('podcast_id')
+        .in('podcast_id', podcastIds);
+      if (episodeRows) {
+        for (const row of episodeRows) {
+          episodeCounts.set(row.podcast_id, (episodeCounts.get(row.podcast_id) || 0) + 1);
+        }
+      }
+    }
+
     const podcastsWithStatus = (subscriptions || []).map((sub: any) => {
       const podcast = sub.podcasts;
       const hasNewEpisodes = podcast.latest_episode_date && sub.last_viewed_at
@@ -50,6 +65,7 @@ export async function GET(request: NextRequest) {
 
       return {
         ...podcast,
+        episode_count: episodeCounts.get(podcast.id) ?? 0,
         subscription: {
           id: sub.id,
           created_at: sub.created_at,

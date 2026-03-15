@@ -100,6 +100,13 @@ export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, 
             </div>
           )}
 
+          {/* Episode count badge */}
+          {podcast.episode_count !== undefined && podcast.episode_count > 0 && (
+            <div className="absolute bottom-3 right-3 bg-black/70 backdrop-blur-sm text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[22px] text-center shadow-sm z-10">
+              {podcast.episode_count}
+            </div>
+          )}
+
           {/* Remove Button - visible on hover (desktop) or always on touch */}
           {onRemove && (
             <button

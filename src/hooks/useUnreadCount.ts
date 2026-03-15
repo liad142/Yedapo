@@ -13,7 +13,6 @@ export function useUnreadCount() {
 
   const userId = user?.id;
 
-  // Fetch notification count via Supabase client
   const fetchCount = useCallback(async () => {
     if (!userId) {
       setUnreadCount(0);
@@ -34,16 +33,24 @@ export function useUnreadCount() {
         setUnreadCount(count ?? 0);
       }
 
-      // New episode count across all subscriptions (for My List badge)
-      const res = await fetch('/api/subscriptions?limit=200');
-      if (res.ok) {
-        const data = await res.json();
-        const total = (data.podcasts || []).reduce(
-          (sum: number, p: any) => sum + (p.new_episode_count || 0),
-          0
-        );
-        setNewEpisodeCount(total);
+      // Count podcasts with new episodes (for My List badge)
+      // Direct Supabase query — no API auth issues, lightweight
+      const { data: subs } = await supabase
+        .from('podcast_subscriptions')
+        .select('last_viewed_at, podcasts!inner(latest_episode_date)')
+        .eq('user_id', userId);
+
+      let newEps = 0;
+      for (const sub of subs || []) {
+        const podcast = (sub as any).podcasts;
+        const latestDate = Array.isArray(podcast) ? podcast[0]?.latest_episode_date : podcast?.latest_episode_date;
+        if (latestDate) {
+          if (!sub.last_viewed_at || new Date(latestDate) > new Date(sub.last_viewed_at)) {
+            newEps++;
+          }
+        }
       }
+      setNewEpisodeCount(newEps);
     } catch {
       // Silently fail
     }

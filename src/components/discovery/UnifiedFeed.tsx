@@ -76,7 +76,7 @@ function mapToKnowledgeCard(item: FeedItemRaw): KnowledgeCardProps {
     url: contentUrl,
     audioUrl,
     summaryPreview: item.summaryPreview,
-    summaryStatus: (item.summaryStatus as 'none' | 'loading' | 'ready') || 'none',
+    summaryStatus: (item.summaryStatus as 'none' | 'loading' | 'ready' | 'failed') || 'none',
     bookmarked: item.bookmarked,
     episodeId: episodeId,
     podcastFeedData: sourceType === 'podcast' ? {

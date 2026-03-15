@@ -12,6 +12,9 @@ import {
   ExternalLink,
   Target,
   Clock,
+  AlertCircle,
+  RefreshCw,
+  Loader2,
 } from 'lucide-react';
 import {
   ParticleGemAnimation,
@@ -57,7 +60,7 @@ export interface KnowledgeCardProps {
     chapterCount?: number;
     readTimeMinutes?: number;
   };
-  summaryStatus?: 'none' | 'loading' | 'ready';
+  summaryStatus?: 'none' | 'loading' | 'ready' | 'failed';
 
   // Personalization
   recommendReason?: string;
@@ -157,7 +160,7 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
 }: KnowledgeCardProps) {
   const { user, setShowAuthModal } = useAuth();
   const { isSubscribed: checkSubscribed, subscribe, unsubscribe } = useSubscription();
-  const { registerLookup, getLookupResult } = useEpisodeLookup();
+  const { registerLookup, getLookupResult, isLoading: isLookupLoading } = useEpisodeLookup();
   const router = useRouter();
   const [isToggling, setIsToggling] = useState(false);
   const [localSummaryStatus, setLocalSummaryStatus] = useState(summaryStatus);
@@ -259,6 +262,11 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
 
     if (localSummaryStatus === 'loading') return;
 
+    // Retry from failed state
+    if (localSummaryStatus === 'failed') {
+      // Fall through to re-attempt
+    }
+
     if (onSummarize) {
       onSummarize();
       return;
@@ -286,10 +294,10 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
           setLocalSummaryStatus('ready');
           router.push(`/episode/${data.episodeId}/insights`);
         } else {
-          setLocalSummaryStatus('none');
+          setLocalSummaryStatus('failed');
         }
       } catch {
-        setLocalSummaryStatus('none');
+        setLocalSummaryStatus('failed');
       }
     }
   };
@@ -478,7 +486,7 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
 
       {/* CTA row */}
       <div className="flex items-center gap-2 mt-3">
-        {/* Primary CTA: Curiosity mode podcasts get full DiscoverySummarizeButton */}
+        {/* Primary CTA: Podcast with feed data → DiscoverySummarizeButton */}
         {type === 'podcast' && podcastFeedData ? (
           <DiscoverySummarizeButton
             externalEpisodeId={id}
@@ -499,25 +507,39 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
             onClick={() => {
               if (localEpisodeId) router.push(`/episode/${localEpisodeId}/insights`);
             }}
-            className="gap-1.5 rounded-full"
+            className="rounded-full px-5 transition-all hover:scale-105 active:scale-95 bg-primary border-0 shadow-lg shadow-primary/20 hover:shadow-primary/40"
           >
-            <GemCompleteAnimation className="h-4 w-4" />
-            Read Summary
+            <GemCompleteAnimation className="h-5 w-5 mr-2" />
+            View Summary
           </Button>
         ) : localSummaryStatus === 'loading' ? (
-          <Button size="sm" disabled variant="outline" className="gap-1.5 rounded-full">
-            <ParticleGemAnimation className="h-5 w-6" />
+          <Button size="sm" disabled variant="outline" className="rounded-full px-5 transition-all">
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
             <span className="text-xs">Summarizing...</span>
+          </Button>
+        ) : localSummaryStatus === 'failed' ? (
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={handleSummarize}
+            className="rounded-full px-5 transition-all hover:scale-105 active:scale-95"
+          >
+            <AlertCircle className="mr-2 h-4 w-4" />
+            Failed
+            <RefreshCw className="ml-2 h-3 w-3" />
+          </Button>
+        ) : lookupUrl && isLookupLoading(lookupUrl) ? (
+          <Button size="sm" disabled variant="outline" className="rounded-full px-5 transition-all">
+            <Loader2 className="h-4 w-4 animate-spin" />
           </Button>
         ) : (
           <Button
             size="sm"
             onClick={handleSummarize}
-            className="gap-1.5 rounded-full"
+            className="rounded-full px-5 transition-all hover:scale-105 active:scale-95 bg-primary border-0 shadow-lg shadow-primary/20 hover:shadow-primary/40"
           >
-            <Sparkles className="h-3.5 w-3.5" />
-            Summarize
-            <span className="text-[10px] text-muted-foreground/70 ml-0.5">~30s</span>
+            <Sparkles className="mr-2 h-4 w-4 text-white fill-white/20" />
+            <span className="font-semibold text-white">Summarize</span>
           </Button>
         )}
 

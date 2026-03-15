@@ -61,6 +61,7 @@ interface FeedItemRaw {
   sourceName?: string;
   sourceArtwork?: string;
   sourceAppleId?: string;
+  podcastFeedUrl?: string;
   summaryPreview?: {
     hookHeadline?: string;
     executiveBrief?: string;
@@ -87,25 +88,33 @@ function mapToKnowledgeCard(item: FeedItemRaw): KnowledgeCardProps {
   const videoId = item.video_id || item.videoId;
   const episodeId = item.episode_id || item.episodeId;
   const thumbnailUrl = item.thumbnail_url || item.thumbnailUrl || '';
+  const sourceName = item.sourceName || '';
+  // For podcasts, url is the audio URL
+  const audioUrl = sourceType === 'podcast' ? item.url : undefined;
+  const contentUrl = sourceType === 'youtube' ? item.url : undefined;
 
   return {
     id: videoId || item.id,
     type: sourceType,
     title: item.title,
     description: item.description || '',
-    sourceName: item.sourceName || '',
+    sourceName,
     sourceArtwork: item.sourceArtwork || thumbnailUrl,
     sourceId: sourceId,
     sourceAppleId: item.sourceAppleId,
     publishedAt,
     duration: item.duration,
-    url: item.url,
-    // For podcasts, url is the audio URL; pass it so the Play button renders
-    audioUrl: sourceType === 'podcast' ? item.url : undefined,
+    url: contentUrl,
+    audioUrl,
     summaryPreview: item.summaryPreview,
     summaryStatus: (item.summaryStatus as 'none' | 'loading' | 'ready') || 'none',
     bookmarked: item.bookmarked,
     episodeId: episodeId,
+    podcastFeedData: sourceType === 'podcast' ? {
+      externalPodcastId: item.sourceAppleId || sourceId,
+      podcastArtist: sourceName,
+      podcastFeedUrl: item.podcastFeedUrl,
+    } : undefined,
   };
 }
 

@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       sourceName: string;
       sourceArtwork: string;
       sourceAppleId?: string;
-      audioUrl?: string;
+      podcastFeedUrl?: string;
     }>();
 
     // Check cache first, collect uncached IDs
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
       uncachedPod.length > 0
         ? admin
             .from('podcasts')
-            .select('id, title, image_url, apple_podcast_id')
+            .select('id, title, image_url, apple_podcast_id, rss_feed_url')
             .in('id', uncachedPod)
             .then(r => r.data || [])
         : [],
@@ -113,6 +113,7 @@ export async function GET(request: NextRequest) {
         sourceName: pod.title || '',
         sourceArtwork: pod.image_url || '',
         sourceAppleId: pod.apple_podcast_id || undefined,
+        podcastFeedUrl: pod.rss_feed_url || undefined,
       };
       sourceMap.set(pod.id, meta);
       sourceMetadataCache.set(pod.id, { data: meta, expiry: now + SOURCE_CACHE_TTL });
@@ -180,6 +181,7 @@ export async function GET(request: NextRequest) {
         sourceName: source?.sourceName || '',
         sourceArtwork: source?.sourceArtwork || item.thumbnailUrl || '',
         sourceAppleId: source?.sourceAppleId,
+        podcastFeedUrl: source?.podcastFeedUrl,
         summaryPreview: preview ? {
           hookHeadline: preview.hookHeadline,
           executiveBrief: preview.executiveBrief,

@@ -126,26 +126,26 @@ export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove, 
           )}
         </div>
 
-        <div className="p-5">
-          <h3 className="text-h4 leading-tight tracking-tight text-foreground line-clamp-1 mb-1 group-hover:text-primary transition-colors">
+        <div className="p-3 sm:p-5">
+          <h3 className="text-sm sm:text-h4 leading-tight tracking-tight text-foreground line-clamp-2 sm:line-clamp-1 mb-0.5 sm:mb-1 group-hover:text-primary transition-colors">
             {podcast.title}
           </h3>
 
           {podcast.author && (
-            <p className="text-xs text-muted-foreground line-clamp-1 mb-4">
+            <p className="text-[11px] sm:text-xs text-muted-foreground line-clamp-1 mb-2 sm:mb-4">
               {podcast.author}
             </p>
           )}
 
           <div className="flex items-center gap-2 flex-wrap">
             {podcast.episode_count !== undefined && (
-              <span className="text-xs text-muted-foreground font-medium">
+              <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">
                 {podcast.episode_count} eps
               </span>
             )}
 
             {podcast.language && (
-              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-medium bg-secondary text-muted-foreground">
+              <span className="inline-flex items-center justify-center px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-medium bg-secondary text-muted-foreground">
                 {podcast.language.toUpperCase()}
               </span>
             )}

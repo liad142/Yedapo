@@ -231,23 +231,23 @@ function MyListContent() {
   }
 
   return (
-    <div className="px-4 py-8 min-h-screen bg-background">
+    <div className="px-3 sm:px-4 py-6 sm:py-8 min-h-screen bg-background">
       {/* Header */}
-      <div className="max-w-5xl mx-auto mb-8">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-card shadow-sm border border-border">
-            <Library className="h-7 w-7 text-primary" />
+      <div className="max-w-5xl mx-auto mb-6 sm:mb-8">
+        <div className="flex items-center gap-3 sm:gap-4 mb-5 sm:mb-6">
+          <div className="inline-flex items-center justify-center w-11 h-11 sm:w-14 sm:h-14 rounded-xl bg-card shadow-sm border border-border">
+            <Library className="h-5 w-5 sm:h-7 sm:w-7 text-primary" />
           </div>
           <div>
-            <h1 className="text-h1 md:text-display">My List</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-h2 sm:text-h1 md:text-display">My List</h1>
+            <p className="text-muted-foreground text-sm sm:text-base mt-0.5 sm:mt-1">
               Your podcasts and YouTube channels
             </p>
           </div>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <div className="flex items-center rounded-lg bg-card p-1 border border-border">
             <Button
               variant={activeTab === 'podcasts' ? 'default' : 'ghost'}
@@ -363,7 +363,7 @@ function PodcastsTab({
 }) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
         {Array.from({ length: 8 }).map((_, i) => (
           <Skeleton key={i} className="aspect-square rounded-xl bg-secondary" />
         ))}
@@ -396,7 +396,7 @@ function PodcastsTab({
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
       {podcasts.map((podcast) => (
         <PodcastCard
           key={podcast.id}
@@ -425,7 +425,7 @@ function YouTubeTab({
 }) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
         {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="space-y-3">
             <Skeleton className="aspect-square rounded-xl bg-secondary" />
@@ -461,7 +461,7 @@ function YouTubeTab({
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
       {channels.map((channel) => (
         <YouTubeChannelCard
           key={channel.id}
@@ -533,13 +533,13 @@ function YouTubeChannelCard({
           </button>
         </div>
 
-        <div className="p-5">
-          <h3 className="text-h4 leading-tight tracking-tight text-foreground line-clamp-1 mb-1 group-hover:text-primary transition-colors">
+        <div className="p-3 sm:p-5">
+          <h3 className="text-sm sm:text-h4 leading-tight tracking-tight text-foreground line-clamp-2 sm:line-clamp-1 mb-0.5 sm:mb-1 group-hover:text-primary transition-colors">
             {channel.channel_name}
           </h3>
 
           {channel.channel_handle && (
-            <p className="text-xs text-muted-foreground line-clamp-1 mb-4">
+            <p className="text-[11px] sm:text-xs text-muted-foreground line-clamp-1 mb-2 sm:mb-4">
               {channel.channel_handle}
             </p>
           )}

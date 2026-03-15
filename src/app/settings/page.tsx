@@ -245,11 +245,11 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <div className="max-w-2xl mx-auto px-4 pt-8 space-y-8">
+      <div className="max-w-2xl mx-auto px-3 sm:px-4 pt-6 sm:pt-8 space-y-6 sm:space-y-8">
 
         <div>
-          <h1 className="text-h1 text-foreground tracking-tight">Settings</h1>
-          <p className="text-muted-foreground mt-1">Manage your account and preferences</p>
+          <h1 className="text-h2 sm:text-h1 text-foreground tracking-tight">Settings</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-0.5 sm:mt-1">Manage your account and preferences</p>
         </div>
 
         {/* ── APPEARANCE ── */}

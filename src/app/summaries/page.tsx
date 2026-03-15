@@ -275,21 +275,21 @@ export default function SummariesPage() {
   }
 
   return (
-    <div className="px-4 py-8">
+    <div className="px-3 sm:px-4 py-6 sm:py-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8">
           <Button variant="ghost" size="sm" className="mb-3 -ml-2" onClick={() => router.back()}>
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back
           </Button>
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 rounded-lg bg-primary/10">
-              <FileText className="h-6 w-6 text-primary" />
+              <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
             </div>
-            <h1 className="text-h1">My Summaries</h1>
+            <h1 className="text-h2 sm:text-h1">My Summaries</h1>
           </div>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             All your AI-generated episode summaries in one place
           </p>
         </div>
@@ -367,10 +367,10 @@ export default function SummariesPage() {
 
               const cardContent = (
                 <Card className={`transition-colors ${isReady ? 'hover:bg-accent/50 cursor-pointer' : ''} ${isInProgress ? 'border-blue-200 dark:border-blue-800' : ''} ${isFailed ? 'border-destructive/30' : ''}`}>
-                  <CardContent className="p-4">
-                    <div className="flex gap-4">
+                  <CardContent className="p-3 sm:p-4">
+                    <div className="flex gap-3 sm:gap-4">
                       {/* Podcast Artwork */}
-                      <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-muted relative">
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden flex-shrink-0 bg-muted relative">
                         {episode.podcast?.image_url ? (
                           <SafeImage
                             src={episode.podcast.image_url}
@@ -381,7 +381,7 @@ export default function SummariesPage() {
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <Mic2 className="h-6 w-6 text-muted-foreground" />
+                            <Mic2 className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
                           </div>
                         )}
                       </div>
@@ -390,10 +390,10 @@ export default function SummariesPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <h3 className={`font-medium line-clamp-1 ${isReady ? 'hover:text-primary' : ''} transition-colors`}>
+                            <h3 className={`text-sm sm:text-base font-medium line-clamp-2 sm:line-clamp-1 ${isReady ? 'hover:text-primary' : ''} transition-colors`}>
                               {episode.title}
                             </h3>
-                            <p className="text-sm text-muted-foreground line-clamp-1">
+                            <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">
                               {episode.podcast?.title}
                             </p>
                           </div>

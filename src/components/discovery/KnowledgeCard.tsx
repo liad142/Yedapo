@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -17,6 +17,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import {
+  SoundWaveAnimation,
   ParticleGemAnimation,
   GemCompleteAnimation,
 } from '@/components/animations';
@@ -60,7 +61,7 @@ export interface KnowledgeCardProps {
     chapterCount?: number;
     readTimeMinutes?: number;
   };
-  summaryStatus?: 'none' | 'loading' | 'ready' | 'failed';
+  summaryStatus?: 'none' | 'loading' | 'transcribing' | 'summarizing' | 'ready' | 'failed';
 
   // Personalization
   recommendReason?: string;
@@ -165,6 +166,61 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
   const [isToggling, setIsToggling] = useState(false);
   const [localSummaryStatus, setLocalSummaryStatus] = useState(summaryStatus);
   const [localEpisodeId, setLocalEpisodeId] = useState(episodeId);
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearTimeout(pollRef.current);
+    };
+  }, []);
+
+  // Poll YouTube summary status until ready/failed, then redirect
+  const pollYouTubeStatus = useCallback((epId: string) => {
+    let attempts = 0;
+    const maxAttempts = 120; // ~10 min max with 5s intervals
+
+    const poll = async () => {
+      attempts++;
+      if (attempts > maxAttempts) {
+        setLocalSummaryStatus('failed');
+        return;
+      }
+      try {
+        const res = await fetch(`/api/episodes/${epId}/summaries`);
+        if (!res.ok) {
+          pollRef.current = setTimeout(poll, 5000);
+          return;
+        }
+        const data = await res.json();
+        const quick = data.summaries?.quick;
+        const deep = data.summaries?.deep;
+        const summaryStatus = quick?.status || deep?.status;
+
+        if (summaryStatus === 'ready') {
+          setLocalSummaryStatus('ready');
+          // Brief delay so the user sees the completion animation
+          setTimeout(() => {
+            router.push(`/episode/${epId}/insights`);
+          }, 800);
+          return;
+        }
+        if (summaryStatus === 'failed') {
+          setLocalSummaryStatus('failed');
+          return;
+        }
+        if (summaryStatus === 'summarizing') {
+          setLocalSummaryStatus('summarizing');
+        } else if (summaryStatus === 'transcribing' || data.transcript?.status === 'processing') {
+          setLocalSummaryStatus('transcribing');
+        }
+        pollRef.current = setTimeout(poll, 4000 + Math.random() * 2000);
+      } catch {
+        pollRef.current = setTimeout(poll, 5000);
+      }
+    };
+    poll();
+  }, [router]);
 
   // Subscription uses the Apple ID when available
   const subscriptionId = sourceAppleId || sourceId;
@@ -260,7 +316,7 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
       return;
     }
 
-    if (localSummaryStatus === 'loading') return;
+    if (localSummaryStatus === 'loading' || localSummaryStatus === 'transcribing' || localSummaryStatus === 'summarizing') return;
 
     // Retry from failed state
     if (localSummaryStatus === 'failed') {
@@ -273,7 +329,7 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
     }
 
     if (type === 'youtube') {
-      setLocalSummaryStatus('loading');
+      setLocalSummaryStatus('transcribing');
       try {
         const res = await fetch(`/api/youtube/${id}/summary`, {
           method: 'POST',
@@ -291,8 +347,21 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
         if (res.ok) {
           const data = await res.json();
           setLocalEpisodeId(data.episodeId);
-          setLocalSummaryStatus('ready');
-          router.push(`/episode/${data.episodeId}/insights`);
+
+          // If already ready (cached), redirect immediately
+          if (data.summary?.status === 'ready') {
+            setLocalSummaryStatus('ready');
+            setTimeout(() => router.push(`/episode/${data.episodeId}/insights`), 800);
+          } else {
+            // Set initial status from API response, then poll
+            const status = data.summary?.status;
+            if (status === 'summarizing') {
+              setLocalSummaryStatus('summarizing');
+            } else {
+              setLocalSummaryStatus('transcribing');
+            }
+            pollYouTubeStatus(data.episodeId);
+          }
         } else {
           setLocalSummaryStatus('failed');
         }
@@ -512,9 +581,14 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
             <GemCompleteAnimation className="h-5 w-5 mr-2" />
             View Summary
           </Button>
-        ) : localSummaryStatus === 'loading' ? (
+        ) : localSummaryStatus === 'transcribing' ? (
           <Button size="sm" disabled variant="outline" className="rounded-full px-5 transition-all">
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            <SoundWaveAnimation className="h-5 mr-2" />
+            <span className="text-xs">Transcribing...</span>
+          </Button>
+        ) : localSummaryStatus === 'summarizing' || localSummaryStatus === 'loading' ? (
+          <Button size="sm" disabled variant="outline" className="rounded-full px-5 transition-all">
+            <ParticleGemAnimation className="h-5 w-8 mr-2" />
             <span className="text-xs">Summarizing...</span>
           </Button>
         ) : localSummaryStatus === 'failed' ? (

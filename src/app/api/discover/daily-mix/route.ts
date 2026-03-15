@@ -1,43 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAuthUser } from '@/lib/auth-helpers';
+import { getCountryLanguages } from '@/lib/region-data';
 import type { QuickSummaryContent, DeepSummaryContent } from '@/types/database';
-
-// Map country codes to primary language codes for filtering podcasts
-const COUNTRY_TO_LANGUAGES: Record<string, string[]> = {
-  il: ['he', 'iw'], // Hebrew
-  us: ['en'],
-  gb: ['en'],
-  au: ['en'],
-  ca: ['en', 'fr'],
-  de: ['de'],
-  at: ['de'],
-  ch: ['de', 'fr', 'it'],
-  fr: ['fr'],
-  es: ['es'],
-  mx: ['es'],
-  ar: ['es'],
-  br: ['pt'],
-  pt: ['pt'],
-  it: ['it'],
-  nl: ['nl'],
-  be: ['nl', 'fr'],
-  se: ['sv'],
-  no: ['no', 'nb', 'nn'],
-  dk: ['da'],
-  fi: ['fi'],
-  pl: ['pl'],
-  ru: ['ru'],
-  jp: ['ja'],
-  kr: ['ko'],
-  cn: ['zh'],
-  tw: ['zh'],
-  in: ['hi', 'en'],
-  tr: ['tr'],
-  sa: ['ar'],
-  ae: ['ar'],
-  eg: ['ar'],
-};
 
 // Map each Apple genre to expanded keyword sets for matching
 const GENRE_KEYWORDS: Record<string, string[]> = {
@@ -233,7 +198,7 @@ export async function GET(request: NextRequest) {
   }
 
   // 4b. Filter by country/language if provided
-  const allowedLanguages = country ? COUNTRY_TO_LANGUAGES[country] : null;
+  const allowedLanguages = country ? getCountryLanguages(country) : null;
   const languageFiltered = allowedLanguages
     ? episodes.filter((ep: any) => {
         const podcast = Array.isArray(ep.podcasts) ? ep.podcasts[0] : ep.podcasts;

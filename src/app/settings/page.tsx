@@ -521,7 +521,7 @@ export default function SettingsPage() {
 
               {/* ── Country ── */}
               <div>
-                <FieldLabel>Podcast Region</FieldLabel>
+                <FieldLabel>Region</FieldLabel>
                 <div ref={countryRef} className="relative mt-2">
                   <button
                     onClick={() => setCountryOpen(v => !v)}

@@ -6,35 +6,52 @@ import { Wrench, GitBranch, Building2, TrendingUp, Lightbulb, Zap, ChevronDown, 
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useCountry } from '@/contexts/CountryContext';
+import { getRegion, getStrings } from '@/lib/region-data';
+import type { UIStrings } from '@/lib/region-data';
 import type { BriefItem, BriefCategory, TodaysBriefResponse } from '@/types/brief';
 
-const CATEGORY_CONFIG: Record<BriefCategory, { label: string; icon: typeof Wrench; color: string; badgeBg: string }> = {
-  tool:    { label: 'Tool',    icon: Wrench,     color: 'text-blue-500',   badgeBg: 'bg-blue-500/10' },
-  repo:    { label: 'Repo',    icon: GitBranch,  color: 'text-green-500',  badgeBg: 'bg-green-500/10' },
-  company: { label: 'Company', icon: Building2,  color: 'text-purple-500', badgeBg: 'bg-purple-500/10' },
-  metric:  { label: 'Metric',  icon: TrendingUp, color: 'text-amber-500',  badgeBg: 'bg-amber-500/10' },
-  insight: { label: 'Insight', icon: Lightbulb,  color: 'text-primary',    badgeBg: 'bg-primary/10' },
+type CategoryConfig = Record<BriefCategory, { label: string; icon: typeof Wrench; color: string; badgeBg: string }>;
+
+const CATEGORY_ICONS: Record<BriefCategory, { icon: typeof Wrench; color: string; badgeBg: string }> = {
+  tool:    { icon: Wrench,     color: 'text-blue-500',   badgeBg: 'bg-blue-500/10' },
+  repo:    { icon: GitBranch,  color: 'text-green-500',  badgeBg: 'bg-green-500/10' },
+  company: { icon: Building2,  color: 'text-purple-500', badgeBg: 'bg-purple-500/10' },
+  metric:  { icon: TrendingUp, color: 'text-amber-500',  badgeBg: 'bg-amber-500/10' },
+  insight: { icon: Lightbulb,  color: 'text-primary',    badgeBg: 'bg-primary/10' },
 };
 
-const FILTER_OPTIONS: Array<{ value: BriefCategory | 'all'; label: string }> = [
-  { value: 'all', label: 'All' },
-  { value: 'tool', label: 'Tools' },
-  { value: 'repo', label: 'Repos' },
-  { value: 'company', label: 'Companies' },
-  { value: 'metric', label: 'Metrics' },
-  { value: 'insight', label: 'Insights' },
-];
+function buildCategoryConfig(t: UIStrings): CategoryConfig {
+  return {
+    tool:    { label: t.badgeTool,    ...CATEGORY_ICONS.tool },
+    repo:    { label: t.badgeRepo,    ...CATEGORY_ICONS.repo },
+    company: { label: t.badgeCompany, ...CATEGORY_ICONS.company },
+    metric:  { label: t.badgeMetric,  ...CATEGORY_ICONS.metric },
+    insight: { label: t.badgeInsight, ...CATEGORY_ICONS.insight },
+  };
+}
+
+function buildFilterOptions(t: UIStrings): Array<{ value: BriefCategory | 'all'; label: string }> {
+  return [
+    { value: 'all', label: t.filterAll },
+    { value: 'tool', label: t.filterTools },
+    { value: 'repo', label: t.filterRepos },
+    { value: 'company', label: t.filterCompanies },
+    { value: 'metric', label: t.filterMetrics },
+    { value: 'insight', label: t.filterInsights },
+  ];
+}
 
 const INITIAL_VISIBLE = 4;
 
-function formatDate(dateStr: string): string {
+function formatDate(dateStr: string, locale: string): string {
   const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }
 
-function BriefCard({ item, index }: { item: BriefItem; index: number }) {
+function BriefCard({ item, index, categoryConfig }: { item: BriefItem; index: number; categoryConfig: CategoryConfig }) {
   const router = useRouter();
-  const cat = CATEGORY_CONFIG[item.category];
+  const cat = categoryConfig[item.category];
   const Icon = cat.icon;
 
   const handleClick = () => {
@@ -68,10 +85,10 @@ function BriefCard({ item, index }: { item: BriefItem; index: number }) {
       </div>
 
       {/* Content */}
-      <p className="text-h4 text-foreground line-clamp-1 mb-1">
+      <p dir="auto" className="text-h4 text-foreground line-clamp-1 mb-1">
         {item.headline}
       </p>
-      <p className="text-xs text-muted-foreground line-clamp-2 min-h-[2lh]">
+      <p dir="auto" className="text-xs text-muted-foreground line-clamp-2 min-h-[2lh]">
         {item.whyItMatters}
       </p>
 
@@ -123,16 +140,26 @@ function BriefSkeleton() {
 }
 
 export function TodaysInsights() {
+  const { country } = useCountry();
+  const { lang, locale } = getRegion(country);
+  const t = getStrings(lang);
+
   const [data, setData] = useState<TodaysBriefResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<BriefCategory | 'all'>('all');
   const [expanded, setExpanded] = useState(false);
 
+  const categoryConfig = useMemo(() => buildCategoryConfig(t), [t]);
+  const filterOptions = useMemo(() => buildFilterOptions(t), [t]);
+
   useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
     async function fetchBrief() {
       try {
-        const res = await fetch('/api/discover/todays-insights');
-        if (res.ok) {
+        const params = lang !== 'en' ? `?lang=${lang}` : '';
+        const res = await fetch(`/api/discover/todays-insights${params}`);
+        if (res.ok && !cancelled) {
           const json = await res.json();
           // Handle both new and old response shapes
           if (json.items) {
@@ -142,11 +169,12 @@ export function TodaysInsights() {
       } catch {
         // Silently fail — section shows empty state
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     }
     fetchBrief();
-  }, []);
+    return () => { cancelled = true; };
+  }, [lang]);
 
   // Derive available categories
   const availableCategories = useMemo(() => {
@@ -189,9 +217,9 @@ export function TodaysInsights() {
   }
 
   const today = new Date();
-  const dateLabel = formatDate(data.date);
-  const todayLabel = formatDate(today.toISOString().split('T')[0]);
-  const displayDate = dateLabel === todayLabel ? 'Today' : dateLabel;
+  const dateLabel = formatDate(data.date, locale);
+  const todayLabel = formatDate(today.toISOString().split('T')[0], locale);
+  const displayDate = dateLabel === todayLabel ? t.today : dateLabel;
 
   return (
     <motion.section
@@ -208,7 +236,7 @@ export function TodaysInsights() {
           {/* Header row */}
           <div className="flex items-start justify-between gap-4 mb-1.5">
             <h2 className="text-h3 text-foreground tracking-tight">
-              Today&apos;s Brief
+              {t.sectionTitle}
             </h2>
           </div>
 
@@ -216,21 +244,21 @@ export function TodaysInsights() {
           <div className="flex items-center gap-3 mb-5">
             <span className="inline-flex items-center gap-1 text-caption font-medium text-muted-foreground">
               <Zap className="h-3 w-3 text-amber-500 dark:text-amber-400" />
-              {displayDate} &middot; {data.items.length} items
+              {displayDate} &middot; {data.items.length} {t.items}
             </span>
           </div>
 
           {/* Stale data banner */}
           {data.isStale && (
             <div className="text-caption text-muted-foreground bg-amber-500/5 border border-amber-500/10 rounded-lg px-3 py-1.5 mb-3">
-              Showing latest brief from {formatDate(data.date)}
+              {t.showingLatestFrom} {formatDate(data.date, locale)}
             </div>
           )}
 
           {/* Filter pills */}
           {showFilters && (
             <div className="flex items-center gap-1.5 mb-4 overflow-x-auto scrollbar-none">
-              {FILTER_OPTIONS
+              {filterOptions
                 .filter(f => f.value === 'all' || availableCategories.has(f.value as BriefCategory))
                 .map(f => (
                   <button
@@ -252,7 +280,7 @@ export function TodaysInsights() {
           {/* Card grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {visibleItems.map((item, i) => (
-              <BriefCard key={item.id} item={item} index={i} />
+              <BriefCard key={item.id} item={item} index={i} categoryConfig={categoryConfig} />
             ))}
           </div>
 
@@ -263,7 +291,7 @@ export function TodaysInsights() {
               className="mt-3 w-full flex items-center justify-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer py-2"
             >
               <ChevronDown className="h-3.5 w-3.5" />
-              Show {hiddenCount} more
+              {t.showMore.replace('{n}', String(hiddenCount))}
             </button>
           )}
           {expanded && filteredItems.length > INITIAL_VISIBLE && (
@@ -272,7 +300,7 @@ export function TodaysInsights() {
               className="mt-3 w-full flex items-center justify-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer py-2"
             >
               <ChevronUp className="h-3.5 w-3.5" />
-              Show less
+              {t.showLess}
             </button>
           )}
         </div>

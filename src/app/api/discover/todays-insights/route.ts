@@ -3,7 +3,7 @@
  * Returns categorized brief items from today's (or most recent) summaries
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { QuickSummaryContent, DeepSummaryContent, ActionItem, ChronologicalSection } from '@/types/database';
 import type { BriefItem, BriefCategory, TodaysBriefResponse } from '@/types/brief';
@@ -55,9 +55,10 @@ interface RawBriefItem extends Omit<BriefItem, 'source'> {
   hasTimestamp: boolean;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const admin = createAdminClient();
+    const lang = request.nextUrl.searchParams.get('lang')?.toLowerCase() || '';
 
     // 2a. Fallback query logic
     const today = new Date();
@@ -68,7 +69,7 @@ export async function GET() {
 
     let { data: summaries, error } = await admin
       .from('summaries')
-      .select('episode_id, level, content_json, updated_at')
+      .select('episode_id, level, language, content_json, updated_at')
       .eq('status', 'ready')
       .in('level', ['quick', 'deep'])
       .gte('updated_at', todayISO)
@@ -79,7 +80,7 @@ export async function GET() {
       // Fallback: most recent summaries regardless of date
       const fallback = await admin
         .from('summaries')
-        .select('episode_id, level, content_json, updated_at')
+        .select('episode_id, level, language, content_json, updated_at')
         .eq('status', 'ready')
         .in('level', ['quick', 'deep'])
         .order('updated_at', { ascending: false })
@@ -91,6 +92,12 @@ export async function GET() {
       }
       isStale = true;
       dataDate = summaries[0].updated_at.split('T')[0];
+    }
+
+    // Filter by language if requested (prefer matching language, fall back to all)
+    if (lang && lang !== 'en' && summaries?.length) {
+      const matched = summaries.filter((s: any) => s.language === lang);
+      if (matched.length > 0) summaries = matched;
     }
 
     // 2b. Build episode summary map

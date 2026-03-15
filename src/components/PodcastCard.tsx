@@ -92,11 +92,9 @@ export const PodcastCard = React.memo(function PodcastCard({ podcast, onRemove }
             </div>
           )}
 
-          {/* New episodes count badge */}
+          {/* Green dot for new episodes */}
           {newCount > 0 && (
-            <div className="absolute bottom-3 left-3 bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[22px] text-center shadow-sm z-10">
-              {newCount} new
-            </div>
+            <div className="absolute top-3 left-3 w-3 h-3 rounded-full bg-green-500 shadow-sm z-10 ring-2 ring-black/20" />
           )}
 
           {/* Remove Button - visible on hover (desktop) or always on touch */}

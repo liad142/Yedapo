@@ -50,11 +50,11 @@ export async function checkNewPodcastEpisodes(): Promise<{
   let notificationsCreated = 0;
   let summariesQueued = 0;
 
-  // Get all podcast subscriptions with notifications enabled, grouped by podcast_id
+  // Get ALL podcast subscriptions — auto-summarize for every subscriber,
+  // notifications only sent if notify_enabled is true
   const { data: subs, error } = await supabase
     .from('podcast_subscriptions')
-    .select('id, user_id, podcast_id, last_checked_at, notify_channels')
-    .eq('notify_enabled', true)
+    .select('id, user_id, podcast_id, last_checked_at, notify_enabled, notify_channels')
     .limit(MAX_SOURCES_PER_TICK);
 
   if (error) {
@@ -63,7 +63,7 @@ export async function checkNewPodcastEpisodes(): Promise<{
   }
 
   if (!subs || subs.length === 0) {
-    log.info('No podcast subscriptions with notifications enabled');
+    log.info('No podcast subscriptions found');
     return { sourcesChecked: 0, newEpisodesFound: 0, notificationsCreated: 0, summariesQueued: 0 };
   }
 
@@ -133,11 +133,11 @@ export async function checkNewPodcastEpisodes(): Promise<{
           subscriberUserIds
         );
 
-        // Create notifications for each subscriber
+        // Create notifications for subscribers with notifications enabled
         for (const sub of subscribers) {
+          if (!sub.notify_enabled) continue;
           const subLastChecked = safeDate(sub.last_checked_at);
           const episodePubDate = safeDate(episode.published_at);
-          // Skip if subscriber already saw this episode (guard against NULL dates)
           if (subLastChecked && episodePubDate && episodePubDate <= subLastChecked) continue;
 
           const channels: string[] = sub.notify_channels || [];
@@ -191,8 +191,7 @@ export async function checkNewYouTubeVideos(): Promise<{
 
   const { data: follows, error } = await supabase
     .from('youtube_channel_follows')
-    .select('id, user_id, channel_id, last_checked_at, notify_channels')
-    .eq('notify_enabled', true)
+    .select('id, user_id, channel_id, last_checked_at, notify_enabled, notify_channels')
     .limit(MAX_SOURCES_PER_TICK);
 
   if (error) {
@@ -201,7 +200,7 @@ export async function checkNewYouTubeVideos(): Promise<{
   }
 
   if (!follows || follows.length === 0) {
-    log.info('No YouTube follows with notifications enabled');
+    log.info('No YouTube follows found');
     return { sourcesChecked: 0, newEpisodesFound: 0, notificationsCreated: 0, summariesQueued: 0 };
   }
 
@@ -277,8 +276,9 @@ export async function checkNewYouTubeVideos(): Promise<{
           }
         }
 
-        // Create notifications for each subscriber
+        // Create notifications for subscribers with notifications enabled
         for (const sub of subscribers) {
+          if (!sub.notify_enabled) continue;
           const subLastChecked = safeDate(sub.last_checked_at);
           const itemPubDate = safeDate(item.published_at);
           if (subLastChecked && itemPubDate && itemPubDate <= subLastChecked) continue;

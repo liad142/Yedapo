@@ -16,6 +16,7 @@ const QueueToast = dynamic(() => import('@/components/QueueToast').then(m => ({ 
 const AskAIChatPopup = dynamic(() => import('@/components/insights/AskAIChatPopup').then(m => ({ default: m.AskAIChatPopup })), { ssr: false });
 const CookieConsent = dynamic(() => import('@/components/CookieConsent').then(m => ({ default: m.CookieConsent })), { ssr: false });
 const UpgradeModal = dynamic(() => import('@/components/UpgradeModal').then(m => ({ default: m.UpgradeModal })), { ssr: false });
+const GuestGatePopup = dynamic(() => import('@/components/auth/GuestGatePopup').then(m => ({ default: m.GuestGatePopup })), { ssr: false });
 
 function AppShellInner({ children }: { children: React.ReactNode }) {
   const player = useAudioPlayerSafe();
@@ -64,6 +65,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <AppShellInner>{children}</AppShellInner>
       <AuthModal />
       <CompactAuthPrompt />
+      <GuestGatePopup />
       <QueueToast />
       {/* Audio player z-[45]: above mobile bottom nav (z-30), below modals (z-[55]) */}
       <StickyAudioPlayer />

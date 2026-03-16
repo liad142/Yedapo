@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requestSummary } from '@/lib/summary-service';
 import { acquireLock, releaseLock } from '@/lib/cache';
 import { createLogger } from '@/lib/logger';
 
@@ -11,8 +10,8 @@ const STALE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
 export const maxDuration = 60;
 
 /**
- * Safety net: picks up summaries stuck in 'queued' status and processes them.
- * Runs every 30 minutes via Vercel cron.
+ * Safety net: picks up summaries stuck in 'queued' or 'transcribing' status
+ * and re-triggers them via HTTP POST (separate function invocation).
  */
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -31,13 +30,14 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createAdminClient();
     const staleThreshold = new Date(Date.now() - STALE_THRESHOLD_MS).toISOString();
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-    // Find summaries stuck in 'queued' for more than 10 minutes
+    // Find summaries stuck in 'queued' or 'transcribing' for more than 10 minutes
     const { data: stuckSummaries, error } = await supabase
       .from('summaries')
-      .select('id, episode_id, level, language, episodes!inner(audio_url, title, transcript_url, podcasts(title))')
-      .eq('status', 'queued')
-      .lt('created_at', staleThreshold)
+      .select('id, episode_id, level')
+      .in('status', ['queued', 'transcribing'])
+      .lt('updated_at', staleThreshold)
       .order('created_at', { ascending: true })
       .limit(MAX_PER_RUN);
 
@@ -50,26 +50,34 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ processed: 0, message: 'No stuck summaries' });
     }
 
-    log.info('Found stuck queued summaries', { count: stuckSummaries.length });
+    log.info('Found stuck summaries', { count: stuckSummaries.length });
 
+    // Reset stuck summaries to 'queued' so the POST endpoint re-processes them
+    for (const summary of stuckSummaries) {
+      await supabase
+        .from('summaries')
+        .update({ status: 'queued', updated_at: new Date().toISOString() })
+        .eq('id', summary.id);
+    }
+
+    // Trigger each via HTTP POST (separate function invocation per summary)
     let processed = 0;
     for (const summary of stuckSummaries) {
       try {
-        const ep = summary.episodes as any;
-        const podcast = Array.isArray(ep.podcasts) ? ep.podcasts[0] : ep.podcasts;
+        const res = await fetch(`${appUrl}/api/episodes/${summary.episode_id}/summaries`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-cron-secret': cronSecret,
+          },
+          body: JSON.stringify({ level: summary.level }),
+        });
 
-        await requestSummary(
-          summary.episode_id,
-          summary.level as any,
-          ep.audio_url,
-          summary.language || 'en',
-          ep.transcript_url || undefined,
-          { podcastTitle: podcast?.title || '', episodeTitle: ep.title || '' }
-        );
-        processed++;
+        if (res.ok) processed++;
+        else log.error('Failed to re-trigger summary', { summaryId: summary.id, status: res.status });
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown';
-        log.error('Failed to process stuck summary', { summaryId: summary.id, error: msg });
+        log.error('Error re-triggering summary', { summaryId: summary.id, error: msg });
       }
     }
 

@@ -51,15 +51,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const startTime = Date.now();
   try {
-    const user = await getAuthUser();
-    if (!user) {
+    // Allow cron-triggered requests via x-cron-secret header
+    const cronSecret = request.headers.get('x-cron-secret');
+    const isCronRequest = cronSecret && cronSecret === process.env.CRON_SECRET;
+
+    const user = isCronRequest ? null : await getAuthUser();
+    if (!user && !isCronRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const isAdmin = isAdminEmail(user.email ?? '');
+    const isAdmin = isCronRequest || isAdminEmail(user?.email ?? '');
 
-    // Rate limit: 5 requests/min per user (skip for admins)
-    if (!isAdmin) {
+    // Rate limit: 5 requests/min per user (skip for admins and cron)
+    if (!isAdmin && user) {
       const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
       const rlAllowed = await checkRateLimit(`summary:${user.id || ip}`, 5, 60);
       if (!rlAllowed) {
@@ -67,8 +71,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Fetch user's plan for dynamic quotas
-    const plan = await getUserPlan(user.id, user.email ?? undefined);
+    // Fetch user's plan for dynamic quotas (skip for cron)
+    const plan = isCronRequest ? null : await getUserPlan(user!.id, user!.email ?? undefined);
 
     const { id } = await params;
     const body = await request.json();
@@ -144,7 +148,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           .limit(1)
           .single();
 
-        if (existingRow) {
+        if (existingRow && user?.id) {
           await supabase
             .from('user_summaries')
             .upsert({
@@ -160,8 +164,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ episodeId: id, level, source: 'cached', ...existing });
     }
 
-    // Per-user daily quota — only consumed for NEW generations (skip for admins)
-    if (!isAdmin) {
+    // Per-user daily quota — only consumed for NEW generations (skip for admins/cron)
+    if (!isAdmin && user && plan) {
       const quota = await checkPlanQuota(user.id, 'summary', PLAN_LIMITS[plan].summariesPerDay);
       if (!quota.allowed) {
         return NextResponse.json({
@@ -176,7 +180,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Use after() to run generation after the response is sent.
     // On Vercel Hobby plan (60s limit), long operations may get killed.
     // The stale-check in requestSummary (3 min) will auto-retry on the next POST.
-    const userId = user.id;
+    const userId = user?.id;
     const resolvedLanguage = language || undefined;
 
     // Eagerly create the summary row as 'queued' so the user sees it immediately
@@ -193,7 +197,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .single();
 
     // Record user ownership eagerly (before background work)
-    if (summaryRow) {
+    if (summaryRow && userId) {
       await supabase
         .from('user_summaries')
         .upsert({

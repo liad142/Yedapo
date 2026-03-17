@@ -34,7 +34,7 @@ const NAV_ITEMS = [
 interface NavItemProps {
   item: (typeof NAV_ITEMS)[number];
   isActive: boolean;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent) => void;
   badge?: number;
 }
 
@@ -44,7 +44,11 @@ function NavItem({ item, isActive, onClick, badge }: NavItemProps) {
   return (
     <Link
       href={item.href}
-      onClick={onClick}
+      onClick={(e) => {
+        if (onClick) {
+          onClick(e);
+        }
+      }}
       className={cn(
         'h-10 px-3 rounded-xl flex items-center gap-3 cursor-pointer transition-colors duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
@@ -134,6 +138,7 @@ function MobileThemeToggle() {
 function SidebarContent({ onNavigate, unreadCount = 0, newEpisodeCount = 0, showBell = false, markAllRead }: { onNavigate?: () => void; unreadCount?: number; newEpisodeCount?: number; showBell?: boolean; markAllRead?: () => Promise<void> }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { user, setGuestGateTab, setShowAuthModal } = useAuth();
 
   const isActive = (href: string) => {
     if (href === '/discover') {
@@ -184,7 +189,15 @@ function SidebarContent({ onNavigate, unreadCount = 0, newEpisodeCount = 0, show
             key={item.href}
             item={item}
             isActive={isActive(item.href)}
-            onClick={onNavigate}
+            onClick={(e) => {
+              const GATED = ['/my-list', '/summaries', '/settings'];
+              if (!user && GATED.includes(item.href)) {
+                e.preventDefault();
+                setShowAuthModal(true, GATED_TAB_MESSAGES[item.href] || 'Sign up to access this feature.');
+                return;
+              }
+              onNavigate?.();
+            }}
             badge={item.href === '/my-list' ? newEpisodeCount : undefined}
           />
         ))}
@@ -299,8 +312,15 @@ const BOTTOM_NAV_ITEMS = [
   { label: 'Settings', href: '/settings', icon: Settings },
 ] as const;
 
+const GATED_TAB_MESSAGES: Record<string, string> = {
+  '/my-list': 'Sign up to save podcasts, track new episodes, and build your personal feed.',
+  '/summaries': 'Create an account to generate summaries, key insights, and chapter breakdowns.',
+  '/settings': 'Sign up to manage preferences, connect services, and personalize your experience.',
+};
+
 function MobileBottomNav({ newEpisodeCount = 0 }: { newEpisodeCount?: number }) {
   const pathname = usePathname();
+  const { user, setGuestGateTab } = useAuth();
 
   const isActive = (href: string) => {
     if (href === '/discover') {
@@ -326,6 +346,13 @@ function MobileBottomNav({ newEpisodeCount = 0 }: { newEpisodeCount?: number }) 
             <Link
               key={item.href}
               href={item.href}
+              onClick={(e) => {
+                if (!user && ['/my-list', '/summaries', '/settings'].includes(item.href)) {
+                  e.preventDefault();
+                  const tabKey = item.href.slice(1) as 'my-list' | 'summaries' | 'settings';
+                  setGuestGateTab(tabKey);
+                }
+              }}
               className={cn(
                 'relative flex flex-col items-center gap-1 min-w-0 px-2',
                 active ? 'text-primary' : 'text-muted-foreground'

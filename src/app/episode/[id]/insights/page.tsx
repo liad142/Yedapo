@@ -79,6 +79,12 @@ export default function EpisodeInsightsPage() {
     }
   }, [episodeId, fetchEpisode]);
 
+  // Update last_viewed_at for the podcast subscription (clears green dot in My List)
+  useEffect(() => {
+    if (!episode?.podcast_id) return;
+    fetch(`/api/subscriptions/${episode.podcast_id}`, { method: 'PATCH' }).catch(() => {});
+  }, [episode?.podcast_id]);
+
   const formatDuration = (seconds: number | null): string => {
     if (!seconds) return "";
     const hours = Math.floor(seconds / 3600);

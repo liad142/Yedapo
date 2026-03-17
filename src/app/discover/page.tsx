@@ -11,6 +11,7 @@ import { DailyMixCarousel } from '@/components/discovery/DailyMixCarousel';
 import { TodaysInsights } from '@/components/discovery/TodaysInsights';
 import { BrandShelf } from '@/components/discovery/BrandShelf';
 import { HighSignalFeed } from '@/components/discovery/HighSignalFeed';
+import { TrendingFeed } from '@/components/discovery/TrendingFeed';
 import { ApplePodcast } from '@/components/ApplePodcastCard';
 import { motion } from 'framer-motion';
 import { AlertCircle, RefreshCw, Sparkles } from 'lucide-react';
@@ -47,6 +48,8 @@ interface FeedEpisode {
   podcastArtwork: string;
   podcastFeedUrl?: string;
   isSubscribed: boolean;
+  chartRank?: number;
+  primaryGenre?: string;
 }
 
 // Memoized artwork URL transformer to avoid repeated string operations
@@ -60,11 +63,12 @@ function getHighResArtwork(url: string | undefined): string {
   return highRes;
 }
 
-function mapEpisodes(results: any[], podcasts: ApplePodcast[], subscribedAppleIds: Set<string>): FeedEpisode[] {
+function mapEpisodes(results: any[], podcasts: ApplePodcast[], subscribedAppleIds: Set<string>, startRank: number = 0): FeedEpisode[] {
   return results
     .filter((result: any) => result.success && result.episodes?.length > 0)
     .flatMap((result: any) => {
-      const podcast = podcasts.find((p: ApplePodcast) => p.id === result.podcastId);
+      const podcastIndex = podcasts.findIndex((p: ApplePodcast) => p.id === result.podcastId);
+      const podcast = podcastIndex >= 0 ? podcasts[podcastIndex] : undefined;
       if (!podcast) return [];
       return result.episodes.map((episode: any) => ({
         id: episode.id,
@@ -79,6 +83,8 @@ function mapEpisodes(results: any[], podcasts: ApplePodcast[], subscribedAppleId
         podcastArtwork: getHighResArtwork(podcast.artworkUrl),
         podcastFeedUrl: podcast.feedUrl,
         isSubscribed: subscribedAppleIds.has(podcast.id),
+        chartRank: startRank > 0 ? startRank + podcastIndex : undefined,
+        primaryGenre: podcast.genres?.[0],
       }));
     })
     .sort((a: FeedEpisode, b: FeedEpisode) =>
@@ -220,7 +226,7 @@ export default function DiscoverPage() {
         if (cancelled) return;
 
         const feedData = await feedRes.json();
-        setFeedEpisodes(mapEpisodes(feedData.results, feedPodcasts, subscribedAppleIds));
+        setFeedEpisodes(mapEpisodes(feedData.results, feedPodcasts, subscribedAppleIds, 1));
         setFeedPage(1);
         setIsLoadingFeed(false);
       } catch (error) {
@@ -319,7 +325,7 @@ export default function DiscoverPage() {
         }),
       });
       const batchData = await batchRes.json();
-      const newEpisodes = mapEpisodes(batchData.results, podcastBatch, subscribedAppleIds);
+      const newEpisodes = mapEpisodes(batchData.results, podcastBatch, subscribedAppleIds, startIdx + 1);
 
       setFeedEpisodes(prev => {
         const existingKeys = new Set(prev.map(ep => `${ep.podcastId}-${ep.id}`));
@@ -386,7 +392,7 @@ export default function DiscoverPage() {
           }),
         });
         const feedData = await feedRes.json();
-        setFeedEpisodes(mapEpisodes(feedData.results, feedPodcasts, subscribedAppleIds));
+        setFeedEpisodes(mapEpisodes(feedData.results, feedPodcasts, subscribedAppleIds, 1));
         setFeedPage(1);
       }
     } catch {
@@ -513,22 +519,34 @@ export default function DiscoverPage() {
             </motion.div>
           )}
 
-          {/* 5. High-Signal Feed */}
+          {/* 5. For You Feed — personalized */}
+          <motion.div
+            className="mb-12"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.4 }}
+          >
+            <HighSignalFeed />
+          </motion.div>
+
+          {/* 6. Trending Feed — editorial, always visible */}
           {feedError ? (
-            <SectionError title="Latest Episodes" onRetry={retryTopPodcasts} />
+            <SectionError title="Trending Episodes" onRetry={retryTopPodcasts} />
           ) : (
             <motion.div
+              id="trending-feed"
               className="mb-12"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-100px" }}
               transition={{ duration: 0.4 }}
             >
-              <HighSignalFeed
-                curiosityEpisodes={feedEpisodes}
-                isCuriosityLoading={isLoadingFeed}
-                hasCuriosityMore={hasMoreFeed}
-                onCuriosityLoadMore={handleLoadMore}
+              <TrendingFeed
+                episodes={feedEpisodes}
+                isLoading={isLoadingFeed}
+                hasMore={hasMoreFeed}
+                onLoadMore={handleLoadMore}
               />
             </motion.div>
           )}

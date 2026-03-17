@@ -9,7 +9,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createLogger } from '@/lib/logger';
 import { getCached, setCached } from '@/lib/cache';
 import { refreshSinglePodcastFeed } from '@/lib/rsshub-db';
-import { requestSummary } from '@/lib/summary-service';
 import type { SummaryLevel } from '@/types/database';
 
 const log = createLogger('sub-notifications');
@@ -437,28 +436,33 @@ async function maybeQueueAutoSummary(
     // Fail open on Redis issues
   }
 
-  // Actually trigger summary generation (fire-and-forget)
+  // Trigger summary via HTTP POST to create a separate serverless invocation.
+  // Direct function calls (fire-and-forget) get killed when the cron returns.
   try {
-    log.info('Triggering auto-summary', { episodeId, level, language });
+    log.info('Triggering auto-summary via HTTP', { episodeId, level });
 
-    // requestSummary handles creating the DB record and processing
-    requestSummary(
-      episodeId,
-      level,
-      audioUrl,
-      language,
-      transcriptUrl || undefined,
-      metadata
-    ).then(async (result) => {
-      log.info('Auto-summary result', { episodeId, status: result.status });
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const cronSecret = process.env.CRON_SECRET || '';
 
-      // Create user_summaries for subscribers after summary record exists
+    // POST to the summaries endpoint — this runs in its own function invocation
+    const res = await fetch(`${appUrl}/api/episodes/${episodeId}/summaries`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-cron-secret': cronSecret,
+      },
+      body: JSON.stringify({ level }),
+    });
+
+    if (res.ok) {
+      log.info('Auto-summary triggered', { episodeId, status: res.status });
+
+      // Create user_summaries for subscribers
       if (subscriberUserIds?.length) {
         const { data: summaryRow } = await supabase
           .from('summaries')
           .select('id')
           .eq('episode_id', episodeId)
-          .eq('level', level)
           .order('updated_at', { ascending: false })
           .limit(1)
           .single();
@@ -467,9 +471,9 @@ async function maybeQueueAutoSummary(
           await createUserSummaries(summaryRow.id, episodeId, subscriberUserIds);
         }
       }
-    }).catch(err => {
-      log.error('Auto-summary generation failed', { episodeId, error: err instanceof Error ? err.message : 'Unknown' });
-    });
+    } else {
+      log.error('Auto-summary trigger failed', { episodeId, status: res.status });
+    }
 
     return 1;
   } catch (err) {

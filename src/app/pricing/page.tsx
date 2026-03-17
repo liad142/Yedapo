@@ -100,7 +100,7 @@ const TIERS: Tier[] = [
       { label: 'Everything in Explorer', status: 'included' },
       { label: 'Unlimited podcast subscriptions', status: 'included' },
       { label: 'Unlimited YouTube channels', status: 'included' },
-      { label: 'Personalized + Curiosity feed', status: 'included' },
+      { label: 'Personalized + Trending feed', status: 'included' },
       { label: 'Priority processing', status: 'included' },
       { label: 'Email + Telegram + Scheduling', status: 'included' },
       { label: 'Early access to new features', status: 'included' },

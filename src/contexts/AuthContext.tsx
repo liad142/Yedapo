@@ -20,6 +20,8 @@ interface AuthContextType {
   showCompactPrompt: boolean;
   setShowCompactPrompt: (show: boolean, message?: string) => void;
   compactPromptMessage: string | null;
+  guestGateTab: 'my-list' | 'summaries' | 'settings' | null;
+  setGuestGateTab: (tab: 'my-list' | 'summaries' | 'settings' | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -34,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authPromptMessage, setAuthPromptMessage] = useState<string | null>(null);
   const [showCompactPromptState, setShowCompactPromptState] = useState(false);
   const [compactPromptMessage, setCompactPromptMessage] = useState<string | null>(null);
+  const [guestGateTab, setGuestGateTabState] = useState<'my-list' | 'summaries' | 'settings' | null>(null);
 
   const setShowAuthModal = useCallback((show: boolean, message?: string) => {
     setShowAuthModalState(show);
@@ -44,6 +47,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setShowCompactPrompt = useCallback((show: boolean, message?: string) => {
     setShowCompactPromptState(show);
     setCompactPromptMessage(message || null);
+  }, []);
+
+  const setGuestGateTab = useCallback((tab: 'my-list' | 'summaries' | 'settings' | null) => {
+    setGuestGateTabState(tab);
+    if (tab) posthog.capture('guest_gate_shown', { tab });
   }, []);
 
   useEffect(() => {
@@ -191,7 +199,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     showCompactPrompt: showCompactPromptState,
     setShowCompactPrompt,
     compactPromptMessage,
-  }), [user, session, isLoading, signIn, signUp, signUpOrIn, signInWithGoogle, signOut, showAuthModalState, setShowAuthModal, authPromptMessage, showCompactPromptState, setShowCompactPrompt, compactPromptMessage]);
+    guestGateTab,
+    setGuestGateTab,
+  }), [user, session, isLoading, signIn, signUp, signUpOrIn, signInWithGoogle, signOut, showAuthModalState, setShowAuthModal, authPromptMessage, showCompactPromptState, setShowCompactPrompt, compactPromptMessage, guestGateTab, setGuestGateTab]);
 
   return (
     <AuthContext.Provider value={value}>

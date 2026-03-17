@@ -168,12 +168,6 @@ export default function PodcastPage({ params }: PageProps) {
     fetchEpisodes();
   }, [fetchPodcast, fetchEpisodes]);
 
-  // Mark subscription as viewed (clears green dot) when user visits this page
-  useEffect(() => {
-    if (!isSubscribed || !podcastId) return;
-    fetch(`/api/subscriptions/${podcastId}`, { method: 'PATCH' }).catch(() => {});
-  }, [isSubscribed, podcastId]);
-
   // Update summaryAvailability when queue items complete
   useEffect(() => {
     const completedItems = queue.filter(item => item.state === 'ready');

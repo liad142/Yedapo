@@ -179,22 +179,8 @@ export default function PodcastPage() {
     }
   };
 
-  // Mark subscription as viewed (clears "NEW" badge) - only for authenticated users
-  useEffect(() => {
-    const updateLastViewed = async () => {
-      if (!podcastId) return;
-
-      try {
-        await fetch(`/api/subscriptions/${podcastId}`, {
-          method: 'PATCH',
-        });
-      } catch {
-        // Silently fail - user might not be authenticated or subscribed
-      }
-    };
-
-    updateLastViewed();
-  }, [podcastId]);
+  // Note: last_viewed_at is updated when user views an episode's insights page,
+  // not when visiting the podcast list page (to keep green dots visible until episodes are read)
 
   if (error && !podcast) {
     return (

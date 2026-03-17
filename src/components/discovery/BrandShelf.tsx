@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import Link from 'next/link';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BrandBubble } from './BrandBubble';
@@ -48,12 +49,21 @@ export function BrandShelf({
               )}
             </button>
           )}
-          <button
-            onClick={() => setShowAll(!showAll)}
-            className="text-body-sm text-primary font-medium hover:underline cursor-pointer"
-          >
-            {showAll ? 'Show Less' : 'See All'}
-          </button>
+          {genreId ? (
+            <Link
+              href={`/browse/genre/${genreId}`}
+              className="text-body-sm text-primary font-medium hover:underline"
+            >
+              See All
+            </Link>
+          ) : (
+            <button
+              onClick={() => setShowAll(!showAll)}
+              className="text-body-sm text-primary font-medium hover:underline cursor-pointer"
+            >
+              {showAll ? 'Show Less' : 'See All'}
+            </button>
+          )}
         </div>
       </div>
       {isLoading ? (

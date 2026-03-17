@@ -4,13 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { KnowledgeCard } from './KnowledgeCard';
 import type { KnowledgeCardProps } from './KnowledgeCard';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Loader2,
-  Compass,
-  Sparkles,
-  ArrowDown,
-  LogIn,
-} from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -21,23 +15,7 @@ const log = createLogger('high-signal-feed');
 
 // --- Types ---
 
-type FeedMode = 'for-you' | 'curiosity';
 type FilterType = 'all' | 'youtube' | 'podcast';
-
-interface FeedEpisode {
-  id: string;
-  title: string;
-  description: string;
-  publishedAt: Date;
-  audioUrl?: string;
-  duration?: number;
-  podcastId: string;
-  podcastName: string;
-  podcastArtist?: string;
-  podcastArtwork: string;
-  podcastFeedUrl?: string;
-  isSubscribed?: boolean;
-}
 
 interface FeedItemRaw {
   id: string;
@@ -70,13 +48,6 @@ interface FeedItemRaw {
     chapterCount?: number;
   };
   summaryStatus?: string;
-}
-
-export interface HighSignalFeedProps {
-  curiosityEpisodes: FeedEpisode[];
-  isCuriosityLoading: boolean;
-  hasCuriosityMore: boolean;
-  onCuriosityLoadMore: () => void;
 }
 
 // --- Helpers ---
@@ -118,85 +89,39 @@ function mapToKnowledgeCard(item: FeedItemRaw): KnowledgeCardProps {
   };
 }
 
-function mapCuriosityToKnowledgeCard(ep: FeedEpisode): KnowledgeCardProps {
-  return {
-    id: ep.id,
-    type: 'podcast',
-    title: ep.title,
-    description: ep.description || '',
-    sourceName: ep.podcastName,
-    sourceArtwork: ep.podcastArtwork,
-    sourceId: ep.podcastId,
-    publishedAt: ep.publishedAt,
-    duration: ep.duration,
-    audioUrl: ep.audioUrl,
-    summaryStatus: 'none',
-    podcastFeedData: {
-      externalPodcastId: ep.podcastId,
-      podcastArtist: ep.podcastArtist || ep.podcastName,
-      podcastFeedUrl: ep.podcastFeedUrl,
-    },
-  };
-}
+// --- Ghost card for empty state ---
 
-// --- Format break sub-component ---
-
-const BREAK_CONFIGS = [
-  { label: 'Keep exploring', icon: Compass },
-  { label: 'Worth your time', icon: Sparkles },
-  { label: 'Up next', icon: ArrowDown },
-];
-
-function FeedBreak({ index }: { index: number }) {
-  const config = BREAK_CONFIGS[index % BREAK_CONFIGS.length];
-  const Icon = config.icon;
+function KnowledgeCardGhost() {
   return (
-    <div className="flex items-center gap-3 py-3 my-2">
-      <div className="flex-1 h-px bg-border/40" />
-      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary/50">
-        <Icon className="h-3 w-3 text-muted-foreground/60" />
-        <span className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider">
-          {config.label}
-        </span>
+    <div className="bg-card border border-border rounded-2xl p-5 space-y-3 opacity-50">
+      <div className="flex gap-4">
+        <Skeleton className="w-14 h-14 rounded-full flex-shrink-0" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-3 w-1/2" />
+        </div>
       </div>
-      <div className="flex-1 h-px bg-border/40" />
-    </div>
-  );
-}
-
-// --- Sign-in prompt ---
-
-function SignInPrompt({ onSignIn }: { onSignIn: () => void }) {
-  return (
-    <div className="bg-card border border-border rounded-2xl shadow-[var(--shadow-1)] p-8 text-center">
-      <LogIn className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-      <h3 className="text-h4 text-foreground mb-1">Sign in for personalized picks</h3>
-      <p className="text-body-sm text-muted-foreground mb-4">
-        Follow channels and podcasts to get a feed tailored to your interests.
-      </p>
-      <Button onClick={onSignIn} className="rounded-full gap-2">
-        <LogIn className="h-4 w-4" />
-        Sign In
-      </Button>
+      <Skeleton className="h-px w-full" />
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-4/5" />
+      <div className="flex gap-2 pt-1">
+        <Skeleton className="h-8 w-20 rounded-full" />
+        <Skeleton className="h-8 w-24 rounded-full" />
+      </div>
     </div>
   );
 }
 
 // --- localStorage helpers ---
 
-const FEED_MODE_KEY = 'feed-mode';
 const FEED_FILTER_KEY = 'feed-filter';
 
-function readStored(): { mode?: FeedMode; filter?: FilterType } {
+function readStoredFilter(): FilterType {
   try {
-    const mode = localStorage.getItem(FEED_MODE_KEY) as FeedMode | null;
     const filter = localStorage.getItem(FEED_FILTER_KEY) as FilterType | null;
-    return {
-      mode: mode === 'for-you' || mode === 'curiosity' ? mode : undefined,
-      filter: filter === 'all' || filter === 'podcast' || filter === 'youtube' ? filter : undefined,
-    };
+    return filter === 'all' || filter === 'podcast' || filter === 'youtube' ? filter : 'all';
   } catch {
-    return {};
+    return 'all';
   }
 }
 
@@ -204,43 +129,25 @@ function readStored(): { mode?: FeedMode; filter?: FilterType } {
 
 const PAGE_SIZE = 20;
 
-export function HighSignalFeed({
-  curiosityEpisodes,
-  isCuriosityLoading,
-  hasCuriosityMore,
-  onCuriosityLoadMore,
-}: HighSignalFeedProps) {
+export function HighSignalFeed() {
   const { user, setShowAuthModal } = useAuth();
 
-  // Consistent SSR/client initial value; sync localStorage after mount
-  const [mode, setMode] = useState<FeedMode>(user ? 'for-you' : 'curiosity');
   const [filter, setFilter] = useState<FilterType>('all');
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    const stored = readStored();
-    if (stored.mode) setMode(stored.mode);
-    if (stored.filter) {
-      // Validate filter is valid for the resolved mode
-      const resolvedMode = stored.mode ?? (user ? 'for-you' : 'curiosity');
-      if (resolvedMode === 'curiosity' && stored.filter === 'youtube') {
-        setFilter('all');
-      } else {
-        setFilter(stored.filter);
-      }
-    }
+    setFilter(readStoredFilter());
     setHydrated(true);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // For You feed state
   const [forYouItems, setForYouItems] = useState<FeedItemRaw[]>([]);
   const [isForYouLoading, setIsForYouLoading] = useState(false);
   const [hasForYouMore, setHasForYouMore] = useState(true);
   const forYouOffsetRef = useRef(0);
-
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  // --- For You data fetching (always fetches sourceType=all, filters client-side) ---
+  // --- Data fetching (always sourceType=all, filters client-side) ---
   const fetchForYou = useCallback(async (offset: number, append: boolean) => {
     if (!user || !hydrated) return;
 
@@ -275,9 +182,9 @@ export function HighSignalFeed({
   // Track whether podcast refresh has been triggered this session
   const podcastRefreshDone = useRef(false);
 
-  // Fetch For You data only when in For You mode
+  // Fetch data on mount
   useEffect(() => {
-    if (!hydrated || mode !== 'for-you' || !user) return;
+    if (!hydrated || !user) return;
     setIsForYouLoading(true);
     forYouOffsetRef.current = 0;
     fetchForYou(0, false).then(() => {
@@ -295,185 +202,141 @@ export function HighSignalFeed({
           .catch(() => {}); // Silently ignore refresh errors
       }
     }).finally(() => setIsForYouLoading(false));
-  }, [hydrated, mode, user, fetchForYou]);
+  }, [hydrated, user, fetchForYou]);
 
-  // --- Persist & switch mode ---
-  const handleModeSwitch = useCallback((newMode: FeedMode) => {
-    if (newMode === mode) return;
-
-    if (newMode === 'for-you' && !user) {
-      posthog.capture('feed_sign_in_prompt_shown');
-      setShowAuthModal(true, 'Sign in to see your personalized feed.');
-      return;
-    }
-
-    setMode(newMode);
-    const defaultFilter: FilterType = 'all';
-    setFilter(defaultFilter);
-    localStorage.setItem(FEED_MODE_KEY, newMode);
-    localStorage.setItem(FEED_FILTER_KEY, defaultFilter);
-    posthog.capture('feed_mode_switched', {
-      mode: newMode,
-      is_authenticated: !!user,
-    });
-  }, [mode, user, setShowAuthModal]);
-
-  // --- Persist & switch filter ---
+  // --- Persist filter ---
   const handleFilterChange = useCallback((newFilter: FilterType) => {
     setFilter(newFilter);
     localStorage.setItem(FEED_FILTER_KEY, newFilter);
-    posthog.capture('feed_filter_changed', { filter: newFilter, mode });
-  }, [mode]);
+    posthog.capture('feed_filter_changed', { filter: newFilter });
+  }, []);
 
-  // --- Build card list: mode = source, filter = narrow within ---
+  // --- Build card list ---
   const cards = useMemo(() => {
-    if (mode === 'for-you') {
-      const mapped = forYouItems.map(mapToKnowledgeCard);
-      if (filter === 'all') return mapped;
-      return mapped.filter(c => c.type === filter);
-    }
-    // Curiosity — all items are podcasts, filter only narrows (youtube filter hidden)
-    return curiosityEpisodes.map(mapCuriosityToKnowledgeCard);
-  }, [mode, filter, forYouItems, curiosityEpisodes]);
+    const mapped = forYouItems.map(mapToKnowledgeCard);
+    if (filter === 'all') return mapped;
+    return mapped.filter(c => c.type === filter);
+  }, [filter, forYouItems]);
 
-  // --- Loading & empty ---
-  const isLoading = mode === 'for-you'
-    ? isForYouLoading
-    : (isCuriosityLoading && curiosityEpisodes.length === 0);
-  const hasMore = mode === 'for-you' ? hasForYouMore : hasCuriosityMore;
-  const showSignInPrompt = mode === 'for-you' && !user;
+  // --- Filter counts ---
+  const filterCounts = useMemo(() => {
+    const all = forYouItems.length;
+    const podcast = forYouItems.filter(i => (i.source_type || i.sourceType) === 'podcast').length;
+    const youtube = forYouItems.filter(i => (i.source_type || i.sourceType) === 'youtube').length;
+    return { all, podcast, youtube } as Record<FilterType, number>;
+  }, [forYouItems]);
 
-  // --- Filter chip config per mode ---
-  const forYouFilters: { label: string; value: FilterType }[] = [
-    { label: 'All', value: 'all' },
-    { label: 'Podcasts', value: 'podcast' },
-    { label: 'YouTube', value: 'youtube' },
-  ];
-  // Curiosity is podcast-only → no filter chips needed
-  const showFilters = mode === 'for-you' && !showSignInPrompt;
+  // --- Loading ---
+  const isLoading = isForYouLoading;
+  const hasMore = hasForYouMore;
 
-  // --- Infinite scroll ---
+  // --- Load more ---
   const handleLoadMore = useCallback(() => {
-    if (isLoadingMore) return;
-
-    if (mode === 'for-you' && hasForYouMore && user) {
-      setIsLoadingMore(true);
-      posthog.capture('feed_load_more', { mode, filter, offset: forYouOffsetRef.current });
-      fetchForYou(forYouOffsetRef.current, true).finally(() => {
-        setIsLoadingMore(false);
-      });
-    } else if (mode === 'curiosity' && hasCuriosityMore && !isCuriosityLoading) {
-      setIsLoadingMore(true);
-      posthog.capture('feed_load_more', { mode, offset: curiosityEpisodes.length });
-      onCuriosityLoadMore();
+    if (isLoadingMore || !hasForYouMore || !user) return;
+    setIsLoadingMore(true);
+    posthog.capture('feed_load_more', { filter, offset: forYouOffsetRef.current });
+    fetchForYou(forYouOffsetRef.current, true).finally(() => {
       setIsLoadingMore(false);
-    }
-  }, [isLoadingMore, mode, hasForYouMore, hasCuriosityMore, isCuriosityLoading, user, filter, fetchForYou, onCuriosityLoadMore, curiosityEpisodes.length]);
+    });
+  }, [isLoadingMore, hasForYouMore, user, filter, fetchForYou]);
 
-  // --- Empty state messaging per mode ---
-  const emptyMessage = mode === 'for-you'
-    ? filter === 'podcast'
-      ? 'No podcasts in your feed yet. Subscribe to some podcasts to see them here.'
-      : filter === 'youtube'
-        ? 'No YouTube videos in your feed yet. Follow some channels to see them here.'
-        : 'Your feed is empty. Follow channels and podcasts to get started!'
-    : 'No discovery episodes available. Check back soon!';
+  // --- Not signed in: don't render this section ---
+  if (!user) return null;
+
+  // --- Filter chip config with counts ---
+  const filters: { label: string; value: FilterType; count: number }[] = [
+    { label: 'All', value: 'all', count: filterCounts.all },
+    { label: 'Podcasts', value: 'podcast', count: filterCounts.podcast },
+    { label: 'YouTube', value: 'youtube', count: filterCounts.youtube },
+  ];
 
   return (
     <section>
       {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <h2 className="text-h3 text-foreground">
-            {mode === 'for-you' ? 'For You' : 'Curiosity Feed'}
-          </h2>
-          <p className="text-body-sm text-muted-foreground">
-            {mode === 'for-you'
-              ? 'Personalized picks worth your time'
-              : 'Episodes worth your time'}
-          </p>
-        </div>
+      <div className="mb-4">
+        <h2 className="text-h3 text-foreground">Trending</h2>
+        <p className="text-body-sm text-muted-foreground">Personalized picks worth your time</p>
       </div>
 
-      {/* Mode toggle + Filter chips */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
-        {/* Mode toggle */}
-        <div className="flex items-center gap-1 p-1 bg-secondary/50 rounded-full w-fit">
-          <button
-            onClick={() => handleModeSwitch('for-you')}
-            className={cn(
-              'px-4 py-1.5 text-sm font-medium rounded-full transition-colors cursor-pointer',
-              mode === 'for-you'
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            For You
-          </button>
-          <button
-            onClick={() => handleModeSwitch('curiosity')}
-            className={cn(
-              'px-4 py-1.5 text-sm font-medium rounded-full transition-colors cursor-pointer',
-              mode === 'curiosity'
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            Curiosity
-          </button>
-        </div>
-
-        {/* Filter chips — only in For You mode */}
-        {showFilters && (
-          <div className="flex items-center gap-1">
-            {forYouFilters.map((f) => (
+      {/* Filter chips — own row, only shown when feed has items */}
+      {!isLoading && forYouItems.length > 0 && (
+        <div className="flex items-center gap-1 mb-5">
+          {filters.map((f) => {
+            const isDisabled = f.value !== 'all' && f.count === 0;
+            return (
               <button
                 key={f.value}
-                onClick={() => handleFilterChange(f.value)}
+                onClick={() => !isDisabled && handleFilterChange(f.value)}
+                disabled={isDisabled}
                 className={cn(
-                  'px-3 py-1 text-xs font-medium rounded-full transition-colors cursor-pointer',
-                  filter === f.value
+                  'px-3 py-1 text-xs font-medium rounded-full transition-colors',
+                  isDisabled
+                    ? 'opacity-40 cursor-not-allowed text-muted-foreground'
+                    : 'cursor-pointer',
+                  !isDisabled && filter === f.value
                     ? 'bg-foreground/10 text-foreground'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-foreground/5'
+                    : !isDisabled && 'text-muted-foreground hover:text-foreground hover:bg-foreground/5'
                 )}
               >
-                {f.label}
+                {f.label}{f.value !== 'all' ? ` (${f.count})` : ''}
               </button>
-            ))}
-          </div>
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Content */}
-      {showSignInPrompt ? (
-        <SignInPrompt onSignIn={() => setShowAuthModal(true, 'Sign in to see your personalized feed.')} />
-      ) : isLoading ? (
+      {isLoading ? (
         <div className="flex flex-col gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-[180px] rounded-2xl" />
           ))}
         </div>
+      ) : cards.length === 0 && forYouItems.length === 0 ? (
+        // Ghost empty state — user has no feed items at all
+        <div className="relative">
+          <div className="flex flex-col gap-4 select-none pointer-events-none">
+            <KnowledgeCardGhost />
+            <KnowledgeCardGhost />
+            <KnowledgeCardGhost />
+          </div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/60 backdrop-blur-[2px] rounded-2xl">
+            <p className="text-h4 text-foreground mb-1">See insights from what you follow</p>
+            <p className="text-body-sm text-muted-foreground mb-4 text-center px-6">
+              Follow your first podcast or YouTube channel to start your feed.
+            </p>
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={() => document.getElementById('trending-feed')?.scrollIntoView({ behavior: 'smooth' })}
+            >
+              Browse Trending
+            </Button>
+          </div>
+        </div>
       ) : cards.length === 0 ? (
+        // Filter applied but no results for this filter type
         <div className="text-center py-8 text-muted-foreground">
-          <p>No items found.</p>
-          <p className="text-sm mt-1">{emptyMessage}</p>
+          <p>No items found for this filter.</p>
+          <p className="text-sm mt-1">
+            {filter === 'podcast'
+              ? 'Subscribe to some podcasts to see them here.'
+              : filter === 'youtube'
+                ? 'Follow some YouTube channels to see them here.'
+                : ''}
+          </p>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
           {cards.map((props, index) => (
-            <div key={`${props.type}-${props.id}-${index}`}>
-              <KnowledgeCard {...props} />
-              {(index + 1) % 5 === 0 && index < cards.length - 1 && (
-                <FeedBreak index={Math.floor(index / 5)} />
-              )}
-            </div>
+            <KnowledgeCard key={`${props.type}-${props.id}-${index}`} {...props} />
           ))}
         </div>
       )}
 
-      {/* Load More button */}
+      {/* Load More */}
       <div className="h-20 flex items-center justify-center">
-        {hasMore && cards.length > 0 && !showSignInPrompt && (
+        {hasMore && cards.length > 0 && (
           <Button
             variant="outline"
             onClick={handleLoadMore}

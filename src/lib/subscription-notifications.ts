@@ -14,7 +14,7 @@ import type { SummaryLevel } from '@/types/database';
 const log = createLogger('sub-notifications');
 
 const MAX_SOURCES_PER_TICK = 50;
-const MAX_AUTO_SUMMARIES_PER_RUN = 50;
+const MAX_AUTO_SUMMARIES_PER_RUN = 100;
 const SUMMARY_COUNTER_KEY = 'cron:auto-summary-count';
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -122,10 +122,20 @@ export async function checkNewPodcastEpisodes(): Promise<{
 
       for (const episode of newEpisodes) {
         // Queue auto-summary if under limit, and create user_summaries for subscribers
+        // Queue both quick + deep summaries for full insights page
         summariesQueued += await maybeQueueAutoSummary(
           episode.id,
           episode.audio_url,
           'quick',
+          podcastLanguage,
+          episode.transcript_url,
+          { podcastTitle, episodeTitle: episode.title },
+          subscriberUserIds
+        );
+        summariesQueued += await maybeQueueAutoSummary(
+          episode.id,
+          episode.audio_url,
+          'deep',
           podcastLanguage,
           episode.transcript_url,
           { podcastTitle, episodeTitle: episode.title },
@@ -263,10 +273,20 @@ export async function checkNewYouTubeVideos(): Promise<{
             .single();
 
           if (episode) {
+            // Queue both quick + deep summaries for full insights page
             summariesQueued += await maybeQueueAutoSummary(
               episode.id,
               videoUrl,
               'quick',
+              'en',
+              undefined,
+              { podcastTitle: channel.channel_name, episodeTitle: item.title },
+              subscriberUserIds
+            );
+            summariesQueued += await maybeQueueAutoSummary(
+              episode.id,
+              videoUrl,
+              'deep',
               'en',
               undefined,
               { podcastTitle: channel.channel_name, episodeTitle: item.title },

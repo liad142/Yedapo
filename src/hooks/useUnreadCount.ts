@@ -34,23 +34,34 @@ export function useUnreadCount() {
       }
 
       // Count podcasts with new episodes (for My List badge)
-      // Direct Supabase query — no API auth issues, lightweight
+      // Query episodes directly — podcasts.latest_episode_date may not be populated
       const { data: subs } = await supabase
         .from('podcast_subscriptions')
-        .select('last_viewed_at, podcasts!inner(latest_episode_date)')
+        .select('podcast_id, last_viewed_at')
         .eq('user_id', userId);
 
-      let newEps = 0;
-      for (const sub of subs || []) {
-        const podcast = (sub as any).podcasts;
-        const latestDate = Array.isArray(podcast) ? podcast[0]?.latest_episode_date : podcast?.latest_episode_date;
-        if (latestDate) {
-          if (!sub.last_viewed_at || new Date(latestDate) > new Date(sub.last_viewed_at)) {
-            newEps++;
-          }
+      if (subs && subs.length > 0) {
+        const podcastIds = subs.map((s: any) => s.podcast_id);
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+        const { data: recentEpisodes } = await supabase
+          .from('episodes')
+          .select('podcast_id, published_at')
+          .in('podcast_id', podcastIds)
+          .gte('published_at', thirtyDaysAgo);
+
+        let newEps = 0;
+        for (const sub of subs) {
+          const hasNew = (recentEpisodes || []).some((ep: any) =>
+            ep.podcast_id === sub.podcast_id &&
+            (!sub.last_viewed_at || new Date(ep.published_at) > new Date(sub.last_viewed_at))
+          );
+          if (hasNew) newEps++;
         }
+        setNewEpisodeCount(newEps);
+      } else {
+        setNewEpisodeCount(0);
       }
-      setNewEpisodeCount(newEps);
     } catch {
       // Silently fail
     }

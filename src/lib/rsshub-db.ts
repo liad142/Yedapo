@@ -428,6 +428,20 @@ async function populatePodcastFeedItems(
 
   if (feedItems.length > 0) {
     await upsertFeedItems(feedItems);
+
+    // Update podcasts.latest_episode_date so My List badge works
+    const latestDate = feedItems.reduce((max, item) => {
+      const d = item.publishedAt instanceof Date ? item.publishedAt : new Date(item.publishedAt);
+      return d > max ? d : max;
+    }, new Date(0));
+
+    if (latestDate.getTime() > 0) {
+      await supabase
+        .from('podcasts')
+        .update({ latest_episode_date: latestDate.toISOString() })
+        .eq('id', podcast.id)
+        .or(`latest_episode_date.is.null,latest_episode_date.lt.${latestDate.toISOString()}`);
+    }
   }
 
   return feedItems.length;

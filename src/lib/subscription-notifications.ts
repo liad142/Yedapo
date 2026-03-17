@@ -14,7 +14,7 @@ import type { SummaryLevel } from '@/types/database';
 const log = createLogger('sub-notifications');
 
 const MAX_SOURCES_PER_TICK = 50;
-const MAX_AUTO_SUMMARIES_PER_RUN = 10;
+const MAX_AUTO_SUMMARIES_PER_RUN = 50;
 const SUMMARY_COUNTER_KEY = 'cron:auto-summary-count';
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 

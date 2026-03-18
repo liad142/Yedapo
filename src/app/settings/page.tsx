@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Moon, Sun, Monitor, LogIn, LogOut, Loader2, Pencil, Check, X, Shield, ChevronDown, Search,
   Palette, Briefcase, Smile, GraduationCap, BookOpen, Landmark, Clock, Heart,
   Users, Music, Newspaper, Church, FlaskConical, Globe, Trophy, Cpu, Film,
-  Youtube, RefreshCw,
+  Youtube, RefreshCw, Mail, Send, Bell, BellOff,
 } from 'lucide-react';
 import { Search as SearchIcon } from 'lucide-react';
 import Link from 'next/link';
@@ -22,6 +22,14 @@ import { Toast } from '@/components/ui/toast';
 import { useUsage } from '@/contexts/UsageContext';
 import { UsageMeter } from '@/components/UsageMeter';
 import { YouTubeChannelCard } from '@/components/onboarding/YouTubeChannelCard';
+import { TelegramConnectFlow } from '@/components/insights/TelegramConnectFlow';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from '@/components/ui/dialog';
 
 // ── Compact genre icon map ──
 const GENRE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -95,6 +103,72 @@ export default function SettingsPage() {
   const [isImportingYt, setIsImportingYt] = useState(false);
   const [ytImportDone, setYtImportDone] = useState(false);
   const isGoogleUser = user?.app_metadata?.provider === 'google';
+
+  // Connected apps & notifications state
+  interface NotificationSub {
+    podcastId: string;
+    podcastTitle: string;
+    podcastArtwork: string | null;
+    notifyEnabled: boolean;
+    notifyChannels: string[];
+  }
+  const [notifConnections, setNotifConnections] = useState<{
+    email: { address: string | null; verified: boolean };
+    telegram: { connected: boolean; username: string | null };
+  } | null>(null);
+  const [notifSubs, setNotifSubs] = useState<NotificationSub[]>([]);
+  const [isLoadingNotifs, setIsLoadingNotifs] = useState(false);
+  const [showTelegramDialog, setShowTelegramDialog] = useState(false);
+  const [togglingNotif, setTogglingNotif] = useState<string | null>(null);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!user) return;
+    setIsLoadingNotifs(true);
+    try {
+      const res = await fetch('/api/settings/notifications');
+      if (res.ok) {
+        const data = await res.json();
+        setNotifConnections(data.connections);
+        setNotifSubs(data.subscriptions || []);
+      }
+    } catch {
+      // silent
+    } finally {
+      setIsLoadingNotifs(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user) fetchNotifications();
+  }, [user, fetchNotifications]);
+
+  const handleToggleNotification = async (podcastId: string, currentEnabled: boolean) => {
+    setTogglingNotif(podcastId);
+    try {
+      await fetch(`/api/subscriptions/${podcastId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notifyEnabled: !currentEnabled, updateLastViewed: false }),
+      });
+      // Update local state
+      if (!currentEnabled) {
+        // Was off, now on — shouldn't happen since we only show enabled subs
+      } else {
+        // Was on, now off — remove from list
+        setNotifSubs(prev => prev.filter(s => s.podcastId !== podcastId));
+      }
+    } catch {
+      setErrorToast('Failed to update notification preference.');
+    } finally {
+      setTogglingNotif(null);
+    }
+  };
+
+  const handleTelegramConnected = () => {
+    setShowTelegramDialog(false);
+    setNotifConnections(prev => prev ? { ...prev, telegram: { connected: true, username: null } } : prev);
+    fetchNotifications(); // Refresh to get username
+  };
 
   const themeOptions = [
     { value: 'light', label: 'Light', icon: Sun },
@@ -616,13 +690,132 @@ export default function SettingsPage() {
           </section>
         )}
 
-        {/* ── NOTIFICATIONS (coming soon) ── */}
-        <section className="opacity-50 pointer-events-none">
-          <SectionLabel>Notifications</SectionLabel>
-          <div className="mt-3 rounded-2xl border border-dashed border-border bg-card/50 p-5">
-            <p className="text-muted-foreground text-sm">Notification preferences — coming soon.</p>
-          </div>
-        </section>
+        {/* ── CONNECTED APPS & NOTIFICATIONS ── */}
+        {user && (
+          <section>
+            <SectionLabel>Connected Apps</SectionLabel>
+            <div className="mt-3 space-y-3">
+              {/* Email */}
+              <div className="flex items-center gap-4 p-4 rounded-2xl bg-card border border-border">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                  <Mail className="h-5 w-5 text-blue-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Email</p>
+                  <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                </div>
+                <span className="text-xs font-medium text-green-600 dark:text-green-400 bg-green-500/10 px-2 py-1 rounded-full shrink-0">
+                  Verified
+                </span>
+              </div>
+
+              {/* Telegram */}
+              <div className="flex items-center gap-4 p-4 rounded-2xl bg-card border border-border">
+                <div className="w-10 h-10 rounded-xl bg-sky-500/10 flex items-center justify-center shrink-0">
+                  <Send className="h-5 w-5 text-sky-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Telegram</p>
+                  {isLoadingNotifs ? (
+                    <p className="text-xs text-muted-foreground">Loading...</p>
+                  ) : notifConnections?.telegram.connected ? (
+                    <p className="text-xs text-muted-foreground">
+                      {notifConnections.telegram.username ? `@${notifConnections.telegram.username}` : 'Connected'}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Not connected</p>
+                  )}
+                </div>
+                {notifConnections?.telegram.connected ? (
+                  <span className="text-xs font-medium text-green-600 dark:text-green-400 bg-green-500/10 px-2 py-1 rounded-full shrink-0">
+                    Connected
+                  </span>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowTelegramDialog(true)}
+                    className="shrink-0"
+                  >
+                    Connect
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Notification Subscriptions */}
+            <div className="mt-6">
+              <FieldLabel>Notification Subscriptions</FieldLabel>
+              {isLoadingNotifs ? (
+                <div className="flex items-center gap-2 text-muted-foreground text-sm mt-3">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading...
+                </div>
+              ) : notifSubs.length === 0 ? (
+                <div className="mt-3 p-5 rounded-2xl border border-dashed border-border bg-card/50 text-center">
+                  <BellOff className="h-6 w-6 text-muted-foreground/50 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No notification subscriptions yet.</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Follow a podcast and tap the bell to get started.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-3 rounded-2xl border border-border bg-card overflow-hidden divide-y divide-border">
+                  {notifSubs.map(sub => (
+                    <div key={sub.podcastId} className="flex items-center gap-3 px-4 py-3">
+                      {sub.podcastArtwork ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={sub.podcastArtwork}
+                          alt=""
+                          className="w-9 h-9 rounded-lg object-cover shrink-0"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                          <Bell className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{sub.podcastTitle}</p>
+                        <p className="text-xs text-muted-foreground">
+                          via: {sub.notifyChannels.length ? sub.notifyChannels.join(', ').replace(/_/g, '-') : 'in-app'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleToggleNotification(sub.podcastId, sub.notifyEnabled)}
+                        disabled={togglingNotif === sub.podcastId}
+                        className={cn(
+                          'p-2 rounded-lg transition-colors shrink-0',
+                          sub.notifyEnabled
+                            ? 'text-primary hover:bg-primary/10'
+                            : 'text-muted-foreground hover:bg-muted'
+                        )}
+                      >
+                        {togglingNotif === sub.podcastId ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Bell className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Telegram Connect Dialog */}
+        <Dialog open={showTelegramDialog} onOpenChange={setShowTelegramDialog}>
+          <DialogContent className="max-w-sm p-6">
+            <DialogClose onClick={() => setShowTelegramDialog(false)} />
+            <DialogHeader>
+              <DialogTitle>Connect Telegram</DialogTitle>
+            </DialogHeader>
+            <div className="mt-4">
+              <TelegramConnectFlow onConnected={handleTelegramConnected} />
+            </div>
+          </DialogContent>
+        </Dialog>
 
       </div>
 

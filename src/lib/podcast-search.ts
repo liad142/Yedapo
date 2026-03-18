@@ -107,6 +107,7 @@ export async function searchPodcasts(
         title: v.title,
         description: v.description,
         thumbnailUrl: v.thumbnailUrl,
+        channelId: v.channelId,
         channelTitle: v.channelTitle,
       }))
     : [];

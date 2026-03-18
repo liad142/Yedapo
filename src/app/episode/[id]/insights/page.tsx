@@ -4,11 +4,13 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import posthog from "posthog-js";
 import { EpisodeSmartFeed } from "@/components/insights/EpisodeSmartFeed";
+import { ShareMenu } from "@/components/insights/ShareMenu";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/client";
-import type { Episode, Podcast } from "@/types/database";
-import { Clock, Calendar, ChevronRight, Share2 } from "lucide-react";
+import { summaryToMarkdown } from "@/lib/summary-to-markdown";
+import type { Episode, Podcast, QuickSummaryContent, DeepSummaryContent } from "@/types/database";
+import { Clock, Calendar, ChevronRight } from "lucide-react";
 import { YouTubeLogo } from "@/components/YouTubeLogo";
 import { InlinePlayButton } from "@/components/PlayButton";
 import { YouTubeEmbed, type YouTubeEmbedRef } from "@/components/YouTubeEmbed";
@@ -27,6 +29,26 @@ export default function EpisodeInsightsPage() {
   const [episode, setEpisode] = useState<EpisodeData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Summary data from EpisodeSmartFeed (for ShareMenu markdown)
+  const [summaryData, setSummaryData] = useState<{
+    quick?: QuickSummaryContent | null;
+    deep?: DeepSummaryContent | null;
+    summaryReady: boolean;
+  }>({ summaryReady: false });
+
+  const markdownContent = useMemo(() => {
+    if (!episode || !summaryData.summaryReady) return undefined;
+    return summaryToMarkdown({
+      episodeTitle: episode.title,
+      podcastName: episode.podcast?.title || 'Unknown Podcast',
+      publishedAt: episode.published_at,
+      durationSeconds: episode.duration_seconds,
+      quickSummary: summaryData.quick,
+      deepSummary: summaryData.deep,
+      url: typeof window !== 'undefined' ? window.location.href : undefined,
+    });
+  }, [episode, summaryData]);
 
   const youtubePlayerRef = useRef<YouTubeEmbedRef>(null);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
@@ -285,23 +307,13 @@ export default function EpisodeInsightsPage() {
                         className="h-10 px-5 text-sm bg-primary hover:bg-primary/90"
                       />
                     ) : null}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-10 px-4 gap-2 text-muted-foreground"
-                      onClick={() => {
-                        const canShare = 'share' in navigator;
-                        posthog.capture('episode_shared', { episode_id: episodeId, title: episode.title, method: canShare ? 'native' : 'clipboard', page: 'insights' });
-                        if (canShare) {
-                          navigator.share({ title: episode.title, url: window.location.href });
-                        } else {
-                          navigator.clipboard.writeText(window.location.href);
-                        }
-                      }}
-                    >
-                      <Share2 className="h-4 w-4" />
-                      Share
-                    </Button>
+                    <ShareMenu
+                      episodeId={episodeId}
+                      episodeTitle={episode.title}
+                      podcastName={episode.podcast?.title || "Unknown Podcast"}
+                      summaryReady={summaryData.summaryReady}
+                      markdownContent={markdownContent}
+                    />
                   </div>
                 </div>
               </div>
@@ -317,6 +329,7 @@ export default function EpisodeInsightsPage() {
             episode={episode}
             youtubePlayerRef={isYouTube ? youtubePlayerRef : undefined}
             videoCurrentTime={isYouTube ? videoCurrentTime : undefined}
+            onSummaryData={setSummaryData}
           />
         )}
       </div>

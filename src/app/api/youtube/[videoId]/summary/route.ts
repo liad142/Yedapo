@@ -3,6 +3,7 @@ import { getAuthUser } from '@/lib/auth-helpers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { importYouTubeVideo } from '@/lib/youtube/video-import';
 import { requestYouTubeSummary } from '@/lib/youtube/summary';
+import { fetchVideoDetails } from '@/lib/youtube/api';
 import { createLogger } from '@/lib/logger';
 import type { SummaryLevel } from '@/types/database';
 
@@ -108,6 +109,15 @@ export async function POST(
               resolvedChannelTitle = resolvedChannelTitle || channelByYtId.channel_name;
             }
           }
+        }
+      }
+
+      // If channelId or channelTitle still missing, fetch from YouTube Data API
+      if (!resolvedChannelId || !resolvedChannelTitle) {
+        const videoDetails = await fetchVideoDetails(videoId);
+        if (videoDetails) {
+          resolvedChannelId = resolvedChannelId || videoDetails.channelId;
+          resolvedChannelTitle = resolvedChannelTitle || videoDetails.channelTitle;
         }
       }
 

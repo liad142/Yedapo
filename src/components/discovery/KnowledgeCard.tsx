@@ -167,8 +167,10 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
   const [localSummaryStatus, setLocalSummaryStatus] = useState(summaryStatus);
   const [localEpisodeId, setLocalEpisodeId] = useState(episodeId);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [localSummaryPreview, setLocalSummaryPreview] = useState(summaryPreview);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
+  const fetchedPreviewRef = useRef(false);
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -257,6 +259,26 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
     }
   }, [lookupResult, localEpisodeId, localSummaryStatus]);
 
+  // Fetch summary preview when status is ready but preview data is missing
+  const epIdForPreview = localEpisodeId || episodeId;
+  const previewIsEmpty = !localSummaryPreview?.hookHeadline && !localSummaryPreview?.executiveBrief;
+  useEffect(() => {
+    if (localSummaryStatus !== 'ready' || !previewIsEmpty || !epIdForPreview || fetchedPreviewRef.current) return;
+    fetchedPreviewRef.current = true;
+    fetch(`/api/episodes/${epIdForPreview}/insights`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data?.summaries?.quick?.content) return;
+        const q = data.summaries.quick.content;
+        setLocalSummaryPreview({
+          hookHeadline: q.hook_headline,
+          executiveBrief: q.executive_brief,
+          tags: q.tags,
+        });
+      })
+      .catch(() => {});
+  }, [localSummaryStatus, previewIsEmpty, epIdForPreview]);
+
   const artwork = isValidImageUrl(sourceArtwork)
     ? sourceArtwork.replace('100x100', '200x200')
     : '/placeholder-podcast.png';
@@ -265,8 +287,9 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
     ? `/browse/podcast/${sourceAppleId}`
     : `/browse/podcast/${sourceId}`;
 
-  const hasSummary = localSummaryStatus === 'ready' && summaryPreview;
-  const readTime = estimateReadTime(duration, summaryPreview?.readTimeMinutes);
+  const effectivePreview = localSummaryPreview;
+  const hasSummary = localSummaryStatus === 'ready' && effectivePreview && (effectivePreview.hookHeadline || effectivePreview.executiveBrief);
+  const readTime = estimateReadTime(duration, effectivePreview?.readTimeMinutes);
   const durationStr = formatDuration(duration);
 
   // Build track for audio playback (podcast only)
@@ -401,11 +424,11 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
 
   // Collect visible stats
   const stats: string[] = [];
-  if (summaryPreview?.takeawayCount && summaryPreview.takeawayCount > 0) {
-    stats.push(`${summaryPreview.takeawayCount} takeaways`);
+  if (effectivePreview?.takeawayCount && effectivePreview.takeawayCount > 0) {
+    stats.push(`${effectivePreview.takeawayCount} takeaways`);
   }
-  if (summaryPreview?.chapterCount && summaryPreview.chapterCount > 0) {
-    stats.push(`${summaryPreview.chapterCount} chapters`);
+  if (effectivePreview?.chapterCount && effectivePreview.chapterCount > 0) {
+    stats.push(`${effectivePreview.chapterCount} chapters`);
   }
   if (readTime) {
     stats.push(`${readTime} min read`);
@@ -505,24 +528,24 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
       <div className="border-t border-border/50 my-3" />
 
       {/* Value preview section */}
-      {hasSummary && (summaryPreview?.hookHeadline || summaryPreview?.executiveBrief) ? (
+      {hasSummary ? (
         <div className="space-y-2">
           {/* Hook headline */}
-          {summaryPreview?.hookHeadline && (
+          {effectivePreview?.hookHeadline && (
             <p className="text-body-sm font-semibold text-foreground leading-snug line-clamp-2">
-              &ldquo;{summaryPreview.hookHeadline}&rdquo;
+              &ldquo;{effectivePreview.hookHeadline}&rdquo;
             </p>
           )}
 
-          {/* Fallback to executive brief when no hook headline */}
-          {!summaryPreview?.hookHeadline && summaryPreview?.executiveBrief && (
-            <ExpandableCardDescription text={summaryPreview.executiveBrief} />
+          {/* Executive brief as expandable description */}
+          {effectivePreview?.executiveBrief && (
+            <ExpandableCardDescription text={effectivePreview.executiveBrief} />
           )}
 
           {/* Takeaway bullets */}
-          {summaryPreview?.tags && summaryPreview.tags.length > 0 && (
+          {effectivePreview?.tags && effectivePreview.tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
-              {summaryPreview.tags.slice(0, 3).map((tag) => (
+              {effectivePreview.tags.slice(0, 3).map((tag) => (
                 <Badge key={tag} variant="secondary" className="text-[10px] px-2 py-0.5">
                   {tag}
                 </Badge>
@@ -535,8 +558,8 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
           {/* Fallback: use executive brief from summary, or cleaned description, or prompt */}
           <ExpandableCardDescription
             text={
-              summaryPreview?.executiveBrief
-                || summaryPreview?.hookHeadline
+              effectivePreview?.executiveBrief
+                || effectivePreview?.hookHeadline
                 || (type === 'youtube' && localSummaryStatus !== 'ready'
                   ? cleanYoutubeDescription(description)
                   : stripHtml(description))
@@ -558,16 +581,16 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
         <>
           <div className="border-t border-border/50 my-3" />
           <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-            {summaryPreview?.takeawayCount && summaryPreview.takeawayCount > 0 && (
+            {effectivePreview?.takeawayCount && effectivePreview.takeawayCount > 0 && (
               <span className="flex items-center gap-1">
                 <Target className="h-3 w-3" />
-                {summaryPreview.takeawayCount} takeaways
+                {effectivePreview.takeawayCount} takeaways
               </span>
             )}
-            {summaryPreview?.chapterCount && summaryPreview.chapterCount > 0 && (
+            {effectivePreview?.chapterCount && effectivePreview.chapterCount > 0 && (
               <span className="flex items-center gap-1">
                 <BookOpen className="h-3 w-3" />
-                {summaryPreview.chapterCount} chapters
+                {effectivePreview.chapterCount} chapters
               </span>
             )}
             {readTime && (

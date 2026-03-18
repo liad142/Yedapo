@@ -124,6 +124,41 @@ export async function GET(request: NextRequest) {
       setCached(`src:pod:${pod.id}`, meta, 3600);
     }
 
+    // --- Resolve missing episode_ids for YouTube items ---
+    const youtubeWithoutEpisode = items.filter(
+      (item) => item.sourceType === 'youtube' && !item.episodeId
+    );
+    if (youtubeWithoutEpisode.length > 0) {
+      const candidateUrls: string[] = [];
+      for (const item of youtubeWithoutEpisode) {
+        if (item.videoId) {
+          candidateUrls.push(`https://www.youtube.com/watch?v=${item.videoId}`);
+        } else if (item.url?.includes('youtube.com/watch')) {
+          candidateUrls.push(item.url);
+        }
+      }
+
+      if (candidateUrls.length > 0) {
+        const { data: resolvedEpisodes } = await admin
+          .from('episodes')
+          .select('id, audio_url')
+          .in('audio_url', candidateUrls);
+
+        if (resolvedEpisodes) {
+          const urlToId = new Map(resolvedEpisodes.map((e) => [e.audio_url, e.id]));
+          for (const item of youtubeWithoutEpisode) {
+            const url = item.videoId
+              ? `https://www.youtube.com/watch?v=${item.videoId}`
+              : item.url;
+            const episodeId = url ? urlToId.get(url) : undefined;
+            if (episodeId) {
+              (item as any).episodeId = episodeId;
+            }
+          }
+        }
+      }
+    }
+
     // --- Enrich with summary preview data ---
     const episodeIds = items
       .map(item => item.episodeId)

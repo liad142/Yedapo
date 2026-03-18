@@ -10,6 +10,7 @@ import {
   Send,
   Bell,
   Loader2,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,7 @@ interface ShareMenuProps {
   episodeTitle: string;
   podcastName: string;
   summaryReady: boolean;
+  markdownContent?: string;
 }
 
 export function ShareMenu({
@@ -43,6 +45,7 @@ export function ShareMenu({
   episodeTitle,
   podcastName,
   summaryReady,
+  markdownContent,
 }: ShareMenuProps) {
   const { user, setShowAuthModal } = useAuth();
 
@@ -208,17 +211,15 @@ export function ShareMenu({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            variant="outline"
-            size="lg"
-            className="h-16 flex-col gap-1.5 border-border bg-card hover:bg-muted hover:border-border/80 shadow-sm rounded-2xl transition-colors"
+            variant="ghost"
+            size="sm"
+            className="h-10 px-4 gap-2 text-muted-foreground"
           >
-            <Share2 className="h-5 w-5 text-muted-foreground group-hover:text-foreground" />
-            <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">
-              Share Insight
-            </span>
+            <Share2 className="h-4 w-4" />
+            Share
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuContent align="start" className="w-52">
           {summaryReady ? (
             <>
               {/* -- Summary ready: share now options -- */}
@@ -230,6 +231,19 @@ export function ShareMenu({
                 )}
                 {copied ? "Copied!" : "Copy link"}
               </DropdownMenuItem>
+
+              {markdownContent && (
+                <DropdownMenuItem
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(markdownContent);
+                    showToast("Markdown copied to clipboard");
+                  }}
+                  className="gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  Copy as Markdown
+                </DropdownMenuItem>
+              )}
 
               <DropdownMenuItem onClick={handleWhatsApp} className="gap-2">
                 <MessageCircle className="h-4 w-4" />

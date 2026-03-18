@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, memo, RefObject } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion } from "framer-motion";
-import { Loader2, Sparkles, FileText, Lightbulb, ListMusic, Scale, Play, ChevronDown, ChevronsUpDown, ChevronsDownUp, Quote, Lock } from "lucide-react";
+import { Loader2, Sparkles, FileText, Lightbulb, ListMusic, Scale, Play, ChevronDown, ChevronsUpDown, ChevronsDownUp, Quote, Lock, Copy, Check, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TranscriptAccordion } from "./TranscriptAccordion";
@@ -11,7 +11,8 @@ import { ActionFooter } from "./ActionFooter";
 import { AskAIBar } from "./AskAIBar";
 import { useActivateAskAI } from "@/contexts/AskAIContext";
 import { useAudioPlayerSafe } from "@/contexts/AudioPlayerContext";
-import { SubscriptionCard } from "./SubscriptionCard";
+import { ShareMenu } from "./ShareMenu";
+import { summaryToMarkdown } from "@/lib/summary-to-markdown";
 import { normalizeChronologicalSections, hasRealTimestamps, parseHighlightMarkers } from "@/lib/summary-normalize";
 import { cn } from "@/lib/utils";
 import { isRTLText } from "@/lib/rtl";
@@ -30,9 +31,10 @@ interface EpisodeSmartFeedProps {
   episode: Episode & { podcast?: Podcast };
   youtubePlayerRef?: RefObject<YouTubeEmbedRef | null>;
   videoCurrentTime?: number;
+  onSummaryData?: (data: { quick?: QuickSummaryContent | null; deep?: DeepSummaryContent | null; summaryReady: boolean }) => void;
 }
 
-export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtubePlayerRef, videoCurrentTime }: EpisodeSmartFeedProps) {
+export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtubePlayerRef, videoCurrentTime, onSummaryData }: EpisodeSmartFeedProps) {
   const { user, setShowCompactPrompt, setShowAuthModal } = useAuth();
   const { cutoffs, isGuest } = useUserPlan();
   const [data, setData] = useState<EpisodeInsightsResponse | null>(null);
@@ -94,6 +96,12 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
       const json = await res.json();
       setData(json);
       setError(null);
+
+      // Notify parent about summary data for ShareMenu / ExportCard
+      const quickContent = json.summaries?.quick?.content as QuickSummaryContent | undefined;
+      const deepContent = json.summaries?.deep?.content as DeepSummaryContent | undefined;
+      const hasSummary = json.summaries?.quick?.status === 'ready' || json.summaries?.deep?.status === 'ready';
+      onSummaryData?.({ quick: quickContent ?? null, deep: deepContent ?? null, summaryReady: hasSummary });
 
       const insightStatus = json.insights?.status;
       const isProcessing = ["queued", "transcribing", "summarizing"].includes(insightStatus);
@@ -199,6 +207,22 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
   const isDeepReady = data?.summaries?.deep?.status === "ready" && deepContent;
   const hasAnyContent = data?.insights || data?.transcript_text || data?.summaries?.quick || data?.summaries?.deep;
   const ytMeta = data?.youtube_metadata as YouTubeMetadataResponse | undefined;
+
+  const summaryReady = !!(isQuickReady || isDeepReady);
+
+  // Markdown for export card
+  const markdownForExport = useMemo(() => {
+    if (!summaryReady) return undefined;
+    return summaryToMarkdown({
+      episodeTitle: episode.title,
+      podcastName: episode.podcast?.title || 'Unknown Podcast',
+      publishedAt: episode.published_at,
+      durationSeconds: episode.duration_seconds,
+      quickSummary: quickContent,
+      deepSummary: deepContent,
+      url: typeof window !== 'undefined' ? window.location.href : undefined,
+    });
+  }, [episode, quickContent, deepContent, summaryReady]);
 
   // RTL detection
   const isRTL = useMemo(() => {
@@ -595,13 +619,18 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
           <CommentsSection episodeId={episode.id} sectionLabel={deepContent?.section_labels?.discussion} isRTL={isRTL} />
         </motion.section>
 
-        {/* Subscription */}
-        <section>
-          <SubscriptionCard
-            podcastName={episode.podcast?.title || "this podcast"}
-            podcastId={episode.podcast?.id || ""}
-          />
-        </section>
+        {/* Export Card */}
+        {summaryReady && (
+          <section>
+            <ExportCard
+              episodeId={episode.id}
+              episodeTitle={episode.title}
+              podcastName={episode.podcast?.title || "Unknown Podcast"}
+              summaryReady={summaryReady}
+              markdownContent={markdownForExport}
+            />
+          </section>
+        )}
       </div>
 
       {/* Standalone Ask AI Bar — only for authenticated users */}
@@ -1130,6 +1159,70 @@ function ContrarianViews({ views, isRTL, hideHeader, label, subtitle }: { views:
             <p className="text-body text-muted-foreground">{renderBoldMarkers(view)}</p>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/* --- Export Card (replaces SubscriptionCard) --- */
+function ExportCard({
+  episodeId,
+  episodeTitle,
+  podcastName,
+  summaryReady,
+  markdownContent,
+}: {
+  episodeId: string;
+  episodeTitle: string;
+  podcastName: string;
+  summaryReady: boolean;
+  markdownContent?: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyMarkdown = async () => {
+    if (!markdownContent) return;
+    await navigator.clipboard.writeText(markdownContent);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="bg-primary/5 dark:bg-primary/10 border border-primary/15 dark:border-primary/20 rounded-2xl shadow-[var(--shadow-2)] p-5 lg:p-6">
+      <div className="flex items-start gap-4">
+        <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+          <FileText className="h-5 w-5 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-h4 text-foreground">Save this summary</p>
+          <p className="text-body-sm text-muted-foreground mt-0.5">
+            Copy as Markdown for Obsidian, Notion, or share with others.
+          </p>
+          <div className="flex items-center gap-2 mt-3">
+            {markdownContent && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyMarkdown}
+                className="gap-2"
+              >
+                {copied ? (
+                  <Check className="h-3.5 w-3.5 text-green-500" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
+                {copied ? "Copied!" : "Copy Markdown"}
+              </Button>
+            )}
+            <ShareMenu
+              episodeId={episodeId}
+              episodeTitle={episodeTitle}
+              podcastName={podcastName}
+              summaryReady={summaryReady}
+              markdownContent={markdownContent}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

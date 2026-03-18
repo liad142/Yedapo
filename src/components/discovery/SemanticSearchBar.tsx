@@ -31,6 +31,7 @@ interface SearchVideo {
   title: string;
   description: string;
   thumbnailUrl: string;
+  channelId: string;
   channelTitle: string;
 }
 
@@ -180,18 +181,17 @@ export function SemanticSearchBar() {
   const handleVideoClick = async (video: SearchVideo) => {
     setShowResults(false);
     posthog.capture('search_video_clicked', { query, video_id: video.videoId, video_title: video.title });
-    // Import the video, then navigate to the episode page
+    // Import the video as an episode, then navigate to the insights page
     try {
-      const res = await fetch('/api/youtube/save', {
+      const res = await fetch(`/api/youtube/${video.videoId}/summary`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          videoId: video.videoId,
+          level: 'quick',
           title: video.title,
-          channelId: '',
+          channelId: video.channelId || '',
           channelTitle: video.channelTitle,
           thumbnailUrl: video.thumbnailUrl,
-          url: `https://www.youtube.com/watch?v=${video.videoId}`,
         }),
       });
       if (res.ok) {

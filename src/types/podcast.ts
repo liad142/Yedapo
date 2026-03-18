@@ -49,6 +49,7 @@ export interface YouTubeVideoResult {
   title: string;
   description: string;
   thumbnailUrl: string;
+  channelId: string;
   channelTitle: string;
 }
 

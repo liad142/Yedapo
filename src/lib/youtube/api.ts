@@ -30,6 +30,46 @@ export interface YouTubeVideo {
 }
 
 /**
+ * Fetch video details by ID using the YouTube Data API.
+ * Returns channelId, channelTitle, title, etc.
+ */
+export async function fetchVideoDetails(videoId: string): Promise<YouTubeVideo | null> {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) {
+    log.error('YOUTUBE_API_KEY not set');
+    return null;
+  }
+
+  const res = await fetch(
+    `${YT_API_BASE}/videos?${new URLSearchParams({
+      part: 'snippet',
+      id: videoId,
+      key: apiKey,
+    })}`
+  );
+
+  if (!res.ok) {
+    log.error('Failed to fetch video details', { status: res.status, videoId });
+    return null;
+  }
+
+  const data = await res.json();
+  const item = data.items?.[0];
+  if (!item) return null;
+
+  const snippet = item.snippet;
+  return {
+    videoId,
+    title: snippet.title,
+    description: snippet.description || '',
+    thumbnailUrl: snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url || '',
+    publishedAt: snippet.publishedAt || '',
+    channelId: snippet.channelId,
+    channelTitle: snippet.channelTitle,
+  };
+}
+
+/**
  * Fetch all YouTube subscriptions for a user (paginated).
  * Uses the user's OAuth token.
  */

@@ -119,6 +119,31 @@ export async function GET(request: NextRequest) {
       sourceMetadataCache.set(pod.id, { data: meta, expiry: now + SOURCE_CACHE_TTL });
     }
 
+    // --- Resolve missing episode_ids for YouTube items ---
+    const youtubeWithoutEpisode = items.filter(
+      (item) => item.sourceType === 'youtube' && !item.episodeId && item.videoId
+    );
+    if (youtubeWithoutEpisode.length > 0) {
+      const videoUrls = youtubeWithoutEpisode.map(
+        (item) => `https://www.youtube.com/watch?v=${item.videoId}`
+      );
+      const { data: resolvedEpisodes } = await admin
+        .from('episodes')
+        .select('id, audio_url')
+        .in('audio_url', videoUrls);
+
+      if (resolvedEpisodes) {
+        const urlToId = new Map(resolvedEpisodes.map((e) => [e.audio_url, e.id]));
+        for (const item of youtubeWithoutEpisode) {
+          const url = `https://www.youtube.com/watch?v=${item.videoId}`;
+          const episodeId = urlToId.get(url);
+          if (episodeId) {
+            (item as any).episodeId = episodeId;
+          }
+        }
+      }
+    }
+
     // --- Enrich with summary preview data ---
     const episodeIds = items
       .map(item => item.episodeId)

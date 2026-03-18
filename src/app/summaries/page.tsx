@@ -19,6 +19,8 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SignInPrompt } from '@/components/auth/SignInPrompt';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
+import { createClient } from '@/lib/supabase/client';
 
 interface EpisodeWithSummary {
   id: string;
@@ -56,13 +58,25 @@ function formatDate(dateString: string | null): string {
 const NON_TERMINAL_STATUSES = ['queued', 'transcribing', 'summarizing'];
 const POLL_INTERVAL = 10_000;
 
-function StatusBadge({ status }: { status: string }) {
+function getSuffix(n: number): string {
+  if (n >= 11 && n <= 13) return 'th';
+  switch (n % 10) {
+    case 1: return 'st';
+    case 2: return 'nd';
+    case 3: return 'rd';
+    default: return 'th';
+  }
+}
+
+function StatusBadge({ status, queuePosition }: { status: string; queuePosition?: number }) {
   switch (status) {
     case 'queued':
       return (
         <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-border/50 bg-background/80 px-3 py-1.5">
-          <QueuePositionIndicator position={0} className="[&>span]:hidden" />
-          <span className="text-xs font-medium text-muted-foreground">Queued</span>
+          <QueuePositionIndicator position={queuePosition ?? 0} className="[&>span]:hidden" />
+          <span className="text-xs font-medium text-muted-foreground">
+            {queuePosition && queuePosition > 0 ? `${queuePosition + 1}${getSuffix(queuePosition + 1)} in queue` : 'Queued'}
+          </span>
         </div>
       );
     case 'transcribing':
@@ -106,6 +120,7 @@ function StatusBadge({ status }: { status: string }) {
 export default function SummariesPage() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
+  const { queue, getQueuePosition } = useSummarizeQueue();
   const [episodes, setEpisodes] = useState<EpisodeWithSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -142,8 +157,104 @@ export default function SummariesPage() {
     fetchSummaries();
   }, [user, fetchSummaries]);
 
+  // Fetch episode info for queue items not yet in DB results
+  const [queueEpisodeCache, setQueueEpisodeCache] = useState<Map<string, EpisodeWithSummary>>(new Map());
+  const fetchingRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const dbIds = new Set(episodes.map(ep => ep.id));
+    const activeQueue = queue.filter(qi => qi.state !== 'ready' && qi.state !== 'idle');
+    const missingIds = activeQueue
+      .map(qi => qi.episodeId)
+      .filter(id => !dbIds.has(id) && !queueEpisodeCache.has(id) && !fetchingRef.current.has(id));
+
+    if (missingIds.length === 0) return;
+
+    // Mark as fetching to prevent duplicate requests
+    missingIds.forEach(id => fetchingRef.current.add(id));
+
+    const supabase = createClient();
+    supabase
+      .from('episodes')
+      .select('id, title, description, published_at, duration_seconds, podcast_id, podcasts(id, title, image_url, author)')
+      .in('id', missingIds)
+      .then(({ data }: { data: any[] | null }) => {
+        if (!data?.length) {
+          missingIds.forEach(id => fetchingRef.current.delete(id));
+          return;
+        }
+        setQueueEpisodeCache(prev => {
+          const next = new Map(prev);
+          for (const ep of data) {
+            const podcast = Array.isArray(ep.podcasts) ? ep.podcasts[0] : ep.podcasts;
+            next.set(ep.id, {
+              id: ep.id,
+              title: ep.title,
+              description: ep.description,
+              published_at: ep.published_at,
+              duration_seconds: ep.duration_seconds,
+              podcast: podcast || null,
+              summary_updated_at: null,
+              status: 'queued',
+            });
+          }
+          return next;
+        });
+        missingIds.forEach(id => fetchingRef.current.delete(id));
+      });
+  }, [queue, episodes, queueEpisodeCache]);
+
+  // Also refresh DB results when queue items finish (state changes to ready)
+  useEffect(() => {
+    const hasNewReady = queue.some(qi => qi.state === 'ready');
+    if (hasNewReady && user) {
+      fetchSummaries(true);
+    }
+  }, [queue, user, fetchSummaries]);
+
+  // Build final list: merge DB episodes + queue-only episodes with real-time status
+  const allEpisodes = (() => {
+    const queueMap = new Map(queue.map(qi => [qi.episodeId, qi]));
+    const dbIds = new Set(episodes.map(ep => ep.id));
+
+    // Update status for DB episodes that are in the client queue
+    const updated = episodes.map(ep => {
+      const qi = queueMap.get(ep.id);
+      if (qi && qi.state !== 'ready' && qi.state !== 'idle') {
+        return { ...ep, status: qi.state };
+      }
+      return ep;
+    });
+
+    // Add queue items not in DB (from cache)
+    const queueOnly: EpisodeWithSummary[] = [];
+    for (const qi of queue) {
+      if (qi.state === 'ready' || qi.state === 'idle') continue;
+      if (dbIds.has(qi.episodeId)) continue;
+      const cached = queueEpisodeCache.get(qi.episodeId);
+      if (cached) {
+        queueOnly.push({ ...cached, status: qi.state });
+      }
+    }
+
+    // In-progress first (sorted by actual queue index position), then terminal
+    const all = [...updated, ...queueOnly];
+    const inProgress = all.filter(ep => NON_TERMINAL_STATUSES.includes(ep.status));
+    const terminal = all.filter(ep => !NON_TERMINAL_STATUSES.includes(ep.status));
+
+    // Use the queue array index order directly — this matches getQueuePosition()
+    const queueOrder = new Map(queue.map((qi, idx) => [qi.episodeId, idx]));
+    inProgress.sort((a, b) => {
+      const posA = queueOrder.get(a.id) ?? 999;
+      const posB = queueOrder.get(b.id) ?? 999;
+      return posA - posB;
+    });
+
+    return [...inProgress, ...terminal];
+  })();
+
   // Polling when any episode is non-terminal
-  const hasNonTerminal = episodes.some(ep => NON_TERMINAL_STATUSES.includes(ep.status));
+  const hasNonTerminal = allEpisodes.some(ep => NON_TERMINAL_STATUSES.includes(ep.status));
 
   useEffect(() => {
     if (hasNonTerminal && user) {
@@ -202,7 +313,7 @@ export default function SummariesPage() {
   };
 
   // Filter episodes by search query
-  const filteredEpisodes = episodes.filter(episode => {
+  const filteredEpisodes = allEpisodes.filter(episode => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
@@ -397,7 +508,7 @@ export default function SummariesPage() {
                               {episode.podcast?.title}
                             </p>
                           </div>
-                          <StatusBadge status={episode.status} />
+                          <StatusBadge status={episode.status} queuePosition={getQueuePosition(episode.id)} />
                         </div>
 
                         <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">

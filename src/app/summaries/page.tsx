@@ -64,6 +64,13 @@ function formatDate(dateString: string | null): string {
 const NON_TERMINAL_STATUSES = ['queued', 'transcribing', 'summarizing'];
 const POLL_INTERVAL = 10_000;
 
+/** Get active queue position — only counts non-terminal items ahead */
+function getActiveQueuePosition(queue: Array<{ episodeId: string; state: string }>, episodeId: string): number {
+  const activeItems = queue.filter(qi => qi.state !== 'ready' && qi.state !== 'idle' && qi.state !== 'failed');
+  const idx = activeItems.findIndex(qi => qi.episodeId === episodeId);
+  return idx; // 0 = processing, 1 = next, -1 = not in queue
+}
+
 function getSuffix(n: number): string {
   if (n >= 11 && n <= 13) return 'th';
   switch (n % 10) {
@@ -126,7 +133,7 @@ function StatusBadge({ status, queuePosition }: { status: string; queuePosition?
 export default function SummariesPage() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
-  const { queue, getQueuePosition } = useSummarizeQueue();
+  const { queue } = useSummarizeQueue();
   const [episodes, setEpisodes] = useState<EpisodeWithSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -518,7 +525,7 @@ export default function SummariesPage() {
                               {episode.podcast?.title}
                             </p>
                           </div>
-                          <StatusBadge status={episode.status} queuePosition={getQueuePosition(episode.id)} />
+                          <StatusBadge status={episode.status} queuePosition={getActiveQueuePosition(queue, episode.id)} />
                         </div>
 
                         <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">

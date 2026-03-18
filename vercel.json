@@ -2,11 +2,11 @@
   "crons": [
     {
       "path": "/api/cron/check-new-episodes",
-      "schedule": "0 5,11,17 * * *"
+      "schedule": "0 5 * * *"
     },
     {
       "path": "/api/cron/process-queued-summaries",
-      "schedule": "0 7,13,19 * * *"
+      "schedule": "0 6 * * *"
     }
   ]
 }

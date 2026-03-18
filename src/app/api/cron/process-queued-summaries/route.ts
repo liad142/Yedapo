@@ -7,7 +7,7 @@ const log = createLogger('cron');
 const MAX_PER_RUN = 5;
 const STALE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
 
-export const maxDuration = 60;
+export const maxDuration = 300; // 5 min — needs time for HTTP retriggers
 
 /**
  * Safety net: picks up summaries stuck in 'queued' or 'transcribing' status

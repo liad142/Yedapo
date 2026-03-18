@@ -5,7 +5,7 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('cron');
 
-export const maxDuration = 60; // Vercel function timeout
+export const maxDuration = 300; // 5 min — needs time for RSS fetches + summary queueing
 
 export async function GET(request: NextRequest) {
   // Validate cron secret

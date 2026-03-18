@@ -428,11 +428,12 @@ async function maybeQueueAutoSummary(
 ): Promise<number> {
   const supabase = createAdminClient();
 
-  // Check if summary already exists
+  // Check if summary already exists for this specific level
   const { data: existing } = await supabase
     .from('summaries')
     .select('id, status')
     .eq('episode_id', episodeId)
+    .eq('level', level)
     .in('status', ['ready', 'summarizing', 'queued', 'transcribing'])
     .limit(1);
 

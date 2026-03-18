@@ -505,13 +505,18 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
       <div className="border-t border-border/50 my-3" />
 
       {/* Value preview section */}
-      {hasSummary ? (
+      {hasSummary && (summaryPreview?.hookHeadline || summaryPreview?.executiveBrief) ? (
         <div className="space-y-2">
           {/* Hook headline */}
           {summaryPreview?.hookHeadline && (
             <p className="text-body-sm font-semibold text-foreground leading-snug line-clamp-2">
               &ldquo;{summaryPreview.hookHeadline}&rdquo;
             </p>
+          )}
+
+          {/* Fallback to executive brief when no hook headline */}
+          {!summaryPreview?.hookHeadline && summaryPreview?.executiveBrief && (
+            <ExpandableCardDescription text={summaryPreview.executiveBrief} />
           )}
 
           {/* Takeaway bullets */}
@@ -527,11 +532,16 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
         </div>
       ) : (
         <div className="space-y-1.5">
-          {/* Fallback: Description (cleaned for YouTube) — expandable */}
+          {/* Fallback: use executive brief from summary, or cleaned description, or prompt */}
           <ExpandableCardDescription
-            text={type === 'youtube' && localSummaryStatus !== 'ready'
-              ? cleanYoutubeDescription(description)
-              : stripHtml(description)}
+            text={
+              summaryPreview?.executiveBrief
+                || summaryPreview?.hookHeadline
+                || (type === 'youtube' && localSummaryStatus !== 'ready'
+                  ? cleanYoutubeDescription(description)
+                  : stripHtml(description))
+                || (localSummaryStatus === 'ready' ? 'Tap View Summary to read the full insights.' : 'Tap Summarize to get key takeaways.')
+            }
           />
 
           {/* Recommend reason */}

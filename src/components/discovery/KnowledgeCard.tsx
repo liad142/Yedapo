@@ -283,9 +283,11 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
     ? sourceArtwork.replace('100x100', '200x200')
     : '/placeholder-podcast.png';
 
-  const sourceHref = sourceAppleId
-    ? `/browse/podcast/${sourceAppleId}`
-    : `/browse/podcast/${sourceId}`;
+  const sourceHref = type === 'youtube'
+    ? (localEpisodeId ? `/episode/${localEpisodeId}/insights` : `/browse/youtube/${sourceId}`)
+    : sourceAppleId
+      ? `/browse/podcast/${sourceAppleId}`
+      : `/browse/podcast/${sourceId}`;
 
   const effectivePreview = localSummaryPreview;
   const hasSummary = localSummaryStatus === 'ready' && effectivePreview && (effectivePreview.hookHeadline || effectivePreview.executiveBrief);

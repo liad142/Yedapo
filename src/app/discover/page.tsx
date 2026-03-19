@@ -121,6 +121,13 @@ export default function DiscoverPage() {
   const [feedError, setFeedError] = useState(false);
   const [personalizedError, setPersonalizedError] = useState(false);
 
+  // Guard against state updates after unmount
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
   // Fire all independent fetches in parallel: daily-mix, top podcasts, and personalized
   useEffect(() => {
     let cancelled = false;
@@ -145,7 +152,10 @@ export default function DiscoverPage() {
 
     // 1) Daily Mix (independent, pass country for language filtering)
     const dailyMixPromise = fetch(`/api/discover/daily-mix?country=${country.toLowerCase()}`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error('Fetch failed: ' + res.status);
+        return res.json();
+      })
       .then(data => {
         if (cancelled) return;
         setDailyMixEpisodes(
@@ -184,11 +194,13 @@ export default function DiscoverPage() {
         let allPodcasts: ApplePodcast[] = [];
 
         if (primaryRes.status === 'fulfilled' && primaryRes.value) {
+          if (!primaryRes.value.ok) throw new Error('Fetch failed: ' + primaryRes.value.status);
           const data = await primaryRes.value.json();
           allPodcasts = data.podcasts || [];
         }
 
         if (usRes.status === 'fulfilled' && usRes.value) {
+          if (!usRes.value.ok) throw new Error('Fetch failed: ' + usRes.value.status);
           const usData = await usRes.value.json();
           const usPodcasts = usData.podcasts || [];
           const existingIds = new Set(allPodcasts.map((p: ApplePodcast) => p.id));
@@ -218,6 +230,7 @@ export default function DiscoverPage() {
         });
 
         if (cancelled) return;
+        if (!feedRes.ok) throw new Error('Fetch failed: ' + feedRes.status);
 
         const feedData = await feedRes.json();
         setFeedEpisodes(mapEpisodes(feedData.results, feedPodcasts, subscribedAppleIds, 1));
@@ -239,6 +252,7 @@ export default function DiscoverPage() {
       ? (async () => {
           try {
             const response = await fetch(`/api/discover/personalized?country=${country.toLowerCase()}`);
+            if (!response.ok) throw new Error('Fetch failed: ' + response.status);
             const data = await response.json();
             if (!cancelled) {
               if (data.personalized && data.sections) {
@@ -275,6 +289,7 @@ export default function DiscoverPage() {
       const res = await fetch(
         `/api/discover/daily-mix?country=${country.toLowerCase()}&cursor=${encodeURIComponent(dailyMixCursor)}`
       );
+      if (!res.ok) throw new Error('Fetch failed: ' + res.status);
       const data = await res.json();
       const newEpisodes = (data.episodes || []).map((ep: any) => ({
         ...ep,
@@ -318,6 +333,7 @@ export default function DiscoverPage() {
           country: country.toLowerCase(),
         }),
       });
+      if (!batchRes.ok) throw new Error('Fetch failed: ' + batchRes.status);
       const batchData = await batchRes.json();
       const newEpisodes = mapEpisodes(batchData.results, podcastBatch, subscribedAppleIds, startIdx + 1);
 
@@ -347,8 +363,12 @@ export default function DiscoverPage() {
     setDailyMixError(false);
     setIsLoadingDailyMix(true);
     fetch(`/api/discover/daily-mix?country=${country.toLowerCase()}`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error('Fetch failed: ' + res.status);
+        return res.json();
+      })
       .then(data => {
+        if (!isMountedRef.current) return;
         setDailyMixEpisodes(
           (data.episodes || []).map((ep: any) => ({
             ...ep,
@@ -358,8 +378,8 @@ export default function DiscoverPage() {
         setDailyMixCursor(data.nextCursor || null);
         setHasMoreDailyMix(!!data.nextCursor);
       })
-      .catch(() => setDailyMixError(true))
-      .finally(() => setIsLoadingDailyMix(false));
+      .catch(() => { if (isMountedRef.current) setDailyMixError(true); })
+      .finally(() => { if (isMountedRef.current) setIsLoadingDailyMix(false); });
   }, [country]);
 
   const retryTopPodcasts = useCallback(async () => {
@@ -369,6 +389,7 @@ export default function DiscoverPage() {
     setIsLoadingFeed(true);
     try {
       const res = await fetch(`/api/apple/top?country=${country.toLowerCase()}&limit=30`);
+      if (!res.ok) throw new Error('Fetch failed: ' + res.status);
       const data = await res.json();
       const allPods = data.podcasts || [];
       setTopPodcasts(allPods);
@@ -385,6 +406,7 @@ export default function DiscoverPage() {
             country: country.toLowerCase(),
           }),
         });
+        if (!feedRes.ok) throw new Error('Fetch failed: ' + feedRes.status);
         const feedData = await feedRes.json();
         setFeedEpisodes(mapEpisodes(feedData.results, feedPodcasts, subscribedAppleIds, 1));
         setFeedPage(1);
@@ -403,6 +425,7 @@ export default function DiscoverPage() {
     setIsLoadingPersonalized(true);
     try {
       const response = await fetch(`/api/discover/personalized?country=${country.toLowerCase()}`);
+      if (!response.ok) throw new Error('Fetch failed: ' + response.status);
       const data = await response.json();
       if (data.personalized && data.sections) {
         setPersonalizedSections(data.sections);

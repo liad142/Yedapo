@@ -154,8 +154,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const needsConfirmation = !data.session;
+    if (data.session) { setShowAuthModal(false); }
     return { error: null, needsConfirmation };
-  }, []);
+  }, [setShowAuthModal]);
 
   const signInWithGoogle = useCallback(async () => {
     posthog.capture('auth_google_started');

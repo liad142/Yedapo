@@ -179,7 +179,10 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
 
       if (!insightsRes.ok) throw new Error("Failed to start insights generation");
 
-      Promise.all([
+      // Wait for insights response to confirm episode exists before firing summary POSTs
+      await insightsRes.json().catch(() => ({}));
+
+      await Promise.all([
         fetch(`/api/episodes/${episode.id}/summaries`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

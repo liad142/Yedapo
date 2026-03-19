@@ -44,10 +44,16 @@ const ALLOWED_PATTERNS = [
   /\.brightspotcdn\.com$/,
 ];
 
+const hostnameAllowedCache = new Map<string, boolean>();
+
 function isAllowedHostname(src: string): boolean {
   try {
     const { hostname } = new URL(src);
-    return ALLOWED_PATTERNS.some((p) => p.test(hostname));
+    const cached = hostnameAllowedCache.get(hostname);
+    if (cached !== undefined) return cached;
+    const result = ALLOWED_PATTERNS.some((p) => p.test(hostname));
+    hostnameAllowedCache.set(hostname, result);
+    return result;
   } catch {
     return false;
   }

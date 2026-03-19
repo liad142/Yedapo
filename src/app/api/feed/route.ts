@@ -8,13 +8,10 @@ import { getFeed } from '@/lib/rsshub-db';
 import { getAuthUser } from '@/lib/auth-helpers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createLogger } from '@/lib/logger';
+import { getCachedMulti, setCached } from '@/lib/cache';
 import type { QuickSummaryContent, DeepSummaryContent } from '@/types/database';
 
 const log = createLogger('feed');
-
-// Simple in-memory cache for source metadata (rarely changes)
-const sourceMetadataCache = new Map<string, { data: any; expiry: number }>();
-const SOURCE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export async function GET(request: NextRequest) {
   const user = await getAuthUser();
@@ -27,7 +24,7 @@ export async function GET(request: NextRequest) {
     const sourceType = searchParams.get('sourceType') as 'youtube' | 'podcast' | 'all' || 'all';
     const mode = searchParams.get('mode') as 'following' | 'latest' | 'mixed' || 'latest';
     const bookmarkedOnly = searchParams.get('bookmarked') === 'true';
-    const limit = parseInt(searchParams.get('limit') || '20', 10);
+    const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10) || 20, 100);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
     log.info('Fetching', { userId: user.id.slice(0, 8), sourceType, mode, limit, offset });
@@ -59,27 +56,35 @@ export async function GET(request: NextRequest) {
       podcastFeedUrl?: string;
     }>();
 
-    // Check cache first, collect uncached IDs
+    // Check Redis cache first, collect uncached IDs
+    const uniqueYt = [...new Set(youtubeSourceIds)];
+    const uniquePod = [...new Set(podcastSourceIds)];
+
+    const ytCacheKeys = uniqueYt.map(id => `src:yt:${id}`);
+    const podCacheKeys = uniquePod.map(id => `src:pod:${id}`);
+
+    const [ytCached, podCached] = await Promise.all([
+      ytCacheKeys.length > 0 ? getCachedMulti<{ sourceName: string; sourceArtwork: string }>(ytCacheKeys) : [],
+      podCacheKeys.length > 0 ? getCachedMulti<{ sourceName: string; sourceArtwork: string; sourceAppleId?: string; podcastFeedUrl?: string }>(podCacheKeys) : [],
+    ]);
+
     const uncachedYt: string[] = [];
     const uncachedPod: string[] = [];
-    const now = Date.now();
 
-    for (const id of [...new Set(youtubeSourceIds)]) {
-      const cached = sourceMetadataCache.get(id);
-      if (cached && cached.expiry > now) {
-        sourceMap.set(id, cached.data);
+    uniqueYt.forEach((id, i) => {
+      if (ytCached[i]) {
+        sourceMap.set(id, ytCached[i]!);
       } else {
         uncachedYt.push(id);
       }
-    }
-    for (const id of [...new Set(podcastSourceIds)]) {
-      const cached = sourceMetadataCache.get(id);
-      if (cached && cached.expiry > now) {
-        sourceMap.set(id, cached.data);
+    });
+    uniquePod.forEach((id, i) => {
+      if (podCached[i]) {
+        sourceMap.set(id, podCached[i]!);
       } else {
         uncachedPod.push(id);
       }
-    }
+    });
 
     // Batch fetch uncached sources in parallel
     const [ytChannels, podcastSources] = await Promise.all([
@@ -105,7 +110,7 @@ export async function GET(request: NextRequest) {
         sourceArtwork: ch.thumbnail_url || '',
       };
       sourceMap.set(ch.id, meta);
-      sourceMetadataCache.set(ch.id, { data: meta, expiry: now + SOURCE_CACHE_TTL });
+      setCached(`src:yt:${ch.id}`, meta, 3600);
     }
 
     for (const pod of podcastSources) {
@@ -116,7 +121,7 @@ export async function GET(request: NextRequest) {
         podcastFeedUrl: pod.rss_feed_url || undefined,
       };
       sourceMap.set(pod.id, meta);
-      sourceMetadataCache.set(pod.id, { data: meta, expiry: now + SOURCE_CACHE_TTL });
+      setCached(`src:pod:${pod.id}`, meta, 3600);
     }
 
     // --- Enrich with summary preview data ---

@@ -83,7 +83,7 @@ export function SummaryPanel({ episodeId, episodeTitle, onClose, onChapterClick,
 
     if (!isProcessing) return;
 
-    const interval = setInterval(fetchStatus, 2500);
+    const interval = setInterval(fetchStatus, 5000);
     return () => clearInterval(interval);
   }, [data, fetchStatus]);
 

@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getCached, setCached } from '@/lib/cache';
 import type { QuickSummaryContent, DeepSummaryContent } from '@/types/database';
 
 // Genre keywords (same as daily-mix)
@@ -40,6 +41,14 @@ export async function GET(request: NextRequest) {
   const keywords = GENRE_KEYWORDS[genreId] || [];
   if (keywords.length === 0) {
     return NextResponse.json({ episodes: [] });
+  }
+
+  const cacheKey = `discover:genre:${genreId}`;
+  const cached = await getCached<{ episodes: any[] }>(cacheKey);
+  if (cached) {
+    return NextResponse.json(cached, {
+      headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },
+    });
   }
 
   try {
@@ -162,7 +171,10 @@ export async function GET(request: NextRequest) {
       .slice(0, limit)
       .map(({ _score, ...ep }) => ep);
 
-    return NextResponse.json({ episodes: matching }, {
+    const result = { episodes: matching };
+    await setCached(cacheKey, result, 3600);
+
+    return NextResponse.json(result, {
       headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },
     });
   } catch (error) {

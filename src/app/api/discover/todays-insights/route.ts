@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getCached, setCached } from '@/lib/cache';
 import type { QuickSummaryContent, DeepSummaryContent, ActionItem, ChronologicalSection } from '@/types/database';
 import type { BriefItem, BriefCategory, TodaysBriefResponse } from '@/types/brief';
 
@@ -57,8 +58,14 @@ interface RawBriefItem extends Omit<BriefItem, 'source'> {
 
 export async function GET(request: NextRequest) {
   try {
-    const admin = createAdminClient();
     const lang = request.nextUrl.searchParams.get('lang')?.toLowerCase() || '';
+    const cacheKey = `discover:insights:${lang || 'all'}`;
+    const cached = await getCached<TodaysBriefResponse>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, { headers: CACHE_HEADERS });
+    }
+
+    const admin = createAdminClient();
 
     // 2a. Fallback query logic
     const today = new Date();
@@ -248,7 +255,10 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({ items, date: dataDate, isStale } satisfies TodaysBriefResponse, { headers: CACHE_HEADERS });
+    const result = { items, date: dataDate, isStale } satisfies TodaysBriefResponse;
+    await setCached(cacheKey, result, 1800);
+
+    return NextResponse.json(result, { headers: CACHE_HEADERS });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to get insights' },

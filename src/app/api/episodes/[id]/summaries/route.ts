@@ -226,6 +226,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         });
       } catch (err) {
         log.error('Background generation FAILED', { episodeId: id, level, error: String(err) });
+        try {
+          await createAdminClient()
+            .from('summaries')
+            .update({ status: 'failed', error_message: err instanceof Error ? err.message : String(err) })
+            .eq('episode_id', id)
+            .eq('level', level);
+        } catch (dbErr) {
+          log.error('Failed to write failure status', { error: String(dbErr) });
+        }
       }
     });
 

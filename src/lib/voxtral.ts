@@ -2,7 +2,7 @@ import { Mistral } from '@mistralai/mistralai';
 import type { DiarizedTranscript, Utterance } from '@/types/deepgram';
 import { createLogger } from '@/lib/logger';
 
-const log = createLogger('deepgram');
+const log = createLogger('voxtral');
 
 const client = new Mistral({
   apiKey: process.env.MISTRAL_API_KEY!,

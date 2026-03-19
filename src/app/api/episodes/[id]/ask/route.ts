@@ -10,6 +10,8 @@ import { createLogger } from "@/lib/logger";
 
 const log = createLogger('ask-ai');
 
+export const maxDuration = 60;
+
 // Separate Gemini instance for chat (plain text, not JSON)
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
 
@@ -90,6 +92,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         headers: { "Content-Type": "application/json" },
       });
     }
+    if (history) {
+      for (const msg of history) {
+        if (msg.role !== 'user' && msg.role !== 'model') {
+          return new Response(JSON.stringify({ error: 'Invalid history role' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+        }
+        if (typeof msg.text !== 'string' || msg.text.length > 10000) {
+          return new Response(JSON.stringify({ error: 'History message too long' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+        }
+      }
+    }
 
     // Build context
     const systemPrompt = await buildEpisodeContext(episodeId);
@@ -143,10 +155,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           controller.close();
         } catch (err) {
           log.error('Stream error', err);
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ error: "Stream interrupted" })}\n\n`)
-          );
-          controller.close();
+          controller.error(err instanceof Error ? err : new Error(String(err)));
         }
       },
     });

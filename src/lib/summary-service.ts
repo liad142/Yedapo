@@ -9,7 +9,7 @@ import type { YouTubeMetadata } from "@/lib/youtube/transcripts";
 import { ensureYouTubeMetadata } from "@/lib/youtube/metadata";
 import { acquireLock, releaseLock } from '@/lib/cache';
 import { repairJsonString } from '@/lib/json-repair';
-import { getModel, DEFAULT_MODELS } from '@/lib/gemini';
+import { getModel, DEFAULT_MODELS, withTimeout } from '@/lib/gemini';
 import type { DiarizedTranscript } from "@/types/deepgram";
 import type {
   SummaryLevel,
@@ -159,16 +159,20 @@ export async function identifySpeakers(transcript: DiarizedTranscript): Promise<
     // Use Flash model for speaker identification (fast, cheap task)
     const speakerModel = getModel('gemini-3-flash-preview');
 
-    const result = await speakerModel.generateContent(fullPrompt);
+    const result = await withTimeout(speakerModel.generateContent(fullPrompt), 30_000, 'identifySpeakers');
     const response = result.response;
     const text = response.text();
 
     // Parse JSON
     let jsonText = text.trim();
     if (!jsonText.startsWith('{')) {
-      const match = jsonText.match(/\{[\s\S]*\}/);
-      if (match) jsonText = match[0];
-      else throw new Error('No JSON found');
+      const first = jsonText.indexOf('{');
+      const last = jsonText.lastIndexOf('}');
+      if (first !== -1 && last !== -1 && last > first) {
+        jsonText = jsonText.slice(first, last + 1);
+      } else {
+        throw new Error('No JSON found');
+      }
     }
 
     const parsed = JSON.parse(jsonText);
@@ -958,10 +962,11 @@ export async function generateSummaryForLevel(
 
     // If response doesn't start with {, try to find JSON in the response
     if (!jsonText.startsWith('{')) {
-      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
+      const first = jsonText.indexOf('{');
+      const last = jsonText.lastIndexOf('}');
+      if (first !== -1 && last !== -1 && last > first) {
         log.info('Extracted JSON from wrapped response');
-        jsonText = jsonMatch[0];
+        jsonText = jsonText.slice(first, last + 1);
       } else {
         log.info('No JSON found in response', { responsePreview: text.substring(0, 500) });
         throw new Error('No JSON object found in response');
@@ -1182,7 +1187,7 @@ export async function requestSummary(
 
   // Acquire distributed lock to prevent duplicate generation
   const lockKey = `lock:summary:${episodeId}:${level}:${language}`;
-  const gotLock = await acquireLock(lockKey, 600); // 10 min TTL
+  const gotLock = await acquireLock(lockKey, 270); // 4.5 min TTL
   if (!gotLock) {
     log.info('Summary generation already in progress (locked)', { episodeId, level });
     return { status: 'transcribing' as SummaryStatus };

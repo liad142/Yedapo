@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requestInsights, getInsightsStatus } from "@/lib/insights-service";
 import { resolvePodcastLanguage } from "@/lib/language-utils";
@@ -8,6 +8,8 @@ import { isAdminEmail } from "@/lib/admin";
 import { getUserPlan } from "@/lib/user-plan";
 import { PLAN_LIMITS } from "@/lib/plans";
 import { createLogger } from "@/lib/logger";
+
+export const maxDuration = 300;
 
 const log = createLogger('insights');
 
@@ -105,18 +107,44 @@ export async function POST(
       ? { podcastTitle: podcastData.title, episodeTitle: episode.title }
       : undefined;
 
-    // Request insights generation - pass transcript URL for FREE transcription (Priority A) and metadata for Apple (Priority A+)
-    const result = await requestInsights(
-      episodeId,
-      episode.audio_url,
-      language || undefined,
-      episode.transcript_url || undefined,
-      metadata
-    );
+    // Eagerly upsert status as 'queued' so the client sees it immediately
+    await supabase
+      .from('summaries')
+      .upsert({
+        episode_id: episodeId,
+        level: 'insights',
+        language: language || 'en',
+        status: 'queued',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'episode_id,level,language' });
+
+    // Push generation into after() so the response returns immediately
+    const resolvedLanguage = language || undefined;
+    const audioUrl = episode.audio_url;
+    const transcriptUrl = episode.transcript_url || undefined;
+
+    after(async () => {
+      try {
+        await requestInsights(
+          episodeId,
+          audioUrl,
+          resolvedLanguage,
+          transcriptUrl,
+          metadata
+        );
+      } catch (err) {
+        log.error('Background insights generation failed', { episodeId, error: String(err) });
+        await createAdminClient()
+          .from('summaries')
+          .update({ status: 'failed', error_message: String(err) })
+          .eq('episode_id', episodeId)
+          .eq('level', 'insights');
+      }
+    });
 
     return NextResponse.json({
       episode_id: episodeId,
-      ...result
+      status: 'queued',
     });
   } catch (error) {
     console.error("Error generating insights:", error);

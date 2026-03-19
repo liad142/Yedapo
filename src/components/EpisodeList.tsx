@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { SafeImage } from '@/components/SafeImage';
 import { SummarizeButton } from '@/components/SummarizeButton';
@@ -52,10 +52,13 @@ export function EpisodeList({
   newEpisodesSince,
 }: EpisodeListProps) {
   // Hooks must be called before any early returns
-  const episodeProgressIds = episodes.map(ep => {
-    const info = getEpisodeSummaryInfo(ep);
-    return info?.episodeId || ep.id;
-  }).filter((id): id is string => !!id);
+  const episodeProgressIds = useMemo(() =>
+    episodes.map(ep => {
+      const info = getEpisodeSummaryInfo(ep);
+      return info?.episodeId || ep.id;
+    }).filter((id): id is string => !!id),
+    [episodes, getEpisodeSummaryInfo]
+  );
   const progressMap = useListeningProgressBatch(episodeProgressIds);
   const playerState = useAudioPlayerSafe();
 
@@ -185,7 +188,7 @@ interface EpisodeItemProps {
   progress: EpisodeProgress | null;
 }
 
-function EpisodeItem({
+const EpisodeItem = React.memo(function EpisodeItem({
   episode,
   summaryInfo,
   hasSummary,
@@ -349,7 +352,7 @@ function EpisodeItem({
       )}
     </div>
   );
-}
+});
 
 function ExpandableDescription({ text }: { text: string }) {
   const [isExpanded, setIsExpanded] = useState(false);

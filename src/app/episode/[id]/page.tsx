@@ -27,6 +27,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { YouTubeEmbed } from "@/components/YouTubeEmbed";
 import type { YouTubeEmbedRef } from "@/components/YouTubeEmbed";
 import { isYouTubeContent, extractYouTubeVideoId } from "@/lib/youtube/utils";
+import { createLogger } from '@/lib/logger';
+import { formatDate, formatDuration } from '@/lib/formatters';
+
+const log = createLogger('episode');
+const supabase = createClient();
 
 interface EpisodeData extends Episode {
   podcast?: Podcast;
@@ -39,7 +44,6 @@ interface SummariesData {
 
 export default function EpisodePage() {
   const params = useParams();
-  const supabase = createClient();
   const episodeId = params.id as string;
   const { user, setShowAuthModal } = useAuth();
 
@@ -81,7 +85,7 @@ export default function EpisodePage() {
         setSummaries(summariesData.summaries);
       }
     } catch (err) {
-      console.error("Error fetching episode:", err);
+      log.error("Error fetching episode", err);
       setError("Failed to load episode");
     } finally {
       setIsLoading(false);
@@ -93,26 +97,6 @@ export default function EpisodePage() {
       fetchEpisodeData();
     }
   }, [episodeId, fetchEpisodeData]);
-
-  const formatDuration = (seconds: number | null): string => {
-    if (!seconds) return "";
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    if (hours > 0) {
-      return `${hours} hr ${minutes} min`;
-    }
-    return `${minutes} min`;
-  };
-
-  const formatDate = (dateString: string | null): string => {
-    if (!dateString) return "";
-    return new Date(dateString).toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
 
   const hasSummaryReady = summaries?.quick?.status === 'ready' || summaries?.deep?.status === 'ready';
 

@@ -30,6 +30,7 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<Step>('welcome');
   const [selectedGenres, setSelectedGenres] = useState<Set<string>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // YouTube state
   const [ytChannels, setYtChannels] = useState<YouTubeChannel[]>([]);
@@ -204,12 +205,14 @@ export default function OnboardingPage() {
           onboarding_completed: true,
         }),
       });
+      if (!res.ok) throw new Error('Failed to save preferences');
       const data = await res.json();
       log.success('Profile saved', { genres: data.profile?.preferred_genres });
       setStep('done');
       posthog.capture('onboarding_completed');
     } catch (error) {
       log.error('Error saving preferences', error);
+      setSaveError('Failed to save your preferences. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -523,6 +526,12 @@ export default function OnboardingPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {saveError && (
+          <div className="mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-center">
+            <p className="text-sm text-destructive">{saveError}</p>
+          </div>
+        )}
       </div>
     </div>
   );

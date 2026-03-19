@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 
 import { useRouter } from 'next/navigation';
@@ -19,6 +19,9 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SignInPrompt } from '@/components/auth/SignInPrompt';
 import { useAuth } from '@/contexts/AuthContext';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('summary');
 
 interface EpisodeWithSummary {
   id: string;
@@ -126,7 +129,7 @@ export default function SummariesPage() {
       const data = await response.json();
       setEpisodes(data.episodes || []);
     } catch (err) {
-      console.error('Error fetching summaries:', err);
+      log.error('Error fetching summaries', err);
       if (!silent) setError('Failed to load summaries');
     } finally {
       if (!silent) setIsLoading(false);
@@ -173,7 +176,7 @@ export default function SummariesPage() {
         await fetchSummaries(true);
       }
     } catch (err) {
-      console.error('Retry failed:', err);
+      log.error('Retry failed', err);
     } finally {
       setRetryingIds(prev => {
         const next = new Set(prev);
@@ -191,7 +194,7 @@ export default function SummariesPage() {
         await fetchSummaries(true);
       }
     } catch (err) {
-      console.error('Cancel failed:', err);
+      log.error('Cancel failed', err);
     } finally {
       setRetryingIds(prev => {
         const next = new Set(prev);
@@ -202,7 +205,7 @@ export default function SummariesPage() {
   };
 
   // Filter episodes by search query
-  const filteredEpisodes = episodes.filter(episode => {
+  const filteredEpisodes = useMemo(() => episodes.filter(episode => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
@@ -210,7 +213,7 @@ export default function SummariesPage() {
       episode.podcast?.title.toLowerCase().includes(query) ||
       episode.description?.toLowerCase().includes(query)
     );
-  });
+  }), [episodes, searchQuery]);
 
   if (authLoading) {
     return (
@@ -326,7 +329,7 @@ export default function SummariesPage() {
         ) : error ? (
           <div className="text-center py-12">
             <p className="text-destructive mb-4">{error}</p>
-            <Button variant="outline" onClick={() => window.location.reload()}>
+            <Button variant="outline" onClick={() => fetchSummaries()}>
               Try Again
             </Button>
           </div>

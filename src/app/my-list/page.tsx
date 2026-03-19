@@ -14,6 +14,9 @@ import { SignInPrompt } from '@/components/auth/SignInPrompt';
 import { Toast } from '@/components/ui/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('profile');
 
 type ListTab = 'podcasts' | 'youtube';
 
@@ -88,6 +91,14 @@ function MyListContent() {
   const podcastUndoTimerRef = useRef<NodeJS.Timeout | null>(null);
   const channelUndoTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Clean up undo timers on unmount
+  useEffect(() => {
+    return () => {
+      if (podcastUndoTimerRef.current) clearTimeout(podcastUndoTimerRef.current);
+      if (channelUndoTimerRef.current) clearTimeout(channelUndoTimerRef.current);
+    };
+  }, []);
+
   const fetchPodcasts = useCallback(async () => {
     if (!user) return;
     setPodcastsLoading(true);
@@ -98,7 +109,7 @@ function MyListContent() {
       const data = await res.json();
       setPodcasts(data.podcasts || []);
     } catch (err) {
-      console.error('Error fetching subscriptions:', err);
+      log.error('Error fetching subscriptions', err);
       setPodcastsError('Failed to load your podcasts');
     } finally {
       setPodcastsLoading(false);
@@ -115,7 +126,7 @@ function MyListContent() {
       const data = await res.json();
       setChannels(data.channels || []);
     } catch (err) {
-      console.error('Error fetching channels:', err);
+      log.error('Error fetching channels', err);
       setChannelsError('Failed to load your channels');
     } finally {
       setChannelsLoading(false);
@@ -152,7 +163,7 @@ function MyListContent() {
         const res = await fetch(`/api/subscriptions/${podcastId}`, { method: 'DELETE' });
         if (!res.ok) throw new Error('Failed to unsubscribe');
       } catch (err) {
-        console.error('Error unsubscribing:', err);
+        log.error('Error unsubscribing', err);
         // Restore on failure
         setPodcasts(prev => [...prev, item]);
       }
@@ -181,7 +192,7 @@ function MyListContent() {
         const res = await fetch(`/api/youtube/channels/${channel.id}/unfollow`, { method: 'DELETE' });
         if (!res.ok) throw new Error('Failed to unfollow');
       } catch (err) {
-        console.error('Error unfollowing:', err);
+        log.error('Error unfollowing', err);
         // Restore on failure
         setChannels(prev => [...prev, channel]);
       }
@@ -361,6 +372,7 @@ function PodcastsTab({
   onUnsubscribe: (id: string) => void;
   onRetry: () => void;
 }) {
+  const router = useRouter();
   if (isLoading) {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
@@ -390,7 +402,7 @@ function PodcastsTab({
         title="No subscribed podcasts"
         description="Click the heart icon on any podcast to add it to your collection."
         actionLabel="Discover Podcasts"
-        onAction={() => window.location.href = '/discover'}
+        onAction={() => router.push('/discover')}
       />
     );
   }
@@ -423,6 +435,7 @@ function YouTubeTab({
   onUnfollow: (channel: FollowedChannel) => void;
   onRetry: () => void;
 }) {
+  const router = useRouter();
   if (isLoading) {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
@@ -455,7 +468,7 @@ function YouTubeTab({
         title="No followed channels"
         description="Search for YouTube channels in Discover and follow them to see them here."
         actionLabel="Discover Channels"
-        onAction={() => window.location.href = '/discover'}
+        onAction={() => router.push('/discover')}
       />
     );
   }

@@ -204,9 +204,9 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
         if (!isMountedRef.current) return;
         const quick = data.summaries?.quick;
         const deep = data.summaries?.deep;
-        const summaryStatus = quick?.status || deep?.status;
 
-        if (summaryStatus === 'ready') {
+        // Only redirect when DEEP summary is ready — that's the full experience
+        if (deep?.status === 'ready') {
           setLocalSummaryStatus('ready');
           // Brief delay so the user sees the completion animation
           setTimeout(() => {
@@ -214,13 +214,17 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
           }, 800);
           return;
         }
-        if (summaryStatus === 'failed') {
+        // Both failed = failed
+        if (deep?.status === 'failed' && (!quick || quick.status === 'failed' || quick.status === 'ready')) {
           setLocalSummaryStatus('failed');
           return;
         }
-        if (summaryStatus === 'summarizing') {
+        // Show progress based on the current stage
+        if (deep?.status === 'summarizing' || quick?.status === 'summarizing') {
           setLocalSummaryStatus('summarizing');
-        } else if (summaryStatus === 'transcribing' || data.transcript?.status === 'processing') {
+        } else if (deep?.status === 'transcribing' || quick?.status === 'transcribing' || data.transcript?.status === 'processing') {
+          setLocalSummaryStatus('transcribing');
+        } else if (deep?.status === 'queued' || quick?.status === 'queued') {
           setLocalSummaryStatus('transcribing');
         }
         pollRef.current = setTimeout(poll, 4000 + Math.random() * 2000);
@@ -381,20 +385,18 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
           const data = await res.json();
           setLocalEpisodeId(data.episodeId);
 
-          // If already ready (cached), redirect immediately
-          if (data.summary?.status === 'ready') {
-            setLocalSummaryStatus('ready');
-            setTimeout(() => router.push(`/episode/${data.episodeId}/insights`), 800);
+          // Start polling — only redirect when deep summary is ready (full experience)
+          // Even if quick is cached/ready, deep may still be generating
+          const status = data.summary?.status;
+          if (status === 'summarizing') {
+            setLocalSummaryStatus('summarizing');
+          } else if (status === 'ready') {
+            // Quick may be ready but we need deep — poll to check
+            setLocalSummaryStatus('summarizing');
           } else {
-            // Set initial status from API response, then poll
-            const status = data.summary?.status;
-            if (status === 'summarizing') {
-              setLocalSummaryStatus('summarizing');
-            } else {
-              setLocalSummaryStatus('transcribing');
-            }
-            pollYouTubeStatus(data.episodeId);
+            setLocalSummaryStatus('transcribing');
           }
+          pollYouTubeStatus(data.episodeId);
         } else {
           const errBody = await res.json().catch(() => ({}));
           setLocalSummaryStatus('failed');

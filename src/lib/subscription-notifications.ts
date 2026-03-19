@@ -74,14 +74,21 @@ export async function checkNewPodcastEpisodes(): Promise<{
     podcastGroups.set(sub.podcast_id, group);
   }
 
+  // UUID v4 pattern — filter out invalid user_ids like 'anonymous-user'
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   for (const [podcastId, subscribers] of podcastGroups) {
     try {
       // Use the earliest last_checked_at among subscribers as our cursor
       const earliestChecked = getEarliestChecked(subscribers);
 
+      // Pick a subscriber with a valid UUID user_id for the feed refresh.
+      // Invalid user_ids (e.g., 'anonymous-user') crash feed_items upsert.
+      const validSubscriber = subscribers.find(s => UUID_RE.test(s.user_id));
+      const feedUserId = validSubscriber?.user_id || subscribers[0].user_id;
+
       // Refresh the podcast feed (this imports new episodes into the episodes table)
-      // We use the first subscriber's user_id for the feed_items population
-      await refreshSinglePodcastFeed(subscribers[0].user_id, podcastId);
+      await refreshSinglePodcastFeed(feedUserId, podcastId);
 
       // Find new episodes since earliest last_checked_at
       const { data: newEpisodes, error: epError } = await supabase
@@ -494,6 +501,7 @@ async function maybeQueueAutoSummary(
       }
     } else {
       log.error('Auto-summary trigger failed', { episodeId, status: res.status });
+      return 0;
     }
 
     return 1;

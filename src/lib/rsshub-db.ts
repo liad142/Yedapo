@@ -404,6 +404,7 @@ async function populatePodcastFeedItems(
           audio_url: ep.audio_url,
           duration_seconds: ep.duration_seconds,
           published_at: ep.published_at ? new Date(ep.published_at).toISOString() : new Date().toISOString(),
+          transcript_url: ep.transcript_url || null,
         })
         .select('id')
         .single();
@@ -427,7 +428,13 @@ async function populatePodcastFeedItems(
   }
 
   if (feedItems.length > 0) {
-    await upsertFeedItems(feedItems);
+    // Wrap in try-catch: feed_items are nice-to-have for the user's feed,
+    // but failures (e.g., invalid userId) must NOT crash the entire episode import.
+    try {
+      await upsertFeedItems(feedItems);
+    } catch (err) {
+      console.error('Feed items upsert failed (non-fatal):', err instanceof Error ? err.message : err);
+    }
 
     // Update podcasts.latest_episode_date so My List badge works
     const latestDate = feedItems.reduce((max, item) => {

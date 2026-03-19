@@ -60,7 +60,8 @@ export async function POST(request: NextRequest) {
 
       if (Array.isArray(episode.summaries)) {
         for (const summary of episode.summaries) {
-          if (summary.level === 'deep') {
+          // Check both quick and deep summaries — either means the episode has been summarized
+          if (summary.level === 'deep' || summary.level === 'quick') {
             const priority = statusPriority[summary.status] || 0;
             if (priority > bestPriority) {
               bestPriority = priority;

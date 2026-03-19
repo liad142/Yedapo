@@ -306,7 +306,8 @@ export async function getInsightsStatus(episodeId: string, language = 'en') {
   }
 
   // Fetch insights, summaries, and YouTube metadata in parallel
-  const [{ data: insights }, { data: summaries }, { data: ytMetadata }, { data: episodeRow }] = await Promise.all([
+  // First try with detected language, then fall back to any language if no results
+  const [{ data: insights }, { data: summariesByLang }, { data: ytMetadata }, { data: episodeRow }] = await Promise.all([
     supabase
       .from('summaries')
       .select('id, episode_id, level, status, language, content_json, updated_at')
@@ -331,6 +332,20 @@ export async function getInsightsStatus(episodeId: string, language = 'en') {
       .eq('id', episodeId)
       .single(),
   ]);
+
+  // Fall back to summaries in ANY language if language-specific query returned nothing
+  // This handles the mismatch between transcript-detected language and summary-stored language
+  let summaries = summariesByLang;
+  if ((!summaries || summaries.length === 0) && actualLanguage !== 'en') {
+    const { data: fallbackSummaries } = await supabase
+      .from('summaries')
+      .select('id, episode_id, level, status, language, content_json, updated_at')
+      .eq('episode_id', episodeId)
+      .in('level', ['quick', 'deep']);
+    if (fallbackSummaries && fallbackSummaries.length > 0) {
+      summaries = fallbackSummaries;
+    }
+  }
 
   const quick = summaries?.find(s => s.level === 'quick');
   const deep = summaries?.find(s => s.level === 'deep');

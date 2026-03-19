@@ -15,6 +15,11 @@ import { YouTubeLogo } from "@/components/YouTubeLogo";
 import { InlinePlayButton } from "@/components/PlayButton";
 import { YouTubeEmbed, type YouTubeEmbedRef } from "@/components/YouTubeEmbed";
 import { isYouTubeContent, extractYouTubeVideoId, getYouTubeThumbnail } from "@/lib/youtube/utils";
+import { createLogger } from '@/lib/logger';
+import { formatDate, formatDuration } from '@/lib/formatters';
+
+const log = createLogger('insights');
+const supabase = createClient();
 
 interface EpisodeData extends Episode {
   podcast?: Podcast;
@@ -23,7 +28,6 @@ interface EpisodeData extends Episode {
 export default function EpisodeInsightsPage() {
   const params = useParams();
   const router = useRouter();
-  const supabase = createClient();
   const episodeId = params.id as string;
 
   const [episode, setEpisode] = useState<EpisodeData | null>(null);
@@ -66,21 +70,16 @@ export default function EpisodeInsightsPage() {
       setIsLoading(true);
       setError(null);
 
-      // Fetch episode details
+      // Fetch episode + podcast in one query via join
       const { data: episodeData, error: episodeError } = await supabase
         .from("episodes")
-        .select("*")
+        .select("*, podcasts(*)")
         .eq("id", episodeId)
         .single();
 
       if (episodeError) throw episodeError;
 
-      // Fetch podcast details
-      const { data: podcastData } = await supabase
-        .from("podcasts")
-        .select("*")
-        .eq("id", episodeData.podcast_id)
-        .single();
+      const podcastData = episodeData.podcasts;
 
       setEpisode({
         ...episodeData,
@@ -88,7 +87,7 @@ export default function EpisodeInsightsPage() {
       });
       posthog.capture('insights_viewed', { episode_id: episodeId, podcast_name: podcastData?.title });
     } catch (err) {
-      console.error("Error fetching episode:", err);
+      log.error("Error fetching episode", err);
       setError("Failed to load episode");
     } finally {
       setIsLoading(false);
@@ -106,25 +105,6 @@ export default function EpisodeInsightsPage() {
     if (!episode?.podcast_id) return;
     fetch(`/api/subscriptions/${episode.podcast_id}`, { method: 'PATCH' }).catch(() => {});
   }, [episode?.podcast_id]);
-
-  const formatDuration = (seconds: number | null): string => {
-    if (!seconds) return "";
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    }
-    return `${minutes}m`;
-  };
-
-  const formatDate = (dateString: string | null): string => {
-    if (!dateString) return "";
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
 
   const isYouTube = isYouTubeContent(episode?.podcast);
 

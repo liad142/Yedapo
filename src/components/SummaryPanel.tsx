@@ -30,6 +30,9 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserPlan } from "@/hooks/useUserPlan";
 import { useUsage } from "@/contexts/UsageContext";
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('summary');
 import { PaywallOverlay, PaywallList } from "@/components/PaywallOverlay";
 import { getTimeUntilReset } from "@/lib/time-utils";
 
@@ -62,7 +65,7 @@ export function SummaryPanel({ episodeId, episodeTitle, onClose, onChapterClick,
       setData(result);
       return result;
     } catch (err) {
-      console.error('Error fetching summaries:', err);
+      log.error('Error fetching summaries', err);
       setError('Failed to load summaries');
       return null;
     } finally {

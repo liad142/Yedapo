@@ -19,7 +19,10 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCountry } from '@/contexts/CountryContext';
 import { cn, stripHtml } from '@/lib/utils';
+import { createLogger } from '@/lib/logger';
 import type { PodcastDetailEpisode } from '@/types/podcast';
+
+const log = createLogger('podcast');
 
 interface BrowsePodcast {
   id: string;
@@ -116,7 +119,7 @@ export default function PodcastPage({ params }: PageProps) {
       const data = await response.json();
       setPodcast(data.podcast);
     } catch (err) {
-      console.error('Error fetching podcast:', err);
+      log.error('Error fetching podcast', err);
       setError('Failed to load podcast details');
     } finally {
       setIsLoadingPodcast(false);
@@ -138,7 +141,7 @@ export default function PodcastPage({ params }: PageProps) {
       setHasMore(data.hasMore ?? false);
       setTotalCount(data.totalCount ?? data.episodes?.length ?? 0);
     } catch (err) {
-      console.error('Error fetching episodes:', err);
+      log.error('Error fetching episodes', err);
     } finally {
       setIsLoadingEpisodes(false);
     }
@@ -157,7 +160,7 @@ export default function PodcastPage({ params }: PageProps) {
       setHasMore(data.hasMore ?? false);
       setTotalCount(data.totalCount ?? totalCount);
     } catch (err) {
-      console.error('Error loading more episodes:', err);
+      log.error('Error loading more episodes', err);
     } finally {
       setIsLoadingMore(false);
     }

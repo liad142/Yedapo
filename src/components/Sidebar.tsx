@@ -23,6 +23,12 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const ROOT_PATHS = ['/', '/discover', '/my-list', '/my-podcasts', '/summaries', '/settings', '/onboarding'];
 
+function isNavActive(pathname: string, href: string): boolean {
+  if (href === '/discover') return pathname === '/discover' || pathname === '/';
+  if (href === '/my-list') return pathname === '/my-list' || pathname === '/my-podcasts';
+  return pathname.startsWith(href);
+}
+
 // Navigation configuration - easy to edit
 const NAV_ITEMS = [
   { label: 'Discover', href: '/discover', icon: Compass },
@@ -140,16 +146,6 @@ function SidebarContent({ onNavigate, unreadCount = 0, newEpisodeCount = 0, show
   const router = useRouter();
   const { user, setGuestGateTab, setShowAuthModal } = useAuth();
 
-  const isActive = (href: string) => {
-    if (href === '/discover') {
-      return pathname === '/discover' || pathname === '/';
-    }
-    if (href === '/my-list') {
-      return pathname === '/my-list' || pathname === '/my-podcasts';
-    }
-    return pathname.startsWith(href);
-  };
-
   const isRoot = ROOT_PATHS.some(p => pathname === p);
 
   return (
@@ -188,7 +184,7 @@ function SidebarContent({ onNavigate, unreadCount = 0, newEpisodeCount = 0, show
           <NavItem
             key={item.href}
             item={item}
-            isActive={isActive(item.href)}
+            isActive={isNavActive(pathname, item.href)}
             onClick={(e) => {
               const GATED = ['/my-list', '/summaries', '/settings'];
               if (!user && GATED.includes(item.href)) {
@@ -304,14 +300,6 @@ function MobileDrawer({
   );
 }
 
-// Mobile bottom navigation bar items (shorter labels for compact display)
-const BOTTOM_NAV_ITEMS = [
-  { label: 'Discover', href: '/discover', icon: Compass },
-  { label: 'My List', href: '/my-list', icon: Library },
-  { label: 'Summaries', href: '/summaries', icon: BookOpen },
-  { label: 'Settings', href: '/settings', icon: Settings },
-] as const;
-
 const GATED_TAB_MESSAGES: Record<string, string> = {
   '/my-list': 'Sign up to save podcasts, track new episodes, and build your personal feed.',
   '/summaries': 'Create an account to generate summaries, key insights, and chapter breakdowns.',
@@ -322,25 +310,15 @@ function MobileBottomNav({ newEpisodeCount = 0 }: { newEpisodeCount?: number }) 
   const pathname = usePathname();
   const { user, setGuestGateTab } = useAuth();
 
-  const isActive = (href: string) => {
-    if (href === '/discover') {
-      return pathname === '/discover' || pathname === '/';
-    }
-    if (href === '/my-list') {
-      return pathname === '/my-list' || pathname === '/my-podcasts';
-    }
-    return pathname.startsWith(href);
-  };
-
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-30 bg-background border-t border-border h-14 lg:hidden"
       aria-label="Mobile navigation"
     >
       <div className="flex items-center justify-around h-full px-2">
-        {BOTTOM_NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
-          const active = isActive(item.href);
+          const active = isNavActive(pathname, item.href);
           const badge = item.href === '/my-list' ? newEpisodeCount : 0;
           return (
             <Link

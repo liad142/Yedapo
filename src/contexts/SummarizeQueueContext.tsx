@@ -54,6 +54,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
   const processingRef = useRef(false);
   const tabVisibleRef = useRef(true);
   const pendingPollRef = useRef<{ episodeId: string; pollCount: number; startTime: number } | null>(null);
+  const startProcessingRef = useRef<((id: string) => Promise<void>) | null>(null);
 
   // Track tab visibility — pause polling when tab is hidden
   useEffect(() => {
@@ -116,6 +117,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
   }, []);
 
   const finishProcessing = useCallback(() => {
+    if (pollingRef.current) { clearTimeout(pollingRef.current); pollingRef.current = null; }
     processingRef.current = false;
     setProcessingId(null);
     pendingPollRef.current = null;
@@ -128,7 +130,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
       const nextItem = currentQueue.find(item => item.state === 'queued');
       if (nextItem) {
         setTimeout(() => {
-          startProcessingEpisode(nextItem.episodeId);
+          startProcessingRef.current?.(nextItem.episodeId);
         }, 0);
       }
       return currentQueue;
@@ -200,7 +202,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
           if (item && item.retryCount < MAX_RETRIES) {
             log.warn('Retrying', { episodeId, retryCount: item.retryCount + 1 });
             updateQueueItem(episodeId, { retryCount: item.retryCount + 1, state: 'transcribing' });
-            setTimeout(() => startProcessingEpisode(episodeId), RETRY_DELAY);
+            setTimeout(() => startProcessingRef.current?.(episodeId), RETRY_DELAY);
           } else {
             log.error('Max retries reached', { episodeId });
             setStats(prev => ({ ...prev, failed: prev.failed + 1 }));
@@ -277,7 +279,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
         const item = currentQueue.find(i => i.episodeId === episodeId);
         if (item && item.retryCount < MAX_RETRIES) {
           updateQueueItem(episodeId, { retryCount: item.retryCount + 1 });
-          setTimeout(() => startProcessingEpisode(episodeId), RETRY_DELAY);
+          setTimeout(() => startProcessingRef.current?.(episodeId), RETRY_DELAY);
         } else {
           updateQueueItem(episodeId, { state: 'failed', error: 'Failed to start processing' });
           setStats(prev => ({ ...prev, failed: prev.failed + 1 }));
@@ -288,6 +290,8 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
       });
     }
   }, [pollStatus, updateQueueItem, processNext, pollLoop, finishProcessing]);
+
+  useEffect(() => { startProcessingRef.current = startProcessingEpisode; }, [startProcessingEpisode]);
 
   useEffect(() => {
     if (!processingId && queue.some(item => item.state === 'queued')) {

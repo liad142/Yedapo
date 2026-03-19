@@ -48,6 +48,8 @@ export default function YouTubeChannelPage({ params }: PageProps) {
         setVideos(data.videos || []);
         setIsFollowing(data.isFollowing || false);
         if (data.channelDbId) setChannelDbId(data.channelDbId);
+        if (data.notifyEnabled !== undefined) setNotifyEnabled(data.notifyEnabled);
+        if (data.notifyChannels) setNotifyChannels(data.notifyChannels);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load channel');
       } finally {

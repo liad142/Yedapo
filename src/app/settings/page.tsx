@@ -21,6 +21,7 @@ import { APPLE_PODCAST_GENRES, APPLE_PODCAST_COUNTRIES } from '@/types/apple-pod
 import { Toast } from '@/components/ui/toast';
 import { useUsage } from '@/contexts/UsageContext';
 import { UsageMeter } from '@/components/UsageMeter';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { YouTubeChannelCard } from '@/components/onboarding/YouTubeChannelCard';
 import { TelegramConnectFlow } from '@/components/insights/TelegramConnectFlow';
 import {
@@ -79,6 +80,7 @@ export default function SettingsPage() {
   const { user, isLoading: authLoading, signOut, setShowAuthModal } = useAuth();
   const { setCountry } = useCountry();
   const { usage } = useUsage();
+  const isAdmin = useIsAdmin();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
@@ -152,7 +154,8 @@ export default function SettingsPage() {
       });
       // Update local state
       if (!currentEnabled) {
-        // Was off, now on — shouldn't happen since we only show enabled subs
+        // Was off, now on — refresh the full list to get updated subscription data
+        await fetchNotifications();
       } else {
         // Was on, now off — remove from list
         setNotifSubs(prev => prev.filter(s => s.podcastId !== podcastId));
@@ -182,11 +185,12 @@ export default function SettingsPage() {
       setIsLoadingProfile(true);
       try {
         const res = await fetch('/api/user/profile');
-        if (res.ok) {
-          const data = await res.json();
-          setProfile(data.profile);
-          setSelectedGenres(new Set(data.profile?.preferred_genres || []));
-        }
+        if (!res.ok) throw new Error('Failed to load profile');
+        const data = await res.json();
+        setProfile(data.profile);
+        setSelectedGenres(new Set(data.profile?.preferred_genres || []));
+      } catch {
+        setErrorToast('Failed to load profile.');
       } finally { setIsLoadingProfile(false); }
     };
     fetch_();
@@ -263,6 +267,7 @@ export default function SettingsPage() {
     setYtImportDone(false);
     try {
       const res = await fetch('/api/youtube/subscriptions');
+      if (!res.ok) throw new Error('Failed to fetch YouTube subscriptions');
       const data = await res.json();
       const subs: { channelId: string; title: string; description: string; thumbnailUrl: string }[] = data.subscriptions || [];
       setYtChannels(subs);
@@ -279,11 +284,12 @@ export default function SettingsPage() {
     setIsImportingYt(true);
     try {
       const channelsToImport = ytChannels.filter(ch => selectedYtChannels.has(ch.channelId));
-      await fetch('/api/youtube/subscriptions/import', {
+      const res = await fetch('/api/youtube/subscriptions/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ channels: channelsToImport }),
       });
+      if (!res.ok) throw new Error('Failed to import YouTube channels');
       posthog.capture('settings_youtube_imported', { count: channelsToImport.length });
       setYtImportDone(true);
     } catch {
@@ -673,7 +679,7 @@ export default function SettingsPage() {
         </section>
 
         {/* ── ADMIN ── */}
-        {user?.email === 'liad142@gmail.com' && (
+        {isAdmin && (
           <section>
             <SectionLabel>Administration</SectionLabel>
             <div className="mt-3 rounded-2xl border border-border bg-card p-5">

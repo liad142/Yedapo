@@ -166,11 +166,15 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
   const [isToggling, setIsToggling] = useState(false);
   const [localSummaryStatus, setLocalSummaryStatus] = useState(summaryStatus);
   const [localEpisodeId, setLocalEpisodeId] = useState(episodeId);
+  const [localError, setLocalError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
 
   // Cleanup polling on unmount
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       if (pollRef.current) clearTimeout(pollRef.current);
     };
   }, []);
@@ -181,18 +185,21 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
     const maxAttempts = 120; // ~10 min max with 5s intervals
 
     const poll = async () => {
+      if (!isMountedRef.current) return;
       attempts++;
       if (attempts > maxAttempts) {
-        setLocalSummaryStatus('failed');
+        if (isMountedRef.current) setLocalSummaryStatus('failed');
         return;
       }
       try {
         const res = await fetch(`/api/episodes/${epId}/summaries`);
+        if (!isMountedRef.current) return;
         if (!res.ok) {
           pollRef.current = setTimeout(poll, 5000);
           return;
         }
         const data = await res.json();
+        if (!isMountedRef.current) return;
         const quick = data.summaries?.quick;
         const deep = data.summaries?.deep;
         const summaryStatus = quick?.status || deep?.status;
@@ -201,7 +208,7 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
           setLocalSummaryStatus('ready');
           // Brief delay so the user sees the completion animation
           setTimeout(() => {
-            router.push(`/episode/${epId}/insights`);
+            if (isMountedRef.current) router.push(`/episode/${epId}/insights`);
           }, 800);
           return;
         }
@@ -216,7 +223,7 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
         }
         pollRef.current = setTimeout(poll, 4000 + Math.random() * 2000);
       } catch {
-        pollRef.current = setTimeout(poll, 5000);
+        if (isMountedRef.current) pollRef.current = setTimeout(poll, 5000);
       }
     };
     poll();
@@ -305,6 +312,7 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
   const handleSummarize = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    setLocalError(null);
 
     if (localEpisodeId && localSummaryStatus === 'ready') {
       router.push(`/episode/${localEpisodeId}/insights`);
@@ -363,10 +371,19 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
             pollYouTubeStatus(data.episodeId);
           }
         } else {
+          const errBody = await res.json().catch(() => ({}));
           setLocalSummaryStatus('failed');
+          if (res.status === 429) {
+            setLocalError(errBody.message || 'Daily limit reached. Try again tomorrow.');
+          } else if (res.status === 403) {
+            setLocalError('Sign in required to summarize content.');
+          } else {
+            setLocalError(errBody.message || 'Failed to summarize. Please try again.');
+          }
         }
       } catch {
         setLocalSummaryStatus('failed');
+        setLocalError('Network error. Please check your connection.');
       }
     }
   };
@@ -632,6 +649,11 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
           <InlinePlayButton track={track} />
         ) : null}
       </div>
+
+      {/* Error message */}
+      {localError && localSummaryStatus === 'failed' && (
+        <p className="text-xs text-destructive mt-1.5">{localError}</p>
+      )}
     </motion.article>
   );
 });

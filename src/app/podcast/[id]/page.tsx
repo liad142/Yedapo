@@ -30,12 +30,16 @@ export default function PodcastPage() {
   const supabase = createClient();
   const podcastId = params.id as string;
 
-  const { user } = useAuth();
+  const { user, setShowAuthModal } = useAuth();
   const { subscribedPodcastIds, subscribe, unsubscribe, getNotificationPrefs, updateNotificationPrefs } = useSubscription();
   const isSubscribed = subscribedPodcastIds?.has(podcastId) ?? false;
   const [isTogglingSubscription, setIsTogglingSubscription] = useState(false);
 
   const handleToggleSubscription = async () => {
+    if (!user) {
+      setShowAuthModal(true, 'Sign in to follow podcasts');
+      return;
+    }
     setIsTogglingSubscription(true);
     try {
       if (isSubscribed) {
@@ -80,6 +84,8 @@ export default function PodcastPage() {
 
   // Load podcast AND episodes together to avoid timing issues
   useEffect(() => {
+    let cancelled = false;
+
     async function loadAll() {
       if (!podcastId) return;
 
@@ -96,8 +102,8 @@ export default function PodcastPage() {
           .single();
 
         if (podcastError) throw podcastError;
+        if (cancelled) return;
         setPodcast(podcastData);
-        setIsLoading(false);
 
         // 2. Determine Apple ID — if this is an Apple podcast, redirect to the
         //    browse page which shows the full episode catalogue from the API.
@@ -105,25 +111,29 @@ export default function PodcastPage() {
         const resolvedAppleId = isApplePodcast
           ? podcastData.rss_feed_url.replace('apple:', '')
           : null;
+        if (cancelled) return;
         setAppleId(resolvedAppleId);
 
         if (resolvedAppleId) {
-          // Redirect to the browse page for the full episode list
+          // Redirect to the browse page for the full episode list — keep loading
+          // state true to prevent a flash of the podcast UI before navigation.
           router.replace(`/browse/podcast/${resolvedAppleId}`);
           return;
         }
 
+        setIsLoading(false);
         log.info('Loading episodes', { podcastId, isApplePodcast: false });
 
         // Non-Apple podcast — fetch from local DB
         await fetchLocalEpisodes(podcastData);
 
       } catch (err) {
+        if (cancelled) return;
         log.error('Error loading podcast', err);
         setError("Failed to load podcast");
         setIsLoading(false);
       } finally {
-        setIsLoadingEpisodes(false);
+        if (!cancelled) setIsLoadingEpisodes(false);
       }
     }
 
@@ -136,7 +146,7 @@ export default function PodcastPage() {
 
       if (dbError) {
         log.error('DB episodes error', dbError);
-        setEpisodes([]);
+        if (!cancelled) setEpisodes([]);
         return;
       }
 
@@ -154,10 +164,11 @@ export default function PodcastPage() {
         isFromDb: true,
       }));
 
-      setEpisodes(mappedEpisodes);
+      if (!cancelled) setEpisodes(mappedEpisodes);
     }
 
     loadAll();
+    return () => { cancelled = true; };
   }, [podcastId]);
 
   const handleLoadMore = async () => {

@@ -52,15 +52,9 @@ interface FeedEpisode {
   primaryGenre?: string;
 }
 
-// Memoized artwork URL transformer to avoid repeated string operations
-const artworkCache = new Map<string, string>();
 function getHighResArtwork(url: string | undefined): string {
   if (!url) return '';
-  const cached = artworkCache.get(url);
-  if (cached) return cached;
-  const highRes = url.replace('100x100', '600x600');
-  artworkCache.set(url, highRes);
-  return highRes;
+  return url.replace('100x100', '600x600');
 }
 
 function mapEpisodes(results: any[], podcasts: ApplePodcast[], subscribedAppleIds: Set<string>, startRank: number = 0): FeedEpisode[] {

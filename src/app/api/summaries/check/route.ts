@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createLogger } from '@/lib/logger';
+import { checkRateLimit } from '@/lib/cache';
 
 const log = createLogger('summary');
 
@@ -18,6 +19,10 @@ interface SummaryAvailability {
 }
 
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rlAllowed = await checkRateLimit(`summaries-check:${ip}`, 30, 60);
+  if (!rlAllowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+
   try {
     const body: CheckSummariesRequest = await request.json();
     const { audioUrls } = body;

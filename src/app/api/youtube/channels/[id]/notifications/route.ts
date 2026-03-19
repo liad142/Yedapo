@@ -22,6 +22,10 @@ export async function PATCH(
       updateData.notify_enabled = body.notifyEnabled;
     }
     if (Array.isArray(body.notifyChannels)) {
+      const VALID_CHANNELS = ['email', 'telegram', 'in-app'];
+      if (!body.notifyChannels.every((c: string) => VALID_CHANNELS.includes(c))) {
+        return NextResponse.json({ error: 'Invalid notification channel' }, { status: 400 });
+      }
       updateData.notify_channels = body.notifyChannels;
     }
 

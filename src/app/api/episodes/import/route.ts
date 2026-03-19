@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAuthUser } from '@/lib/auth-helpers';
+import { checkRateLimit } from '@/lib/cache';
 
 interface ImportEpisodeRequest {
   episode: {
@@ -26,6 +27,9 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const rlAllowed = await checkRateLimit(`episodes-import:${user.id}`, 30, 60);
+    if (!rlAllowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
 
     const body: ImportEpisodeRequest = await request.json();
     const { episode, podcast } = body;
@@ -144,10 +148,11 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!existingEpisode && episode.audioUrl) {
-      // Also check by audio URL
+      // Also check by audio URL (scoped to same podcast)
       const { data: episodeByAudio } = await supabase
         .from('episodes')
         .select('id')
+        .eq('podcast_id', podcastId)
         .eq('audio_url', episode.audioUrl)
         .single();
 

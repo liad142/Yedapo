@@ -229,7 +229,8 @@ export const CacheTTL = {
 export async function checkRateLimit(
   identifier: string,
   maxRequests: number = 30,
-  windowSeconds: number = 60
+  windowSeconds: number = 60,
+  failOpen: boolean = true
 ): Promise<boolean> {
   try {
     const client = getRedis();
@@ -246,8 +247,9 @@ export async function checkRateLimit(
     return count <= maxRequests;
   } catch (error) {
     log.error('Rate limit check failed', { identifier, error: String(error) });
-    // Fail open — if Redis is down, don't block users
-    return true;
+    // failOpen=true: if Redis is down, don't block users (default for non-critical)
+    // failOpen=false: if Redis is down, block requests (for high-cost AI endpoints)
+    return failOpen;
   }
 }
 

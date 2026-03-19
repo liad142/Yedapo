@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAuthUser } from '@/lib/auth-helpers';
+import { isAdminEmail } from '@/lib/admin';
 import { refreshSinglePodcastFeed } from '@/lib/rsshub-db';
-
-const ADMIN_EMAIL = 'liad142@gmail.com';
 
 /**
  * GET /api/admin/cron-test?podcastId=<uuid>&since=2026-03-17T00:00:00Z&execute=false
@@ -21,7 +20,7 @@ export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('x-cron-secret');
   const user = await getAuthUser();
 
-  const isAdmin = user?.email === ADMIN_EMAIL;
+  const isAdmin = isAdminEmail(user?.email || '');
   const isCronAuth = cronSecret && authHeader === cronSecret;
 
   if (!isAdmin && !isCronAuth) {
@@ -210,7 +209,7 @@ export async function GET(request: NextRequest) {
       trace,
     });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({ error: msg, trace }, { status: 500 });
+    console.error('Cron test failed:', error);
+    return NextResponse.json({ error: 'Operation failed', trace }, { status: 500 });
   }
 }

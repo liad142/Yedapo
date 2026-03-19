@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('admin');
 
 export async function PATCH(
   req: NextRequest,
@@ -33,7 +36,8 @@ export async function PATCH(
     .single();
 
   if (dbError) {
-    return NextResponse.json({ error: dbError.message }, { status: 500 });
+    log.error('Failed to update todo', { error: dbError.message });
+    return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
   }
 
   return NextResponse.json(data);
@@ -55,7 +59,8 @@ export async function DELETE(
     .eq('id', id);
 
   if (dbError) {
-    return NextResponse.json({ error: dbError.message }, { status: 500 });
+    log.error('Failed to delete todo', { error: dbError.message });
+    return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });

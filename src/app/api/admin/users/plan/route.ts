@@ -35,8 +35,8 @@ export async function PATCH(request: NextRequest) {
     .single();
 
   if (dbError) {
-    log.error('Failed to update user plan', { userId, plan, message: dbError.message });
-    return NextResponse.json({ error: dbError.message }, { status: 500 });
+    log.error('Failed to update user plan', { userId, plan, error: dbError.message });
+    return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
   }
 
   log.info('Updated user plan', { userId, plan });

@@ -30,6 +30,10 @@ export async function POST(req: NextRequest) {
       return new NextResponse(null, { status: 400 });
     }
 
+    if (params && typeof params === 'object' && Object.keys(params).length > 20) {
+      return new NextResponse(null, { status: 400 });
+    }
+
     const user = await getAuthUser();
     const supabase = createAdminClient();
 

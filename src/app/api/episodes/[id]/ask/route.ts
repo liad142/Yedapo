@@ -30,7 +30,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       request.headers.get("x-real-ip") ||
       "unknown";
-    const rlAllowed = await checkRateLimit(`askai:${ip}`, 30, 60);
+    const rlAllowed = await checkRateLimit(`askai:${ip}`, 30, 60, false);
     if (!rlAllowed) {
       return new Response(JSON.stringify({ error: "Rate limit exceeded. Try again in a minute." }), {
         status: 429,

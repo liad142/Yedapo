@@ -1,10 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Redis } from '@upstash/redis';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const monitoringSecret = process.env.MONITORING_SECRET;
+  const authHeader = request.headers.get('authorization');
+  const isMonitor = monitoringSecret && authHeader === `Bearer ${monitoringSecret}`;
+
   const checks: Record<string, { status: string; latencyMs?: number }> = {};
   let overallStatus: 'ok' | 'degraded' | 'down' = 'ok';
 
@@ -52,8 +56,15 @@ export async function GET() {
     overallStatus = 'down';
   }
 
+  const httpStatus = overallStatus === 'ok' ? 200 : 503;
+
+  // Non-monitor callers only get the overall status — no internal details
+  if (!isMonitor) {
+    return NextResponse.json({ status: overallStatus }, { status: httpStatus });
+  }
+
   return NextResponse.json(
     { status: overallStatus, checks },
-    { status: overallStatus === 'down' ? 503 : 200 }
+    { status: httpStatus }
   );
 }

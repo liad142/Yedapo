@@ -5,10 +5,16 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('auth');
 
+function sanitizeNext(next: string | null): string {
+  if (!next) return '/discover';
+  if (!next.startsWith('/') || next.startsWith('//')) return '/discover';
+  return next;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/discover';
+  const next = sanitizeNext(searchParams.get('next'));
 
   if (code) {
     // Capture cookies Supabase wants to set so we can apply them to the redirect response.

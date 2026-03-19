@@ -16,6 +16,19 @@ export async function POST(_request: Request, { params }: RouteParams) {
   const { id: episodeId } = await params;
   const admin = createAdminClient();
 
+  // Verify the user owns a summary request for this episode
+  const { data: ownership } = await admin
+    .from('user_summaries')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('episode_id', episodeId)
+    .limit(1)
+    .single();
+
+  if (!ownership) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   // Only reset non-terminal statuses
   const { data, error } = await admin
     .from('summaries')

@@ -12,9 +12,9 @@ import { createClient } from '@/lib/supabase/client';
 /** Map common Supabase error messages to user-friendly text */
 function friendlyError(msg: string): string {
   const map: Record<string, string> = {
-    'Invalid login credentials': 'Incorrect email or password. Please try again.',
+    'Invalid login credentials': 'Check your email and password and try again.',
     'Email not confirmed': 'Please check your email and confirm your account first.',
-    'User already registered': 'An account with this email already exists. Try signing in.',
+    'User already registered': 'Check your email and password and try again.',
     'Password should be at least 6 characters': 'Password must be at least 6 characters.',
     'Email rate limit exceeded': 'Too many attempts. Please wait a moment and try again.',
   };

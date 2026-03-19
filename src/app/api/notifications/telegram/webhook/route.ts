@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getCached, deleteCached } from '@/lib/cache';
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify webhook secret
-    const secret = request.nextUrl.searchParams.get('secret');
+    // Verify webhook secret via header (not query params, to avoid logging)
+    const secret = request.headers.get('x-telegram-bot-api-secret-token');
     if (!TELEGRAM_WEBHOOK_SECRET || secret !== TELEGRAM_WEBHOOK_SECRET) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
@@ -25,24 +26,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // Decode the token to extract user_id and check expiration
-    let userId: string;
-    try {
-      const decoded = Buffer.from(token, 'base64url').toString();
-      const parts = decoded.split(':');
-      if (parts.length < 2) {
-        return NextResponse.json({ ok: true });
-      }
-      userId = parts[0];
-
-      // Reject tokens older than 30 minutes
-      const timestamp = parseInt(parts[1], 10);
-      if (isNaN(timestamp) || Date.now() - timestamp > 30 * 60 * 1000) {
-        return NextResponse.json({ ok: true });
-      }
-    } catch {
+    // Look up token in Redis (set during connect flow) — prevents forged tokens
+    const userId = await getCached<string>(`telegram:connect:${token}`);
+    if (!userId) {
       return NextResponse.json({ ok: true });
     }
+    await deleteCached(`telegram:connect:${token}`);
 
     const chatId = String(message.chat.id);
     const username = message.from?.username || null;

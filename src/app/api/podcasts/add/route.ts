@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import dns from 'dns/promises';
+import net from 'net';
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchPodcastFeed } from "@/lib/rss";
 import { getPodcastById } from "@/lib/apple-podcasts";
@@ -18,6 +20,25 @@ const PRIVATE_IP_PATTERNS = [
   /^https?:\/\/localhost/i,
   /^https?:\/\/\[::1\]/,
 ];
+
+function isPrivateIP(ip: string): boolean {
+  if (net.isIPv4(ip)) {
+    return /^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|0\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(ip);
+  }
+  const normalized = ip.toLowerCase().replace(/^\[|\]$/g, '');
+  return normalized === '::1' || normalized.startsWith('fc') || normalized.startsWith('fd') || normalized.startsWith('fe80') || /^::ffff:/.test(normalized);
+}
+
+async function validateResolvedIP(url: string): Promise<boolean> {
+  try {
+    const parsed = new URL(url);
+    if (parsed.username || parsed.password) return false;
+    const hostname = parsed.hostname.replace(/^\[|\]$/g, '');
+    if (net.isIPv4(hostname) || net.isIPv6(hostname)) return !isPrivateIP(hostname);
+    const { address } = await dns.lookup(hostname);
+    return !isPrivateIP(address);
+  } catch { return false; }
+}
 
 function isValidPodcastUrl(url: string): boolean {
   try {
@@ -55,6 +76,14 @@ export async function POST(request: NextRequest) {
         { error: "Invalid URL. Must be a valid HTTP/HTTPS URL." },
         { status: 400 }
       );
+    }
+
+    // DNS-level SSRF protection: resolve hostname and reject private IPs
+    if (!rss_url.startsWith('apple:')) {
+      const dnsClean = await validateResolvedIP(rss_url);
+      if (!dnsClean) {
+        return NextResponse.json({ error: 'URL resolves to a private address' }, { status: 400 });
+      }
     }
 
     // Check if podcast already exists

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('admin');
 
 export async function GET() {
   const { error } = await requireAdmin();
@@ -13,7 +16,8 @@ export async function GET() {
     .order('created_at', { ascending: false });
 
   if (dbError) {
-    return NextResponse.json({ error: dbError.message }, { status: 500 });
+    log.error('Failed to fetch todos', { error: dbError.message });
+    return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
   }
 
   return NextResponse.json(data);
@@ -42,7 +46,8 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (dbError) {
-    return NextResponse.json({ error: dbError.message }, { status: 500 });
+    log.error('Failed to create todo', { error: dbError.message });
+    return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
   }
 
   return NextResponse.json(data, { status: 201 });

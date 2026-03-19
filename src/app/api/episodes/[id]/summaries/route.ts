@@ -65,7 +65,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Rate limit: 5 requests/min per user (skip for admins and cron)
     if (!isAdmin && user) {
       const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-      const rlAllowed = await checkRateLimit(`summary:${user.id || ip}`, 5, 60);
+      const rlAllowed = await checkRateLimit(`summary:${user.id || ip}`, 5, 60, false);
       if (!rlAllowed) {
         return NextResponse.json({ error: 'Too many requests. Try again in a minute.' }, { status: 429 });
       }

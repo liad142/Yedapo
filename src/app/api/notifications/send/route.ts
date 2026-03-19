@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { buildShareContent } from '@/lib/notifications/format-message';
 import { sendSummaryEmail } from '@/lib/notifications/send-email';
 import { sendTelegramMessage } from '@/lib/notifications/send-telegram';
+import { checkRateLimit } from '@/lib/cache';
 import type { SendNotificationPayload, NotificationChannel } from '@/types/notifications';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -13,6 +14,12 @@ export async function POST(request: NextRequest) {
     const user = await getAuthUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Rate limit: 5 requests/min per user
+    const rlAllowed = await checkRateLimit(`notification-send:${user.id}`, 5, 60);
+    if (!rlAllowed) {
+      return NextResponse.json({ error: 'Too many notification requests' }, { status: 429 });
     }
 
     const body: SendNotificationPayload = await request.json();
@@ -46,6 +53,16 @@ export async function POST(request: NextRequest) {
         { error: 'Invalid email address' },
         { status: 400 }
       );
+    }
+
+    // Enforce email recipient matches user's own email
+    if (channel === 'email') {
+      if (!user.email) {
+        return NextResponse.json({ error: 'No email on account' }, { status: 400 });
+      }
+      if (recipient.toLowerCase() !== user.email.toLowerCase()) {
+        return NextResponse.json({ error: 'Can only send to your own email' }, { status: 403 });
+      }
     }
 
     const supabase = createAdminClient();

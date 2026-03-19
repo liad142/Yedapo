@@ -21,6 +21,7 @@ import { APPLE_PODCAST_GENRES, APPLE_PODCAST_COUNTRIES } from '@/types/apple-pod
 import { Toast } from '@/components/ui/toast';
 import { useUsage } from '@/contexts/UsageContext';
 import { UsageMeter } from '@/components/UsageMeter';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { YouTubeChannelCard } from '@/components/onboarding/YouTubeChannelCard';
 import { TelegramConnectFlow } from '@/components/insights/TelegramConnectFlow';
 import {
@@ -79,6 +80,7 @@ export default function SettingsPage() {
   const { user, isLoading: authLoading, signOut, setShowAuthModal } = useAuth();
   const { setCountry } = useCountry();
   const { usage } = useUsage();
+  const isAdmin = useIsAdmin();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
@@ -673,7 +675,7 @@ export default function SettingsPage() {
         </section>
 
         {/* ── ADMIN ── */}
-        {user?.email === 'liad142@gmail.com' && (
+        {isAdmin && (
           <section>
             <SectionLabel>Administration</SectionLabel>
             <div className="mt-3 rounded-2xl border border-border bg-card p-5">

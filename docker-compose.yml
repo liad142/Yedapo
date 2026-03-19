@@ -13,7 +13,8 @@ services:
       CACHE_EXPIRE: 1800  # 30 minutes
       # YouTube API key (optional but recommended for better rate limits)
       # YOUTUBE_KEY: ${YOUTUBE_API_KEY}
-      # Disable access control for local development
+      # Disable access control for local development.
+      # WARNING: dev-only — set a strong ACCESS_KEY in production.
       ACCESS_KEY: ""
       # Logging
       DEBUG_INFO: "false"

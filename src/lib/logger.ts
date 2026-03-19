@@ -166,6 +166,10 @@ interface Logger {
   debug(message: string, data?: Record<string, unknown>): void;
 }
 
+interface LoggerContext {
+  requestId?: string;
+}
+
 /**
  * Create a rich, color-coded logger for a specific domain.
  *
@@ -174,15 +178,26 @@ interface Logger {
  * log.info('Fetching items', { userId, offset, limit });
  * log.success('Done', { count: 20 });
  * log.error('Failed', error);
+ *
+ * // With request ID context:
+ * const log = createLogger('feed', { requestId: 'abc-123' });
  * ```
  */
-export function createLogger(domain: string): Logger {
+export function createLogger(domain: string, context?: LoggerContext): Logger {
   const key = domain.toLowerCase().replace(/[_\s]+/g, '-');
   const config = DOMAINS[key] || { icon: '\u2738', color: 'white' as Color };
   const { icon, color } = config;
   const tag = domain.toUpperCase().replace(/[-_]+/g, ' ');
   const colorCode = FG[color];
-  const prefix = `${icon} ${colorCode}${BOLD}${tag}${RESET}`;
+  const reqId = context?.requestId;
+  const prefix = reqId
+    ? `${icon} ${colorCode}${BOLD}${tag}${RESET} ${DIM}[${reqId}]${RESET}`
+    : `${icon} ${colorCode}${BOLD}${tag}${RESET}`;
+
+  function mergeRequestId(data?: Record<string, unknown>): Record<string, unknown> | undefined {
+    if (!reqId) return data;
+    return { requestId: reqId, ...data };
+  }
 
   return {
     info(message: string, data?: Record<string, unknown>) {
@@ -190,7 +205,7 @@ export function createLogger(domain: string): Logger {
       if (isDev) {
         console.log(`${prefix}  ${message}${formatData(data)}`);
       } else {
-        emitJsonLine('info', tag, message, data);
+        emitJsonLine('info', tag, message, mergeRequestId(data));
       }
     },
 
@@ -199,7 +214,7 @@ export function createLogger(domain: string): Logger {
       if (isDev) {
         console.log(`${LEVEL_ICONS.success}${prefix}  ${FG.green}${message}${RESET}${formatData(data)}`);
       } else {
-        emitJsonLine('success', tag, message, data);
+        emitJsonLine('success', tag, message, mergeRequestId(data));
       }
     },
 
@@ -208,7 +223,7 @@ export function createLogger(domain: string): Logger {
       if (isDev) {
         console.warn(`${LEVEL_ICONS.warn}${prefix}  ${FG.yellow}${message}${RESET}${formatData(data)}`);
       } else {
-        emitJsonLine('warn', tag, message, data);
+        emitJsonLine('warn', tag, message, mergeRequestId(data));
       }
     },
 
@@ -224,7 +239,14 @@ export function createLogger(domain: string): Logger {
               : '';
         console.error(`${LEVEL_ICONS.error}${prefix}  ${FG.red}${message}${RESET}${errorStr}`);
       } else {
-        emitJsonLine('error', tag, message, data);
+        const merged = reqId
+          ? (data && typeof data === 'object' && !(data instanceof Error)
+            ? { requestId: reqId, ...(data as Record<string, unknown>) }
+            : data instanceof Error
+              ? { requestId: reqId, message: data.message, stack: data.stack }
+              : { requestId: reqId, value: data })
+          : data;
+        emitJsonLine('error', tag, message, merged);
       }
     },
 
@@ -233,7 +255,7 @@ export function createLogger(domain: string): Logger {
       if (isDev) {
         console.log(`${DIM}${icon} ${tag}  ${message}${formatData(data)}${RESET}`);
       } else {
-        emitJsonLine('debug', tag, message, data);
+        emitJsonLine('debug', tag, message, mergeRequestId(data));
       }
     },
   };

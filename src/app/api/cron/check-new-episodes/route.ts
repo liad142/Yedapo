@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkNewPodcastEpisodes, checkNewYouTubeVideos } from '@/lib/subscription-notifications';
 import { acquireLock, releaseLock } from '@/lib/cache';
 import { createLogger } from '@/lib/logger';
+import { sendAdminAlert } from '@/lib/notifications/send-admin-alert';
 
 const log = createLogger('cron');
 
@@ -47,6 +48,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     log.error('Cron job failed', { error: msg });
+    await sendAdminAlert('check-new-episodes cron failed', msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   } finally {
     await releaseLock(lockKey);

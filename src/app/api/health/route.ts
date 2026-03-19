@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
   // Check required env vars
   const requiredEnvVars = [
     'NEXT_PUBLIC_SUPABASE_URL',
-    'SUPABASE_SERVICE_ROLE_KEY',
+    'SUPABASE_SECRET_KEY',
     'UPSTASH_REDIS_REST_URL',
     'UPSTASH_REDIS_REST_TOKEN',
     'GOOGLE_GEMINI_API_KEY',

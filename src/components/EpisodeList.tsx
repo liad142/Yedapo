@@ -116,7 +116,7 @@ export function EpisodeList({
     <div className="space-y-2">
       {episodes.map((episode) => {
         const summaryInfo = getEpisodeSummaryInfo(episode);
-        const hasSummary = summaryInfo?.hasQuickSummary || summaryInfo?.hasDeepSummary;
+        const hasSummary = summaryInfo?.hasDeepSummary;
         const canNavigate = summaryInfo?.episodeId;
 
         const isNew = newEpisodesSince && episode.publishedAt

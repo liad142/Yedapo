@@ -60,8 +60,8 @@ export async function POST(request: NextRequest) {
 
       if (Array.isArray(episode.summaries)) {
         for (const summary of episode.summaries) {
-          // Check both quick and deep summaries — either means the episode has been summarized
-          if (summary.level === 'deep' || summary.level === 'quick') {
+          // Only deep summary counts as "summarized" — it has the full experience
+          if (summary.level === 'deep') {
             const priority = statusPriority[summary.status] || 0;
             if (priority > bestPriority) {
               bestPriority = priority;

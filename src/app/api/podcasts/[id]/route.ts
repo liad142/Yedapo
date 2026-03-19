@@ -74,6 +74,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const searchParams = request.nextUrl.searchParams;
+    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '100', 10) || 100, 1), 100);
+    const offset = Math.max(parseInt(searchParams.get('offset') || '0', 10) || 0, 0);
+
     // Use admin client for GET as well to ensure consistent permissions
     const supabase = createAdminClient();
 
@@ -98,12 +102,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Fetch all episodes for this podcast, ordered by published_at DESC
-    const { data: episodes, error: episodesError } = await supabase
+    // Fetch episodes for this podcast, ordered by published_at DESC (paginated)
+    const { data: episodes, error: episodesError, count } = await supabase
       .from("episodes")
-      .select("id, podcast_id, title, description, audio_url, transcript_url, duration_seconds, published_at, created_at")
+      .select("id, podcast_id, title, description, audio_url, transcript_url, duration_seconds, published_at, created_at", { count: 'exact' })
       .eq("podcast_id", id)
-      .order("published_at", { ascending: false });
+      .order("published_at", { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (episodesError) {
       console.error("Error fetching episodes:", episodesError);
@@ -116,6 +121,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       podcast,
       episodes: episodes || [],
+      total: count ?? 0,
+      limit,
+      offset,
     }, {
       headers: { 'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600' },
     });

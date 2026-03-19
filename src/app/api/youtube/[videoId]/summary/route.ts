@@ -5,6 +5,7 @@ import { importYouTubeVideo } from '@/lib/youtube/video-import';
 import { requestYouTubeSummary } from '@/lib/youtube/summary';
 import { fetchVideoDetails } from '@/lib/youtube/api';
 import { createLogger } from '@/lib/logger';
+import { checkRateLimit } from '@/lib/cache';
 import type { SummaryLevel } from '@/types/database';
 
 const log = createLogger('youtube');
@@ -19,6 +20,14 @@ export async function POST(
   }
 
   const { videoId } = await params;
+
+  if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) {
+    return NextResponse.json({ error: 'Invalid video ID' }, { status: 400 });
+  }
+
+  const rlAllowed = await checkRateLimit(`yt-summary:${user.id}`, 10, 60);
+  if (!rlAllowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+
   const body = await request.json();
   const {
     level = 'quick',

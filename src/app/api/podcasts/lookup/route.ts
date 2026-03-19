@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { checkRateLimit } from '@/lib/cache';
 
 // GET: Lookup podcast by RSS URL
 export async function GET(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rlAllowed = await checkRateLimit(`podcasts-lookup:${ip}`, 60, 60);
+  if (!rlAllowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+
   const { searchParams } = new URL(request.url);
   const rssUrl = searchParams.get('rss_url');
 

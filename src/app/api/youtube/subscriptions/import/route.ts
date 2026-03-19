@@ -25,13 +25,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No channels provided' }, { status: 400 });
   }
 
-  log.info('Starting import', { channelCount: channels.length, userId: user.id.slice(0, 8) });
+  // Cap at 100 channels per import
+  const limited = channels.slice(0, 100);
 
-  const imported: string[] = [];
-  const errors: string[] = [];
+  log.info('Starting import', { channelCount: limited.length, userId: user.id.slice(0, 8) });
 
-  for (const channel of channels) {
-    try {
+  const results = await Promise.allSettled(
+    limited.map(async (channel) => {
       log.info('Importing channel', { title: channel.title, channelId: channel.channelId });
       // Upsert the channel
       const dbChannel = await upsertYouTubeChannel({
@@ -65,12 +65,20 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      imported.push(channel.channelId);
-    } catch (err) {
-      log.error('Failed to import channel', { channelId: channel.channelId, error: String(err) });
-      errors.push(channel.channelId);
+      return channel.channelId;
+    })
+  );
+
+  const imported: string[] = [];
+  const errors: string[] = [];
+  results.forEach((result, i) => {
+    if (result.status === 'fulfilled') {
+      imported.push(result.value);
+    } else {
+      log.error('Failed to import channel', { channelId: limited[i].channelId, error: String(result.reason) });
+      errors.push(limited[i].channelId);
     }
-  }
+  });
 
   // Mark youtube as imported in user profile
   try {

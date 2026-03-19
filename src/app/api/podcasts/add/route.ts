@@ -4,6 +4,7 @@ import { fetchPodcastFeed } from "@/lib/rss";
 import { getPodcastById } from "@/lib/apple-podcasts";
 import { getAuthUser } from "@/lib/auth-helpers";
 import { createLogger } from "@/lib/logger";
+import { checkRateLimit } from "@/lib/cache";
 
 const log = createLogger('add-podcast');
 
@@ -36,6 +37,9 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const rlAllowed = await checkRateLimit(`podcasts-add:${user.id}`, 10, 60);
+    if (!rlAllowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
 
     const supabase = createAdminClient();
 
@@ -134,9 +138,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch and parse regular RSS feed
-    const { podcast: parsedPodcast, episodes: parsedEpisodes } =
-      await fetchPodcastFeed(rss_url);
+    // Fetch and parse regular RSS feed (with 10s timeout)
+    const { podcast: parsedPodcast, episodes: parsedEpisodes } = await Promise.race([
+      fetchPodcastFeed(rss_url),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('RSS feed fetch timed out')), 10_000)
+      ),
+    ]);
 
     // Insert podcast into Supabase
     // Use language extracted from RSS feed, fallback to 'en' if not found
@@ -164,9 +172,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Insert episodes into Supabase
+    // Insert episodes into Supabase (cap at 200 to prevent oversized inserts)
     // Include transcript_url for FREE transcription (Priority A in the waterfall)
-    const episodesToInsert = parsedEpisodes.map((episode) => ({
+    const episodesToInsert = parsedEpisodes.slice(0, 200).map((episode) => ({
       podcast_id: podcast.id,
       title: episode.title,
       description: episode.description || null,

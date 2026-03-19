@@ -45,7 +45,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           user_profiles (id, display_name, avatar_url)
         `)
         .in('parent_id', commentIds)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
+        .limit(500);
 
       for (const reply of (replies || [])) {
         const pid = reply.parent_id as string;

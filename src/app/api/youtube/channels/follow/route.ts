@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     // Rate limiting
-    if (!(await checkRateLimit(user.id, 10, 60))) {
+    if (!(await checkRateLimit('yt-follow:' + user.id, 10, 60))) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please try again in a minute.' },
         { status: 429 }

@@ -19,14 +19,11 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SignInPrompt } from '@/components/auth/SignInPrompt';
 import { useAuth } from '@/contexts/AuthContext';
-<<<<<<< HEAD
+import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
+import { createClient } from '@/lib/supabase/client';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('summary');
-=======
-import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
-import { createClient } from '@/lib/supabase/client';
->>>>>>> 5adc0c7 (fix: show client-side queue items in Summaries page with position)
 
 interface EpisodeWithSummary {
   id: string;
@@ -326,11 +323,7 @@ export default function SummariesPage() {
   };
 
   // Filter episodes by search query
-<<<<<<< HEAD
-  const filteredEpisodes = useMemo(() => episodes.filter(episode => {
-=======
-  const filteredEpisodes = allEpisodes.filter(episode => {
->>>>>>> 5adc0c7 (fix: show client-side queue items in Summaries page with position)
+  const filteredEpisodes = useMemo(() => allEpisodes.filter(episode => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
@@ -338,7 +331,7 @@ export default function SummariesPage() {
       episode.podcast?.title.toLowerCase().includes(query) ||
       episode.description?.toLowerCase().includes(query)
     );
-  }), [episodes, searchQuery]);
+  }), [allEpisodes, searchQuery]);
 
   if (authLoading) {
     return (

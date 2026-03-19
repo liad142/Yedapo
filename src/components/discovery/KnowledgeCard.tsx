@@ -260,8 +260,22 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
       if (lookupResult.summaryStatus === 'ready' && localSummaryStatus !== 'ready') {
         setLocalSummaryStatus('ready');
       }
+      // Resume polling for in-progress YouTube summaries (survives navigation)
+      const inProgressStatuses = ['transcribing', 'summarizing', 'queued'];
+      if (
+        lookupResult.episodeId &&
+        inProgressStatuses.includes(lookupResult.summaryStatus) &&
+        localSummaryStatus !== 'ready' &&
+        localSummaryStatus !== 'failed' &&
+        !pollRef.current // don't double-poll
+      ) {
+        setLocalSummaryStatus(
+          lookupResult.summaryStatus === 'summarizing' ? 'summarizing' : 'transcribing'
+        );
+        pollYouTubeStatus(lookupResult.episodeId);
+      }
     }
-  }, [lookupResult, localEpisodeId, localSummaryStatus]);
+  }, [lookupResult, localEpisodeId, localSummaryStatus, pollYouTubeStatus]);
 
   // Fetch summary preview when status is ready but preview data is missing
   const epIdForPreview = localEpisodeId || episodeId;

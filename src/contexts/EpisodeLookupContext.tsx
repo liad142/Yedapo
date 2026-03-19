@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useCallback, useRef, useEffect, Re
 
 interface EpisodeLookupResult {
   episodeId: string;
-  summaryStatus: 'not_ready' | 'ready' | 'failed';
+  summaryStatus: 'not_ready' | 'ready' | 'failed' | 'transcribing' | 'summarizing' | 'queued';
 }
 
 interface EpisodeLookupContextValue {

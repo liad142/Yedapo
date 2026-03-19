@@ -59,13 +59,22 @@ export async function POST(request: NextRequest) {
       let bestPriority = 0;
 
       if (Array.isArray(episode.summaries)) {
+        // First pass: check deep summary (this is what determines "View Summary")
         for (const summary of episode.summaries) {
-          // Only deep summary counts as "summarized" — it has the full experience
           if (summary.level === 'deep') {
             const priority = statusPriority[summary.status] || 0;
             if (priority > bestPriority) {
               bestPriority = priority;
               bestStatus = summary.status;
+            }
+          }
+        }
+        // If no deep summary found, check if quick is in-progress (signals active generation)
+        if (bestStatus === 'not_ready') {
+          for (const summary of episode.summaries) {
+            if (summary.level === 'quick' && ['transcribing', 'summarizing', 'queued'].includes(summary.status)) {
+              bestStatus = summary.status;
+              break;
             }
           }
         }

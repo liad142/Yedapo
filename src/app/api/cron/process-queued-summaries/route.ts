@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { acquireLock, releaseLock } from '@/lib/cache';
 import { createLogger } from '@/lib/logger';
+import { sendAdminAlert } from '@/lib/notifications/send-admin-alert';
 
 const log = createLogger('cron');
 const MAX_PER_RUN = 5;
-const STALE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
+const STALE_THRESHOLD_MS = 25 * 60 * 1000; // 25 minutes
 
 export const maxDuration = 300; // 5 min — needs time for HTTP retriggers
 
@@ -53,17 +54,18 @@ export async function GET(request: NextRequest) {
     log.info('Found stuck summaries', { count: stuckSummaries.length });
 
     // Reset stuck summaries to 'queued' so the POST endpoint re-processes them
-    for (const summary of stuckSummaries) {
-      await supabase
-        .from('summaries')
-        .update({ status: 'queued', updated_at: new Date().toISOString() })
-        .eq('id', summary.id);
-    }
+    await Promise.allSettled(
+      stuckSummaries.map((summary) =>
+        supabase
+          .from('summaries')
+          .update({ status: 'queued', updated_at: new Date().toISOString() })
+          .eq('id', summary.id)
+      )
+    );
 
-    // Trigger each via HTTP POST (separate function invocation per summary)
-    let processed = 0;
-    for (const summary of stuckSummaries) {
-      try {
+    // Trigger each via HTTP POST in parallel (separate function invocation per summary)
+    const triggerResults = await Promise.allSettled(
+      stuckSummaries.map(async (summary) => {
         const res = await fetch(`${appUrl}/api/episodes/${summary.episode_id}/summaries`, {
           method: 'POST',
           headers: {
@@ -73,16 +75,28 @@ export async function GET(request: NextRequest) {
           body: JSON.stringify({ level: summary.level }),
         });
 
-        if (res.ok) processed++;
-        else log.error('Failed to re-trigger summary', { summaryId: summary.id, status: res.status });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Unknown';
-        log.error('Error re-triggering summary', { summaryId: summary.id, error: msg });
+        if (!res.ok) {
+          log.error('Failed to re-trigger summary', { summaryId: summary.id, status: res.status });
+          throw new Error(`HTTP ${res.status}`);
+        }
+      })
+    );
+
+    const processed = triggerResults.filter((r) => r.status === 'fulfilled').length;
+    for (let i = 0; i < triggerResults.length; i++) {
+      const r = triggerResults[i];
+      if (r.status === 'rejected') {
+        log.error('Error re-triggering summary', { summaryId: stuckSummaries[i].id, error: String(r.reason) });
       }
     }
 
     log.success('Processed stuck summaries', { processed, total: stuckSummaries.length });
     return NextResponse.json({ processed, total: stuckSummaries.length });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    log.error('Cron job failed', { error: msg });
+    await sendAdminAlert('process-queued-summaries cron failed', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   } finally {
     await releaseLock(lockKey);
   }

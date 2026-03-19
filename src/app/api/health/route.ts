@@ -37,7 +37,7 @@ export async function GET() {
   // Check required env vars
   const requiredEnvVars = [
     'NEXT_PUBLIC_SUPABASE_URL',
-    'SUPABASE_SERVICE_ROLE_KEY',
+    'SUPABASE_SECRET_KEY',
     'UPSTASH_REDIS_REST_URL',
     'UPSTASH_REDIS_REST_TOKEN',
     'GOOGLE_GEMINI_API_KEY',
@@ -54,6 +54,6 @@ export async function GET() {
 
   return NextResponse.json(
     { status: overallStatus, checks },
-    { status: overallStatus === 'down' ? 503 : 200 }
+    { status: overallStatus !== 'ok' ? 503 : 200 }
   );
 }

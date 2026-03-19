@@ -31,6 +31,8 @@ interface DailyMixEpisode {
   podcastArtwork: string;
   audioUrl: string;
   durationSeconds: number | null;
+  sourceType?: 'podcast' | 'youtube';
+  channelId?: string | null;
   summaries: { quick?: any; deep?: any };
   summaryPreview?: { tags?: string[]; hookHeadline?: string; executiveBrief?: string; takeawayCount?: number; chapterCount?: number };
 }

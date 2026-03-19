@@ -3,8 +3,9 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { BookOpen, ArrowRight, Target, Layers } from 'lucide-react';
+import { BookOpen, ArrowRight, Target, Layers, Play } from 'lucide-react';
 import { stripHtml } from '@/lib/utils';
+import { YouTubeLogoStatic } from '@/components/YouTubeLogo';
 
 interface DailyMixCardProps {
   title: string;
@@ -14,6 +15,8 @@ interface DailyMixCardProps {
   publishedAt: Date;
   podcastId: string;
   podcastAppleId?: string | null;
+  sourceType?: 'podcast' | 'youtube';
+  channelId?: string | null;
   summaryPreview?: {
     tags?: string[];
     hookHeadline?: string;
@@ -53,12 +56,17 @@ export const DailyMixCard = React.memo(function DailyMixCard({
   publishedAt,
   podcastId,
   podcastAppleId,
+  sourceType,
+  channelId,
   summaryPreview,
   hasReadProgress,
   onClick,
 }: DailyMixCardProps) {
+  const isYouTube = sourceType === 'youtube';
   const artwork = isValidImageUrl(podcastArtwork) ? podcastArtwork : '/placeholder-podcast.png';
-  const podcastHref = podcastAppleId ? `/browse/podcast/${podcastAppleId}` : `/browse/podcast/${podcastId}`;
+  const podcastHref = isYouTube && channelId
+    ? `/browse/youtube/${channelId}`
+    : podcastAppleId ? `/browse/podcast/${podcastAppleId}` : `/browse/podcast/${podcastId}`;
 
   const valueLine = summaryPreview?.hookHeadline
     || summaryPreview?.executiveBrief
@@ -102,13 +110,16 @@ export const DailyMixCard = React.memo(function DailyMixCard({
             />
           </Link>
           <div className="flex-1 min-w-0">
-            <Link
-              href={podcastHref}
-              onClick={(e) => e.stopPropagation()}
-              className="text-body-sm font-medium text-foreground truncate block hover:text-primary transition-colors leading-tight"
-            >
-              {podcastName}
-            </Link>
+            <div className="flex items-center gap-1.5">
+              <Link
+                href={podcastHref}
+                onClick={(e) => e.stopPropagation()}
+                className="text-body-sm font-medium text-foreground truncate hover:text-primary transition-colors leading-tight"
+              >
+                {podcastName}
+              </Link>
+              {isYouTube && <YouTubeLogoStatic size="xs" />}
+            </div>
             <p className="text-xs text-muted-foreground mt-0.5">{formatDate(publishedAt)}</p>
           </div>
         </div>
@@ -147,6 +158,11 @@ export const DailyMixCard = React.memo(function DailyMixCard({
               <>
                 <span className="text-xs font-semibold">Continue</span>
                 <ArrowRight className="h-3.5 w-3.5" />
+              </>
+            ) : isYouTube ? (
+              <>
+                <Play className="h-3.5 w-3.5" />
+                <span className="text-xs font-semibold">View Insights</span>
               </>
             ) : (
               <>

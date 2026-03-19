@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import posthog from 'posthog-js';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,6 +20,8 @@ interface Episode {
   podcastArtwork: string;
   audioUrl: string;
   durationSeconds: number | null;
+  sourceType?: 'podcast' | 'youtube';
+  channelId?: string | null;
   summaries?: { quick?: any; deep?: any };
   summaryPreview?: { tags?: string[]; hookHeadline?: string; executiveBrief?: string; takeawayCount?: number; chapterCount?: number };
 }
@@ -31,6 +34,7 @@ interface DailyMixCarouselProps {
 }
 
 export function DailyMixCarousel({ episodes, isLoading = false, hasMore = false, onLoadMore }: DailyMixCarouselProps) {
+  const router = useRouter();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -135,8 +139,18 @@ export function DailyMixCarousel({ episodes, isLoading = false, hasMore = false,
                   publishedAt={ep.publishedAt}
                   podcastId={ep.podcastId}
                   podcastAppleId={ep.podcastAppleId}
+                  sourceType={ep.sourceType}
+                  channelId={ep.channelId}
                   summaryPreview={ep.summaryPreview}
-                  onClick={() => { posthog.capture('summary_modal_opened', { episode_id: ep.id, podcast_name: ep.podcastName }); setSelectedEpisodeId(ep.id); }}
+                  onClick={() => {
+                    if (ep.sourceType === 'youtube') {
+                      posthog.capture('youtube_insights_opened', { episode_id: ep.id, podcast_name: ep.podcastName });
+                      router.push(`/episode/${ep.id}/insights`);
+                    } else {
+                      posthog.capture('summary_modal_opened', { episode_id: ep.id, podcast_name: ep.podcastName });
+                      setSelectedEpisodeId(ep.id);
+                    }
+                  }}
                 />
               </div>
             ))}

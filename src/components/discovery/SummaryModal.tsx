@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import posthog from 'posthog-js';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -20,6 +21,7 @@ interface SummaryModalProps {
   durationSeconds: number | null;
   podcastId: string;
   podcastAppleId?: string | null;
+  sourceType?: 'podcast' | 'youtube';
   summaries: { quick?: any; deep?: any };
   onClose: () => void;
 }
@@ -47,11 +49,21 @@ export function SummaryModal({
   durationSeconds,
   podcastId,
   podcastAppleId,
+  sourceType,
   summaries,
   onClose,
 }: SummaryModalProps) {
+  const router = useRouter();
   const player = useAudioPlayer();
   const { user, setShowAuthModal } = useAuth();
+
+  // Safety guard: YouTube content should navigate to insights, not open modal
+  useEffect(() => {
+    if (sourceType === 'youtube') {
+      onClose();
+      router.push(`/episode/${episodeId}/insights`);
+    }
+  }, [sourceType, episodeId, onClose, router]);
   const [fetchedQuick, setFetchedQuick] = useState<QuickSummaryContent | null>(null);
   const [fetchedDeep, setFetchedDeep] = useState<DeepSummaryContent | null>(null);
   const [isFetching, setIsFetching] = useState(false);

@@ -226,6 +226,8 @@ export async function GET(request: NextRequest) {
 
     const rssUrl: string = podcast?.rss_feed_url || '';
     const podcastAppleId = rssUrl.startsWith('apple:') ? rssUrl.replace('apple:', '') : null;
+    const isYouTube = rssUrl.startsWith('youtube:channel:');
+    const channelId = isYouTube ? rssUrl.replace('youtube:channel:', '') : null;
 
     return {
       id: ep.id,
@@ -238,6 +240,8 @@ export async function GET(request: NextRequest) {
       podcastArtwork: podcast?.image_url || '',
       audioUrl: ep.audio_url || '',
       durationSeconds: ep.duration_seconds || null,
+      sourceType: isYouTube ? 'youtube' : 'podcast',
+      channelId,
       // Lightweight summary display fields only — full content fetched on-demand via /insights
       summaryPreview: display || {},
       _score: score,

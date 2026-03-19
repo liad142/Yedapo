@@ -19,7 +19,7 @@ import { generateWithFallback, DEFAULT_MODELS } from "@/lib/gemini";
 const log = createLogger('insights');
 
 async function generateInsightsWithFallback(prompt: string): Promise<{ text: string; modelUsed: string }> {
-  return generateWithFallback(prompt, DEFAULT_MODELS, true, 30_000);
+  return generateWithFallback(prompt, DEFAULT_MODELS, true, 90_000);
 }
 
 // Prompt for generating all insights at once

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { PodcastDetailEpisode, SummaryAvailability } from '@/types/podcast';
 
-export function useSummaryAvailability(episodes: PodcastDetailEpisode[]) {
+export function useSummaryAvailability(episodes: PodcastDetailEpisode[], podcastAppleId?: string) {
   const [summaryAvailability, setSummaryAvailability] = useState<Map<string, SummaryAvailability>>(new Map());
 
   useEffect(() => {
@@ -12,11 +12,20 @@ export function useSummaryAvailability(episodes: PodcastDetailEpisode[]) {
 
       if (audioUrls.length === 0) return;
 
+      // Build episodes array with titles for title-based fallback matching
+      const episodesWithTitles = episodes
+        .filter(e => e.audioUrl && e.title)
+        .map(e => ({ audioUrl: e.audioUrl!, title: e.title }));
+
       try {
         const response = await fetch('/api/summaries/check', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ audioUrls }),
+          body: JSON.stringify({
+            audioUrls,
+            podcastAppleId: podcastAppleId || undefined,
+            episodes: episodesWithTitles,
+          }),
         });
 
         if (!response.ok) return;
@@ -35,7 +44,7 @@ export function useSummaryAvailability(episodes: PodcastDetailEpisode[]) {
     if (episodes.length > 0) {
       checkSummaries();
     }
-  }, [episodes]);
+  }, [episodes, podcastAppleId]);
 
   const getEpisodeSummaryInfo = (episode: PodcastDetailEpisode): SummaryAvailability | null => {
     // For local DB episodes, the episode.id IS the episodeId

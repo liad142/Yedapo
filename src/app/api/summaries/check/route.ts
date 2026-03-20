@@ -7,6 +7,8 @@ const log = createLogger('summary');
 
 interface CheckSummariesRequest {
   audioUrls: string[];
+  podcastAppleId?: string;
+  episodes?: { audioUrl: string; title: string }[];
 }
 
 interface SummaryAvailability {
@@ -18,6 +20,14 @@ interface SummaryAvailability {
   deepStatus: string | null;
 }
 
+/** Normalize title for fuzzy matching: lowercase, collapse whitespace, strip common suffixes */
+function normalizeTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export async function POST(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const rlAllowed = await checkRateLimit(`summaries-check:${ip}`, 30, 60);
@@ -25,10 +35,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const body: CheckSummariesRequest = await request.json();
-    const { audioUrls } = body;
+    const { audioUrls, podcastAppleId, episodes: episodesWithTitles } = body;
 
     log.info('Check request received', {
       audioUrlCount: audioUrls?.length,
+      podcastAppleId: podcastAppleId || null,
     });
 
     if (!audioUrls || !Array.isArray(audioUrls) || audioUrls.length === 0) {
@@ -48,8 +59,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // Find episodes by audio URLs — batch to avoid HeadersOverflowError
-    // (Supabase encodes .in() filter as URL query params, 50 long CDN URLs exceeds limits)
+    // --- Step 1: Find episodes by audio URLs (exact match) ---
     const BATCH_SIZE = 10;
     const episodes: { id: string; audio_url: string }[] = [];
     for (let i = 0; i < audioUrls.length; i += BATCH_SIZE) {
@@ -61,10 +71,7 @@ export async function POST(request: NextRequest) {
 
       if (batchError) {
         log.error('Error fetching episodes', batchError);
-        return NextResponse.json(
-          { error: 'Database error' },
-          { status: 500 }
-        );
+        return NextResponse.json({ error: 'Database error' }, { status: 500 });
       }
       if (data) episodes.push(...data);
     }
@@ -74,8 +81,77 @@ export async function POST(request: NextRequest) {
       foundEpisodes: episodes.length,
     });
 
-    // If no episodes found, return empty availability
-    if (!episodes || episodes.length === 0) {
+    // Build audio URL → episode ID map
+    const audioUrlToEpisode = new Map(episodes.map(e => [e.audio_url, e.id]));
+
+    // --- Step 2: Title-based fallback for unmatched episodes ---
+    const unmatchedUrls = audioUrls.filter(url => !audioUrlToEpisode.has(url));
+
+    if (unmatchedUrls.length > 0 && podcastAppleId && episodesWithTitles?.length) {
+      // Find podcast by apple_id
+      let podcastId: string | null = null;
+
+      const { data: byAppleId } = await supabase
+        .from('podcasts')
+        .select('id')
+        .eq('apple_id', podcastAppleId)
+        .single();
+
+      if (byAppleId) {
+        podcastId = byAppleId.id;
+      } else {
+        // Also check by apple: ref in rss_feed_url
+        const { data: byRef } = await supabase
+          .from('podcasts')
+          .select('id')
+          .eq('rss_feed_url', `apple:${podcastAppleId}`)
+          .single();
+        if (byRef) podcastId = byRef.id;
+      }
+
+      if (podcastId) {
+        // Get all episodes for this podcast (title + id)
+        const { data: podcastEpisodes } = await supabase
+          .from('episodes')
+          .select('id, title')
+          .eq('podcast_id', podcastId);
+
+        if (podcastEpisodes?.length) {
+          // Build normalized title → episode ID map
+          const titleToEpisodeId = new Map<string, string>();
+          for (const ep of podcastEpisodes) {
+            titleToEpisodeId.set(normalizeTitle(ep.title), ep.id);
+          }
+
+          // Build audioUrl → title map from the request
+          const urlToTitle = new Map<string, string>();
+          for (const ep of episodesWithTitles) {
+            urlToTitle.set(ep.audioUrl, ep.title);
+          }
+
+          // Match unmatched URLs by title
+          let titleMatches = 0;
+          for (const url of unmatchedUrls) {
+            const title = urlToTitle.get(url);
+            if (!title) continue;
+            const episodeId = titleToEpisodeId.get(normalizeTitle(title));
+            if (episodeId) {
+              audioUrlToEpisode.set(url, episodeId);
+              titleMatches++;
+            }
+          }
+
+          if (titleMatches > 0) {
+            log.info('Title-based fallback matched', { titleMatches, unmatchedUrls: unmatchedUrls.length });
+          }
+        }
+      }
+    }
+
+    // --- Step 3: Get summaries for all matched episodes ---
+    const allEpisodeIds = [...new Set(audioUrlToEpisode.values())];
+
+    if (allEpisodeIds.length === 0) {
       const availability: SummaryAvailability[] = audioUrls.map(url => ({
         audioUrl: url,
         episodeId: null,
@@ -87,32 +163,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ availability });
     }
 
-    // Get episode IDs
-    const episodeIds = episodes.map(e => e.id);
-
-    // Fetch summaries for these episodes
     const { data: summaries, error: summariesError } = await supabase
       .from('summaries')
       .select('episode_id, level, status')
-      .in('episode_id', episodeIds);
+      .in('episode_id', allEpisodeIds);
 
     log.info('Summaries lookup', {
-      episodeIds: episodeIds.length,
+      episodeIds: allEpisodeIds.length,
       foundSummaries: summaries?.length || 0,
     });
 
     if (summariesError) {
       log.error('Error fetching summaries', summariesError);
-      return NextResponse.json(
-        { error: 'Database error' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 
-    // Build audio URL to episode mapping
-    const audioUrlToEpisode = new Map(episodes.map(e => [e.audio_url, e.id]));
-
-    // Build episode ID to summaries mapping
+    // Build episode ID → summaries mapping
     const { SUMMARY_STATUS_PRIORITY: statusPriority } = await import('@/lib/status-utils');
 
     const episodeSummaries = new Map<string, { quick: string | null; deep: string | null }>();
@@ -120,14 +186,12 @@ export async function POST(request: NextRequest) {
       const existing = episodeSummaries.get(summary.episode_id) || { quick: null, deep: null };
 
       if (summary.level === 'quick') {
-        // Only update if new status has higher priority
         const currentPriority = statusPriority[existing.quick || ''] || 0;
         const newPriority = statusPriority[summary.status] || 0;
         if (newPriority > currentPriority) {
           existing.quick = summary.status;
         }
       } else if (summary.level === 'deep') {
-        // Only update if new status has higher priority
         const currentPriority = statusPriority[existing.deep || ''] || 0;
         const newPriority = statusPriority[summary.status] || 0;
         if (newPriority > currentPriority) {
@@ -138,7 +202,7 @@ export async function POST(request: NextRequest) {
       episodeSummaries.set(summary.episode_id, existing);
     }
 
-    // Build response
+    // --- Step 4: Build response ---
     const availability: SummaryAvailability[] = audioUrls.map(url => {
       const episodeId = audioUrlToEpisode.get(url) || null;
       const summaryInfo = episodeId ? episodeSummaries.get(episodeId) : null;

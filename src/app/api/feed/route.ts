@@ -9,6 +9,7 @@ import { getAuthUser } from '@/lib/auth-helpers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createLogger } from '@/lib/logger';
 import { getCachedMulti, setCached } from '@/lib/cache';
+import { getCountryLanguages } from '@/lib/region-data';
 import type { QuickSummaryContent, DeepSummaryContent } from '@/types/database';
 
 const log = createLogger('feed');
@@ -24,6 +25,7 @@ export async function GET(request: NextRequest) {
     const sourceType = searchParams.get('sourceType') as 'youtube' | 'podcast' | 'all' || 'all';
     const mode = searchParams.get('mode') as 'following' | 'latest' | 'mixed' || 'latest';
     const bookmarkedOnly = searchParams.get('bookmarked') === 'true';
+    const country = searchParams.get('country')?.toLowerCase() || '';
     const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10) || 20, 100);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
@@ -54,6 +56,7 @@ export async function GET(request: NextRequest) {
       sourceArtwork: string;
       sourceAppleId?: string;
       podcastFeedUrl?: string;
+      language?: string;
     }>();
 
     // Check Redis cache first, collect uncached IDs
@@ -98,7 +101,7 @@ export async function GET(request: NextRequest) {
       uncachedPod.length > 0
         ? admin
             .from('podcasts')
-            .select('id, title, image_url, apple_podcast_id, rss_feed_url')
+            .select('id, title, image_url, apple_podcast_id, rss_feed_url, language')
             .in('id', uncachedPod)
             .then(r => r.data || [])
         : [],
@@ -119,6 +122,7 @@ export async function GET(request: NextRequest) {
         sourceArtwork: pod.image_url || '',
         sourceAppleId: pod.apple_podcast_id || undefined,
         podcastFeedUrl: pod.rss_feed_url || undefined,
+        language: pod.language || undefined,
       };
       sourceMap.set(pod.id, meta);
       setCached(`src:pod:${pod.id}`, meta, 3600);
@@ -233,13 +237,23 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    log.success('Returned items', { count: enrichedItems.length, hasMore: enrichedItems.length === limit });
+    // Filter by country language if provided
+    const allowedLanguages = country ? getCountryLanguages(country) : null;
+    const filteredItems = allowedLanguages
+      ? enrichedItems.filter(item => {
+          const source = item.sourceId ? sourceMap.get(item.sourceId) : undefined;
+          const lang = (source?.language || 'en').toLowerCase().split('-')[0];
+          return allowedLanguages.includes(lang);
+        })
+      : enrichedItems;
+
+    log.success('Returned items', { count: filteredItems.length, hasMore: filteredItems.length === limit });
 
     return NextResponse.json({
       success: true,
-      items: enrichedItems,
-      total: enrichedItems.length,
-      hasMore: enrichedItems.length === limit,
+      items: filteredItems,
+      total: filteredItems.length,
+      hasMore: filteredItems.length === limit,
     }, {
       headers: { 'Cache-Control': 'private, no-cache' },
     });

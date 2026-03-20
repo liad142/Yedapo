@@ -102,6 +102,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
 
       const data = await res.json();
       const deepStatus = data.summaries?.deep?.status;
+      const quickStatus = data.summaries?.quick?.status;
       const transcriptStatus = data.transcript?.status;
 
       if (deepStatus === 'ready') return 'ready';
@@ -109,6 +110,13 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
       if (deepStatus === 'summarizing') return 'summarizing';
       if (transcriptStatus === 'transcribing' || deepStatus === 'transcribing') return 'transcribing';
       if (deepStatus === 'queued' || transcriptStatus === 'queued') return 'transcribing';
+
+      // No deep summary in progress — if quick is ready, we're done
+      // (avoids infinite polling when deep summary was never created)
+      if (quickStatus === 'ready' && !deepStatus) return 'ready';
+
+      // Nothing actively processing and no known state — stop polling
+      if (!deepStatus && !transcriptStatus) return 'ready';
 
       return 'transcribing';
     } catch {

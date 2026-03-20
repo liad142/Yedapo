@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, use } from 'react';
 import { redirect } from 'next/navigation';
 import { SafeImage } from '@/components/SafeImage';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Heart, Globe, Calendar, Rss, Mic2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Heart, Globe, Calendar, Mic2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { springBouncy } from '@/lib/motion';
 import { EpisodeList } from '@/components/EpisodeList';
@@ -91,7 +91,7 @@ export default function PodcastPage({ params }: PageProps) {
   const { addToQueue, queue } = useSummarizeQueue();
 
   const { summaryAvailability, setSummaryAvailability, getEpisodeSummaryInfo } =
-    useSummaryAvailability(episodes);
+    useSummaryAvailability(episodes, podcastId);
 
   const podcastInfo = podcast ? {
     externalId: podcast.id,
@@ -340,17 +340,6 @@ export default function PodcastPage({ params }: PageProps) {
                       );
                     })()}
 
-                    {podcast.feedUrl && (
-                      <a
-                        href={podcast.feedUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 ml-2 text-xs font-medium text-blue-300 hover:text-blue-200 transition-colors"
-                      >
-                        <Rss className="h-3.5 w-3.5" />
-                        RSS Feed
-                      </a>
-                    )}
                   </div>
                 </div>
               </div>

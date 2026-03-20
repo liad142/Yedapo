@@ -157,8 +157,7 @@ export function TodaysInsights() {
     setIsLoading(true);
     async function fetchBrief() {
       try {
-        const params = lang !== 'en' ? `?lang=${lang}` : '';
-        const res = await fetch(`/api/discover/todays-insights${params}`);
+        const res = await fetch(`/api/discover/todays-insights?country=${country.toLowerCase()}`);
         if (res.ok && !cancelled) {
           const json = await res.json();
           // Handle both new and old response shapes
@@ -174,7 +173,7 @@ export function TodaysInsights() {
     }
     fetchBrief();
     return () => { cancelled = true; };
-  }, [lang]);
+  }, [country]);
 
   // Derive available categories
   const availableCategories = useMemo(() => {

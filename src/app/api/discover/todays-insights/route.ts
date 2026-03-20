@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCached, setCached } from '@/lib/cache';
+import { getCountryLanguages } from '@/lib/region-data';
 import type { QuickSummaryContent, DeepSummaryContent, ActionItem, ChronologicalSection } from '@/types/database';
 import type { BriefItem, BriefCategory, TodaysBriefResponse } from '@/types/brief';
 
@@ -59,7 +60,8 @@ interface RawBriefItem extends Omit<BriefItem, 'source'> {
 export async function GET(request: NextRequest) {
   try {
     const lang = request.nextUrl.searchParams.get('lang')?.toLowerCase() || '';
-    const cacheKey = `discover:insights:${lang || 'all'}`;
+    const country = request.nextUrl.searchParams.get('country')?.toLowerCase() || '';
+    const cacheKey = `discover:insights:${country || lang || 'all'}`;
     const cached = await getCached<TodaysBriefResponse>(cacheKey);
     if (cached) {
       return NextResponse.json(cached, { headers: CACHE_HEADERS });
@@ -101,8 +103,16 @@ export async function GET(request: NextRequest) {
       dataDate = summaries[0].updated_at.split('T')[0];
     }
 
-    // Filter by language if requested (prefer matching language, fall back to all)
-    if (lang && lang !== 'en' && summaries?.length) {
+    // Filter by country languages (uses same pattern as daily-mix)
+    const allowedLanguages = country ? getCountryLanguages(country) : null;
+    if (allowedLanguages && summaries?.length) {
+      const matched = summaries.filter((s: any) => {
+        const sLang = (s.language || 'en').toLowerCase();
+        return allowedLanguages.includes(sLang);
+      });
+      if (matched.length > 0) summaries = matched;
+    } else if (lang && lang !== 'en' && summaries?.length) {
+      // Legacy fallback: filter by lang param
       const matched = summaries.filter((s: any) => s.language === lang);
       if (matched.length > 0) summaries = matched;
     }

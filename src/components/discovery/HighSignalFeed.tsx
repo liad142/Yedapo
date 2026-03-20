@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCountry } from '@/contexts/CountryContext';
 import { cn } from '@/lib/utils';
 import posthog from 'posthog-js';
 import { createLogger } from '@/lib/logger';
@@ -131,6 +132,7 @@ const PAGE_SIZE = 20;
 
 export function HighSignalFeed() {
   const { user, setShowAuthModal } = useAuth();
+  const { country } = useCountry();
 
   const [filter, setFilter] = useState<FilterType>('all');
   const [hydrated, setHydrated] = useState(false);
@@ -153,6 +155,7 @@ export function HighSignalFeed() {
 
     const params = new URLSearchParams({
       sourceType: 'all',
+      country: country.toLowerCase(),
       limit: String(PAGE_SIZE),
       offset: String(offset),
     });
@@ -177,7 +180,7 @@ export function HighSignalFeed() {
     } catch (err) {
       log.error('Error fetching For You', err);
     }
-  }, [user, hydrated]);
+  }, [user, hydrated, country]);
 
   // Track whether podcast refresh has been triggered this session
   const podcastRefreshDone = useRef(false);

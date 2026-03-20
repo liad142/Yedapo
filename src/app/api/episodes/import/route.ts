@@ -161,6 +161,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Fallback: match by title within the same podcast (prevents duplicates from URL mismatches)
+    if (!existingEpisode && episode.title) {
+      const { data: episodeByTitle } = await supabase
+        .from('episodes')
+        .select('id')
+        .eq('podcast_id', podcastId)
+        .eq('title', episode.title)
+        .single();
+
+      if (episodeByTitle) {
+        existingEpisode = episodeByTitle;
+      }
+    }
+
     if (existingEpisode) {
       // Episode already exists, return its ID
       return NextResponse.json({

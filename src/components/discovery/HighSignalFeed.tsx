@@ -281,7 +281,7 @@ export function HighSignalFeed() {
                     : !isDisabled && 'text-muted-foreground hover:text-foreground hover:bg-foreground/5'
                 )}
               >
-                {f.label}{f.value !== 'all' ? ` (${f.count})` : ''}
+                {f.label}
               </button>
             );
           })}

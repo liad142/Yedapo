@@ -23,6 +23,7 @@ import { useUsage } from '@/contexts/UsageContext';
 import { UsageMeter } from '@/components/UsageMeter';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { YouTubeChannelCard } from '@/components/onboarding/YouTubeChannelCard';
+import { YouTubeImportModal } from '@/components/YouTubeImportModal';
 import { TelegramConnectFlow } from '@/components/insights/TelegramConnectFlow';
 import {
   Dialog,
@@ -104,6 +105,12 @@ export default function SettingsPage() {
   const [ytFetched, setYtFetched] = useState(false);
   const [isImportingYt, setIsImportingYt] = useState(false);
   const [ytImportDone, setYtImportDone] = useState(false);
+  const [ytNeedsPermission, setYtNeedsPermission] = useState(false);
+  const [showYtConnectDialog, setShowYtConnectDialog] = useState(false);
+  const [showYtImportModal, setShowYtImportModal] = useState(false);
+  const [followedChannels, setFollowedChannels] = useState<{ id: string; channelId: string; channelName: string; thumbnailUrl: string }[]>([]);
+  const [isLoadingFollowed, setIsLoadingFollowed] = useState(false);
+  const [unfollowingId, setUnfollowingId] = useState<string | null>(null);
   const isGoogleUser = user?.app_metadata?.provider === 'google';
 
   // Connected apps & notifications state
@@ -261,22 +268,75 @@ export default function SettingsPage() {
     }
   };
 
+  const connectYouTube = async () => {
+    try {
+      const email = user?.email || '';
+      const res = await fetch(`/api/youtube/connect?login_hint=${encodeURIComponent(email)}`);
+      if (!res.ok) throw new Error('Failed to get OAuth URL');
+      const { url } = await res.json();
+      window.location.href = url;
+    } catch {
+      setErrorToast('Could not start YouTube connection.');
+    }
+  };
+
+  // Auto-fetch YouTube channels after returning from OAuth
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('yt') === 'connected') {
+      // Clean up the URL
+      window.history.replaceState({}, '', '/settings');
+      fetchYouTubeChannels();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const fetchYouTubeChannels = async () => {
     setIsLoadingYt(true);
     setYtFetched(false);
     setYtImportDone(false);
+    setYtNeedsPermission(false);
     try {
       const res = await fetch('/api/youtube/subscriptions');
       if (!res.ok) throw new Error('Failed to fetch YouTube subscriptions');
       const data = await res.json();
+
+      if (data.needsPermission) {
+        setYtNeedsPermission(true);
+        setIsLoadingYt(false);
+        setYtFetched(true);
+        return;
+      }
+
       const subs: { channelId: string; title: string; description: string; thumbnailUrl: string }[] = data.subscriptions || [];
       setYtChannels(subs);
       setSelectedYtChannels(new Set(subs.map(ch => ch.channelId)));
+      if (subs.length > 0) setShowYtImportModal(true);
     } catch {
       setErrorToast('Could not load YouTube subscriptions.');
     } finally {
       setIsLoadingYt(false);
       setYtFetched(true);
+    }
+  };
+
+  const handleModalImport = async (selectedChannelIds: string[]) => {
+    setIsImportingYt(true);
+    try {
+      const channelsToImport = ytChannels.filter(ch => selectedChannelIds.includes(ch.channelId));
+      const res = await fetch('/api/youtube/subscriptions/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channels: channelsToImport }),
+      });
+      if (!res.ok) throw new Error('Failed to import YouTube channels');
+      posthog.capture('settings_youtube_imported', { count: channelsToImport.length });
+      setYtImportDone(true);
+      setShowYtImportModal(false);
+      fetchFollowedChannels();
+    } catch {
+      setErrorToast('Failed to import YouTube channels. Please try again.');
+    } finally {
+      setIsImportingYt(false);
     }
   };
 
@@ -305,6 +365,45 @@ export default function SettingsPage() {
       if (next.has(channelId)) next.delete(channelId); else next.add(channelId);
       return next;
     });
+  };
+
+  const fetchFollowedChannels = useCallback(async () => {
+    setIsLoadingFollowed(true);
+    try {
+      const res = await fetch('/api/youtube/channels');
+      if (!res.ok) return;
+      const data = await res.json();
+      const channels = (data.channels || [])
+        .map((ch: any) => ({
+          id: ch.id,
+          channelId: ch.channel_id || ch.channelId,
+          channelName: ch.channel_name || ch.channelName || '',
+          thumbnailUrl: ch.thumbnail_url || ch.thumbnailUrl || '',
+        }))
+        .sort((a: any, b: any) => a.channelName.localeCompare(b.channelName));
+      setFollowedChannels(channels);
+    } catch { /* ignore */ }
+    finally { setIsLoadingFollowed(false); }
+  }, []);
+
+  // Fetch followed channels on mount
+  useEffect(() => {
+    if (user) fetchFollowedChannels();
+  }, [user, fetchFollowedChannels]);
+
+  const handleUnfollow = async (dbId: string) => {
+    setUnfollowingId(dbId);
+    try {
+      const res = await fetch(`/api/youtube/channels/${dbId}/unfollow`, { method: 'DELETE' });
+      if (res.ok) {
+        setFollowedChannels(prev => prev.filter(ch => ch.id !== dbId));
+      }
+    } catch { /* ignore */ }
+    finally { setUnfollowingId(null); }
+  };
+
+  const handleAddMore = () => {
+    fetchYouTubeChannels();
   };
 
   const displayName = profile?.display_name
@@ -499,105 +598,82 @@ export default function SettingsPage() {
                 )}
               </div>
 
-              {/* ── YouTube Import (Google users only) ── */}
-              {isGoogleUser && (
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src="/youtube-logo.svg" alt="YouTube" className="h-4 w-auto" />
-                      <FieldLabel>YouTube Channels</FieldLabel>
-                    </div>
-                    {ytFetched && !ytImportDone && (
-                      <button
-                        onClick={fetchYouTubeChannels}
-                        className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                        title="Refresh"
-                      >
-                        <RefreshCw className="h-3.5 w-3.5" />
-                      </button>
+              {/* ── YouTube Channels ── */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/youtube-logo.svg" alt="YouTube" className="h-4 w-auto" />
+                    <FieldLabel>YouTube Channels</FieldLabel>
+                    {followedChannels.length > 0 && (
+                      <span className="text-xs text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full">{followedChannels.length}</span>
                     )}
                   </div>
-
-                  {!ytFetched && !isLoadingYt && (
-                    <div className="p-4 rounded-2xl bg-card border border-border">
-                      <p className="text-sm text-muted-foreground mb-3">
-                        Import your YouTube subscriptions to follow channels and get insights from their videos.
-                      </p>
-                      <Button onClick={fetchYouTubeChannels} variant="outline" className="gap-2">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src="/youtube-logo.svg" alt="" className="h-3.5 w-auto" />
-                        Fetch YouTube Channels
-                      </Button>
-                    </div>
-                  )}
-
-                  {isLoadingYt && (
-                    <div className="flex items-center gap-2 text-muted-foreground text-sm p-4 rounded-2xl bg-card border border-border">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading your YouTube subscriptions...
-                    </div>
-                  )}
-
-                  {ytFetched && ytChannels.length === 0 && (
-                    <div className="p-4 rounded-2xl bg-card border border-border text-center">
-                      <p className="text-sm text-muted-foreground">No YouTube subscriptions found on your account.</p>
-                    </div>
-                  )}
-
-                  {ytFetched && ytChannels.length > 0 && !ytImportDone && (
-                    <div className="rounded-2xl bg-card border border-border overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-                        <span className="text-sm text-muted-foreground">{selectedYtChannels.size} of {ytChannels.length} selected</span>
-                        <button
-                          onClick={() => setSelectedYtChannels(
-                            selectedYtChannels.size === ytChannels.length
-                              ? new Set()
-                              : new Set(ytChannels.map(ch => ch.channelId))
-                          )}
-                          className="text-xs text-primary hover:underline"
-                        >
-                          {selectedYtChannels.size === ytChannels.length ? 'Deselect All' : 'Select All'}
-                        </button>
-                      </div>
-                      <div className="max-h-64 overflow-y-auto p-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {ytChannels.map(channel => (
-                          <YouTubeChannelCard
-                            key={channel.channelId}
-                            channelId={channel.channelId}
-                            name={channel.title}
-                            thumbnailUrl={channel.thumbnailUrl}
-                            description={channel.description}
-                            selected={selectedYtChannels.has(channel.channelId)}
-                            onToggle={toggleYtChannel}
-                          />
-                        ))}
-                      </div>
-                      <div className="px-4 py-3 border-t border-border flex justify-end">
-                        <Button
-                          onClick={handleImportYouTube}
-                          disabled={isImportingYt || selectedYtChannels.size === 0}
-                          className="gap-2"
-                          size="sm"
-                        >
-                          {isImportingYt ? (
-                            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Importing...</>
-                          ) : (
-                            <><Youtube className="h-3.5 w-3.5" /> Import Selected</>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {ytImportDone && (
-                    <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 p-4 rounded-2xl bg-green-500/10 border border-green-500/20">
-                      <Check className="h-4 w-4 shrink-0" />
-                      {selectedYtChannels.size} channel{selectedYtChannels.size !== 1 ? 's' : ''} imported successfully.
-                    </div>
+                  {followedChannels.length > 0 && (
+                    <Button onClick={handleAddMore} variant="ghost" size="sm" className="text-xs text-primary h-7 px-2">
+                      + Add More
+                    </Button>
                   )}
                 </div>
-              )}
+
+                {/* Has followed channels — show compact list */}
+                {followedChannels.length > 0 && (
+                  <div className="rounded-2xl bg-card border border-border overflow-hidden">
+                    <div className="max-h-[280px] overflow-y-auto divide-y divide-border">
+                      {followedChannels.map(ch => (
+                        <div key={ch.id} className="flex items-center gap-3 px-4 py-2.5 group">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={ch.thumbnailUrl || '/placeholder-podcast.png'} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                          <span className="text-sm text-foreground truncate flex-1">{ch.channelName}</span>
+                          <button
+                            onClick={() => handleUnfollow(ch.id)}
+                            disabled={unfollowingId === ch.id}
+                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all shrink-0"
+                            title={`Unfollow ${ch.channelName}`}
+                          >
+                            {unfollowingId === ch.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Loading followed channels */}
+                {isLoadingFollowed && followedChannels.length === 0 && (
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm p-4 rounded-2xl bg-card border border-border">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading channels...
+                  </div>
+                )}
+
+                {/* No followed channels — show connect/import prompt */}
+                {!isLoadingFollowed && followedChannels.length === 0 && (
+                  <div className="p-4 rounded-2xl bg-card border border-border">
+                    <p className="text-sm text-muted-foreground mb-3">
+                      {ytNeedsPermission || !isGoogleUser
+                        ? 'Connect your Google account to import YouTube subscriptions and get insights from videos.'
+                        : 'Import your YouTube subscriptions to follow channels and get insights from their videos.'}
+                    </p>
+                    <Button
+                      onClick={ytNeedsPermission || !isGoogleUser ? () => setShowYtConnectDialog(true) : handleAddMore}
+                      variant="outline"
+                      className="gap-2"
+                      disabled={isLoadingYt}
+                    >
+                      {isLoadingYt ? (
+                        <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading...</>
+                      ) : (
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src="/youtube-logo.svg" alt="" className="h-3.5 w-auto" />
+                          {ytNeedsPermission || !isGoogleUser ? 'Connect YouTube' : 'Import from YouTube'}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+                </div>
 
               {/* ── Country ── */}
               <div>
@@ -824,6 +900,62 @@ export default function SettingsPage() {
         </Dialog>
 
       </div>
+
+      {/* YouTube Import Modal */}
+      {showYtImportModal && ytChannels.length > 0 && (
+        <YouTubeImportModal
+          channels={ytChannels}
+          onImport={handleModalImport}
+          onClose={() => setShowYtImportModal(false)}
+          isImporting={isImportingYt}
+        />
+      )}
+
+      {/* YouTube Connect Dialog */}
+      <AnimatePresence>
+        {showYtConnectDialog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => setShowYtConnectDialog(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative z-10 w-full max-w-sm bg-background border border-border rounded-2xl shadow-2xl overflow-hidden"
+            >
+              <div className="p-6 text-center space-y-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/youtube-logo.svg" alt="YouTube" className="h-8 w-auto mx-auto" />
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Connect YouTube</h3>
+                  <p className="text-sm text-muted-foreground mt-1.5">
+                    A small window will open to grant Yedapo read-only access to your YouTube subscriptions. We only see which channels you follow — nothing else.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 pt-1">
+                  <Button
+                    onClick={() => { setShowYtConnectDialog(false); connectYouTube(); }}
+                    className="w-full"
+                  >
+                    Continue
+                  </Button>
+                  <button
+                    onClick={() => setShowYtConnectDialog(false)}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors py-1.5 cursor-pointer"
+                  >
+                    Maybe later
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Error Toast */}
       <Toast open={!!errorToast} onOpenChange={() => setErrorToast(null)} position="top">

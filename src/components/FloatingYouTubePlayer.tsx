@@ -62,7 +62,7 @@ export function FloatingYouTubePlayer({
       <div
         className={cn(
           shouldFloat && [
-            "fixed bottom-4 right-4 z-50 w-80",
+            "fixed bottom-28 lg:bottom-20 right-3 z-[49] w-64",
             "rounded-xl shadow-2xl ring-1 ring-border/20 dark:ring-white/10",
             "overflow-hidden",
           ],
@@ -90,10 +90,10 @@ export function FloatingYouTubePlayer({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
               onClick={() => setIsDismissed(true)}
-              className="absolute top-2 right-2 z-10 bg-black/60 hover:bg-black/80 text-white rounded-full p-1.5 transition-colors"
+              className="absolute top-1.5 right-1.5 z-10 bg-black/60 hover:bg-black/80 text-white rounded-full p-1 transition-colors"
               aria-label="Close mini player"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-3 w-3" />
             </motion.button>
           )}
         </AnimatePresence>

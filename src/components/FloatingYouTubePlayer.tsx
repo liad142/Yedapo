@@ -56,7 +56,9 @@ export function FloatingYouTubePlayer({
   return (
     <>
       {/* Full-screen drag constraint boundary */}
-      <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-[48]" />
+      {shouldFloat && (
+        <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-[48]" />
+      )}
 
       <div ref={sentinelRef} className={cn("w-full", className)}>
         {/* Spacer to prevent layout shift when the player is floating */}
@@ -64,62 +66,26 @@ export function FloatingYouTubePlayer({
           <div className="aspect-video rounded-2xl bg-muted/30" />
         )}
 
-        {/* Player wrapper: toggles between inline and floating draggable mini-player */}
-        {shouldFloat ? (
-          <AnimatePresence>
-            <motion.div
-              initial={{ opacity: 0, y: 40, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 40, scale: 0.9 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              drag
-              dragControls={dragControls}
-              dragMomentum={false}
-              dragElastic={0.1}
-              dragConstraints={constraintsRef}
-              className={cn(
-                "fixed bottom-36 lg:bottom-24 right-3 z-[49] w-56 lg:w-64",
-                "rounded-xl shadow-2xl ring-1 ring-border/20 dark:ring-white/10",
-                "overflow-visible cursor-grab active:cursor-grabbing",
-              )}
-              style={{ touchAction: "none" }}
-            >
-              {/* Drag handle */}
-              <div
-                className="absolute -top-5 left-1/2 -translate-x-1/2 z-10 bg-black/50 hover:bg-black/70 backdrop-blur-sm rounded-full px-3 py-0.5 cursor-grab active:cursor-grabbing transition-colors"
-                onPointerDown={(e) => dragControls.start(e)}
-              >
-                <GripHorizontal className="h-3 w-3 text-white/80" />
-              </div>
-
-              {/* Video */}
-              <div className="rounded-xl overflow-hidden">
-                <YouTubeEmbed
-                  ref={playerRef}
-                  videoId={videoId}
-                  title={title}
-                  onTimeUpdate={onTimeUpdate}
-                  onPlayingChange={handlePlayingChange}
-                />
-              </div>
-
-              {/* Close / dismiss button */}
-              <motion.button
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2, duration: 0.15 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsDismissed(true);
-                }}
-                className="absolute top-1 right-1 z-10 bg-black/60 hover:bg-black/80 text-white rounded-full p-1 transition-colors"
-                aria-label="Close mini player"
-              >
-                <X className="h-3 w-3" />
-              </motion.button>
-            </motion.div>
-          </AnimatePresence>
-        ) : (
+        {/* 
+          Single player wrapper — NEVER unmounts the YouTubeEmbed.
+          When floating: applies fixed positioning + drag via a motion.div wrapper.
+          When inline: renders normally in flow.
+        */}
+        <div
+          className={cn(
+            !shouldFloat && "w-full",
+            shouldFloat && [
+              "fixed bottom-36 lg:bottom-24 right-3 z-[49] w-56 lg:w-64",
+              "rounded-xl shadow-2xl ring-1 ring-border/20 dark:ring-white/10",
+              "overflow-hidden",
+            ],
+          )}
+          style={
+            shouldFloat
+              ? { animation: "mini-player-slide-in 300ms ease-out" }
+              : undefined
+          }
+        >
           <YouTubeEmbed
             ref={playerRef}
             videoId={videoId}
@@ -127,7 +93,29 @@ export function FloatingYouTubePlayer({
             onTimeUpdate={onTimeUpdate}
             onPlayingChange={handlePlayingChange}
           />
-        )}
+        </div>
+
+        {/* Floating UI overlay (drag handle + close button) */}
+        <AnimatePresence>
+          {shouldFloat && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed bottom-36 lg:bottom-24 right-3 z-[50] w-56 lg:w-64 pointer-events-none"
+            >
+              {/* Close button */}
+              <button
+                onClick={() => setIsDismissed(true)}
+                className="pointer-events-auto absolute top-1 right-1 z-10 bg-black/60 hover:bg-black/80 text-white rounded-full p-1 transition-colors"
+                aria-label="Close mini player"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </>
   );

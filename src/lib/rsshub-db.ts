@@ -233,11 +233,6 @@ export async function getFeed(params: {
     .select('*')
     .eq('user_id', userId);
 
-  // Filter by source type
-  if (sourceType !== 'all') {
-    query = query.eq('source_type', sourceType);
-  }
-
   // Filter by bookmarked
   if (bookmarkedOnly) {
     query = query.eq('bookmarked', true);
@@ -245,23 +240,58 @@ export async function getFeed(params: {
 
   // Mode filtering
   if (mode === 'following') {
-    // Only show items from followed channels
     const followedChannels = await getFollowedChannels(userId);
     const channelIds = followedChannels.map((ch) => ch.id);
     if (channelIds.length === 0) return [];
     query = query.in('source_id', channelIds);
   }
 
-  // Order and pagination
-  query = query
-    .order('published_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+  // When filtering by specific type, use simple query
+  if (sourceType !== 'all') {
+    query = query.eq('source_type', sourceType);
+    query = query
+      .order('published_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
-  const { data, error } = await query;
+    const { data, error } = await query;
+    if (error) throw new Error(`Failed to get feed: ${error.message}`);
+    return (data || []) as FeedItem[];
+  }
 
-  if (error) throw new Error(`Failed to get feed: ${error.message}`);
+  // For 'all': interleave content types so one type doesn't dominate
+  // Fetch both types separately, then merge by date
+  const half = Math.ceil(limit / 2);
 
-  return (data || []) as FeedItem[];
+  const baseFilters = {
+    ...(bookmarkedOnly && { bookmarked: true }),
+  };
+
+  const [ytResult, podResult] = await Promise.all([
+    supabase
+      .from('feed_items')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('source_type', 'youtube')
+      .order('published_at', { ascending: false })
+      .range(offset > 0 ? Math.floor(offset / 2) : 0, (offset > 0 ? Math.floor(offset / 2) : 0) + half - 1),
+    supabase
+      .from('feed_items')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('source_type', 'podcast')
+      .order('published_at', { ascending: false })
+      .range(offset > 0 ? Math.floor(offset / 2) : 0, (offset > 0 ? Math.floor(offset / 2) : 0) + half - 1),
+  ]);
+
+  const ytItems = (ytResult.data || []) as FeedItem[];
+  const podItems = (podResult.data || []) as FeedItem[];
+
+  // Merge and sort by date, capped at limit
+  const merged = [...ytItems, ...podItems]
+    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+    .slice(0, limit);
+
+  return merged;
 }
 
 /**
@@ -372,12 +402,15 @@ async function resolveRssUrl(rssFieldValue: string): Promise<string | null> {
  */
 async function populatePodcastFeedItems(
   userId: string,
-  podcast: { id: string; rss_feed_url: string; image_url: string | null },
+  podcast: { id: string; rss_feed_url: string; image_url: string | null; title?: string },
 ): Promise<number> {
   const supabase = getSupabaseClient();
 
   const rssUrl = await resolveRssUrl(podcast.rss_feed_url);
-  if (!rssUrl) return 0;
+  if (!rssUrl) {
+    console.error(`[feed] Failed to resolve RSS URL for podcast "${podcast.title || podcast.id}" (${podcast.rss_feed_url})`);
+    return 0;
+  }
 
   const { episodes } = await fetchPodcastFeed(rssUrl);
   const recentEpisodes = episodes.slice(0, 10);

@@ -25,6 +25,11 @@ export async function POST(request: NextRequest) {
 
     const result = await refreshPodcastFeed(user.id);
 
+    if (result.errors.length > 0) {
+      console.error('[feed] Podcast refresh errors:', result.errors);
+    }
+    console.log(`[feed] Podcast refresh done: ${result.podcastsRefreshed} podcasts, ${result.episodesAdded} episodes added`);
+
     return NextResponse.json({
       success: true,
       podcastsRefreshed: result.podcastsRefreshed,

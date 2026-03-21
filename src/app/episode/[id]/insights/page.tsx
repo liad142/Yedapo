@@ -13,7 +13,8 @@ import type { Episode, Podcast, QuickSummaryContent, DeepSummaryContent } from "
 import { Clock, Calendar, ChevronRight } from "lucide-react";
 import { YouTubeLogo } from "@/components/YouTubeLogo";
 import { InlinePlayButton } from "@/components/PlayButton";
-import { YouTubeEmbed, type YouTubeEmbedRef } from "@/components/YouTubeEmbed";
+import type { YouTubeEmbedRef } from "@/components/YouTubeEmbed";
+import { FloatingYouTubePlayer } from "@/components/FloatingYouTubePlayer";
 import { isYouTubeContent, extractYouTubeVideoId, getYouTubeThumbnail } from "@/lib/youtube/utils";
 import { createLogger } from '@/lib/logger';
 import { formatDate, formatDuration } from '@/lib/formatters';
@@ -216,16 +217,15 @@ export default function EpisodeInsightsPage() {
                 <span className="text-foreground truncate max-w-[200px]">Insights</span>
               </nav>
 
-              {/* YouTube Embed (shown above art+info for YouTube episodes) */}
+              {/* YouTube Embed with floating mini-player on scroll */}
               {isYouTube && youtubeVideoId ? (
-                <div className="w-full mb-4">
-                  <YouTubeEmbed
-                    ref={youtubePlayerRef}
-                    videoId={youtubeVideoId}
-                    title={episode.title}
-                    onTimeUpdate={handleTimeUpdate}
-                  />
-                </div>
+                <FloatingYouTubePlayer
+                  playerRef={youtubePlayerRef}
+                  videoId={youtubeVideoId}
+                  title={episode.title}
+                  onTimeUpdate={handleTimeUpdate}
+                  className="mb-4"
+                />
               ) : null}
 
               {/* Art + Info */}

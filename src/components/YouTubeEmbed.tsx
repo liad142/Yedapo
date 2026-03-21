@@ -52,6 +52,7 @@ interface YouTubeEmbedProps {
   className?: string;
   onReady?: () => void;
   onTimeUpdate?: (seconds: number) => void;
+  onPlayingChange?: (playing: boolean) => void;
   onError?: (errorCode: number) => void;
 }
 
@@ -79,7 +80,7 @@ function loadYouTubeAPI(): Promise<void> {
 }
 
 export const YouTubeEmbed = forwardRef<YouTubeEmbedRef, YouTubeEmbedProps>(
-  function YouTubeEmbed({ videoId, title, className, onReady, onTimeUpdate, onError }, ref) {
+  function YouTubeEmbed({ videoId, title, className, onReady, onTimeUpdate, onPlayingChange, onError }, ref) {
     const [isActivated, setIsActivated] = useState(false);
     const [hasError, setHasError] = useState(false);
     const [imgError, setImgError] = useState(false);
@@ -93,6 +94,8 @@ export const YouTubeEmbed = forwardRef<YouTubeEmbedRef, YouTubeEmbedProps>(
     onTimeUpdateRef.current = onTimeUpdate;
     const onReadyRef = useRef(onReady);
     onReadyRef.current = onReady;
+    const onPlayingChangeRef = useRef(onPlayingChange);
+    onPlayingChangeRef.current = onPlayingChange;
     const onErrorRef = useRef(onError);
     onErrorRef.current = onError;
 
@@ -176,7 +179,9 @@ export const YouTubeEmbed = forwardRef<YouTubeEmbedRef, YouTubeEmbedProps>(
             },
             onStateChange: (event) => {
               if (destroyed) return;
-              if (event.data === window.YT.PlayerState.PLAYING) {
+              const playing = event.data === window.YT.PlayerState.PLAYING;
+              onPlayingChangeRef.current?.(playing);
+              if (playing) {
                 startPolling();
               } else {
                 stopPolling();

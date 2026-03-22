@@ -244,12 +244,24 @@ RULES:
 `;
 
 // DEEP summary prompt - returns DeepSummaryContent JSON
+export const TOPIC_TAGS = [
+  'AI & Machine Learning', 'Technology', 'Business & Startups',
+  'Science', 'Politics & Government', 'Health & Wellness',
+  'Finance & Investing', 'Entertainment', 'Sports',
+  'True Crime', 'History', 'Education', 'Psychology',
+  'Relationships', 'Culture & Society', 'Music',
+  'Comedy', 'News & Current Events', 'Crypto & Web3',
+  'Career & Productivity',
+] as const;
+
 const DEEP_PROMPT = `You are an expert Ghostwriter and Analyst with a PhD in the subject matter of the transcript.
 Your goal is to write a comprehensive "Executive Briefing" that helps the user decide whether to listen and enhances their understanding of the episode's key ideas.
 
 Return ONLY a JSON object with this EXACT structure. Every field is MANDATORY — do NOT omit any field.
 
 {
+  "topic_tags": ["Pick 3-5 tags from ONLY this list: ${TOPIC_TAGS.join(', ')}"],
+
   "comprehensive_overview": "A detailed, multi-paragraph essay (600-900 words, at least 4 paragraphs). MANDATORY: wrap exactly 3-5 of the most important sentences in <<double angle brackets>>. Example: The central claim is that <<quantum computing will make current encryption obsolete within 5 years>>, which forces a rethink of... The first paragraph must open with the central claim and stakes — never start with 'In this episode...'. Cover the full breadth of the discussion: arguments, counter-arguments, evidence cited, expert opinions, and practical implications.",
 
   "core_concepts": [
@@ -322,7 +334,10 @@ HARD RULES (violations = invalid output):
 
 11. **section_labels MUST be translated**: The section_labels object MUST contain all 9 keys with their values translated into the transcript's language. Hebrew transcript → Hebrew labels. English transcript → English labels. Never leave the placeholder text.
 
+12. **topic_tags**: Select exactly 3-5 tags from the provided list. Use ONLY tags from the list — do not invent new ones. Tags must be in English regardless of transcript language.
+
 SELF-CHECK before responding:
+- Does topic_tags contain 3-5 tags from the provided list? If not → fix it.
 - Does comprehensive_overview contain 3-5 << >> markers? If not → fix it.
 - Does every chronological_breakdown item have a non-empty "hook"? If not → fix it.
 - Is every actionable_takeaway an object with text/category/priority/resources where resources has ≥1 item? If not → fix it.

@@ -15,47 +15,108 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     const supabase = createAdminClient();
 
-    // 1. Get current episode's quick summary tags
-    const { data: currentSummary } = await supabase
+    // 1. Get current episode's tags from quick summary or deep summary core_concepts
+    const { data: currentSummaries } = await supabase
       .from("summaries")
-      .select("content_json")
+      .select("level, content_json")
       .eq("episode_id", episodeId)
-      .eq("level", "quick")
       .eq("status", "ready")
-      .single();
+      .in("level", ["quick", "deep"]);
 
-    if (!currentSummary?.content_json) {
+    if (!currentSummaries || currentSummaries.length === 0) {
       return NextResponse.json({ related: [] });
     }
 
-    const content = currentSummary.content_json as Record<string, unknown>;
-    const tags = content.tags as string[] | undefined;
-    if (!tags || tags.length === 0) {
+    let tags: string[] = [];
+    const quickSummary = currentSummaries.find(s => s.level === "quick");
+    const deepSummary = currentSummaries.find(s => s.level === "deep");
+
+    // Priority: deep topic_tags (fixed taxonomy) > quick tags > deep core_concepts
+    if (deepSummary?.content_json) {
+      const content = deepSummary.content_json as Record<string, unknown>;
+      const topicTags = content.topic_tags as string[] | undefined;
+      if (topicTags && topicTags.length > 0) tags = topicTags;
+      if (tags.length === 0) {
+        const coreConcepts = content.core_concepts as Array<{ concept: string }> | undefined;
+        if (coreConcepts) tags = coreConcepts.map(c => c.concept);
+      }
+    }
+    if (tags.length === 0 && quickSummary?.content_json) {
+      const content = quickSummary.content_json as Record<string, unknown>;
+      tags = (content.tags as string[]) || [];
+    }
+
+    if (tags.length === 0) {
       return NextResponse.json({ related: [] });
     }
 
-    // 2. Fetch recent ready quick summaries and filter by tag overlap in JS
+    // 2. Fetch recent ready summaries (quick + deep) and filter by tag overlap
     const { data: candidateSummaries } = await supabase
       .from("summaries")
-      .select("episode_id, content_json")
-      .eq("level", "quick")
+      .select("episode_id, level, content_json")
       .eq("status", "ready")
+      .in("level", ["quick", "deep"])
       .neq("episode_id", episodeId)
       .order("updated_at", { ascending: false })
-      .limit(100);
+      .limit(200);
 
     if (!candidateSummaries || candidateSummaries.length === 0) {
       return NextResponse.json({ related: [] });
     }
 
-    // 3. Score by tag overlap count, deduplicate per podcast (max 2), pick top 6
+    // Build per-episode tag list: prefer deep topic_tags > quick tags > deep core_concepts
+    const episodeTagMap = new Map<string, string[]>();
+    for (const s of candidateSummaries) {
+      const c = s.content_json as Record<string, unknown> | null;
+      if (!c) continue;
+      const existing = episodeTagMap.get(s.episode_id);
+      if (s.level === "deep") {
+        const topicTags = c.topic_tags as string[] | undefined;
+        if (topicTags && topicTags.length > 0) {
+          episodeTagMap.set(s.episode_id, topicTags); // Best: fixed taxonomy tags
+        } else if (!existing) {
+          const coreConcepts = c.core_concepts as Array<{ concept: string }> | undefined;
+          if (coreConcepts) episodeTagMap.set(s.episode_id, coreConcepts.map(cc => cc.concept));
+        }
+      } else if (s.level === "quick" && !existing) {
+        const qTags = (c.tags as string[]) || [];
+        if (qTags.length > 0) episodeTagMap.set(s.episode_id, qTags);
+      }
+    }
+
+    // 3. Score by tag overlap — match exact tags AND individual words within multi-word concepts
     const tagSet = new Set(tags.map(t => t.toLowerCase()));
-    const scored = candidateSummaries
-      .map(s => {
-        const c = s.content_json as Record<string, unknown> | null;
-        const sTags = (c?.tags as string[] | undefined) || [];
-        const matchedTags = sTags.filter(t => tagSet.has(t.toLowerCase()));
-        return { episodeId: s.episode_id, overlap: matchedTags.length, sharedTags: matchedTags.slice(0, 2) };
+    // Also extract individual significant words (3+ chars) for fuzzy matching
+    const wordSet = new Set<string>();
+    for (const tag of tags) {
+      for (const word of tag.toLowerCase().split(/[\s\-\/,]+/)) {
+        if (word.length >= 3) wordSet.add(word);
+      }
+    }
+
+    const scored = Array.from(episodeTagMap.entries())
+      .map(([epId, sTags]) => {
+        let score = 0;
+        const matchedTags: string[] = [];
+
+        for (const sTag of sTags) {
+          const sLower = sTag.toLowerCase();
+          // Exact match = 3 points
+          if (tagSet.has(sLower)) {
+            score += 3;
+            matchedTags.push(sTag);
+          } else {
+            // Word-level match = 1 point per shared word
+            const sWords = sLower.split(/[\s\-\/,]+/).filter(w => w.length >= 3);
+            const wordMatches = sWords.filter(w => wordSet.has(w));
+            if (wordMatches.length > 0) {
+              score += wordMatches.length;
+              if (matchedTags.length < 2) matchedTags.push(sTag);
+            }
+          }
+        }
+
+        return { episodeId: epId, overlap: score, sharedTags: matchedTags.slice(0, 2) };
       })
       .filter(s => s.overlap > 0)
       .sort((a, b) => b.overlap - a.overlap);

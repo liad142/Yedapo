@@ -78,6 +78,7 @@ export interface ChronologicalSection {
 }
 
 export interface DeepSummaryContent {
+  topic_tags?: string[]; // 3-5 tags from fixed taxonomy for related episodes matching
   comprehensive_overview: string; // May contain <<highlighted>> markers
   core_concepts: Array<{
     concept: string;

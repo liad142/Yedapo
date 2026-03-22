@@ -612,10 +612,7 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
           </>
         ) : null}
 
-        {/* --- Section 8: Related Episodes --- */}
-        <RelatedEpisodes episodeId={episode.id} />
-
-        {/* --- Section 9: Discussion / Comments --- */}
+        {/* --- Section 8: Discussion / Comments --- */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -625,6 +622,9 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
         >
           <CommentsSection episodeId={episode.id} sectionLabel={deepContent?.section_labels?.discussion} isRTL={isRTL} />
         </motion.section>
+
+        {/* --- Section 9: Related Episodes (last) --- */}
+        <RelatedEpisodes episodeId={episode.id} />
 
         {/* Export Card */}
         {summaryReady && (

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import posthog from 'posthog-js';
 import { useRouter } from 'next/navigation';
-import { Search, Loader2, X, Podcast, Play } from 'lucide-react';
+import { Search, Loader2, X, Podcast, Play, Sparkles } from 'lucide-react';
 import { YouTubeLogoStatic } from '@/components/YouTubeLogo';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
@@ -48,6 +48,7 @@ export function SemanticSearchBar() {
   const [videos, setVideos] = useState<SearchVideo[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [summarizingVideos, setSummarizingVideos] = useState<Record<string, boolean>>({});
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -99,6 +100,18 @@ export function SemanticSearchBar() {
     return () => clearTimeout(timer);
   }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /** Extract YouTube video ID from a URL (returns null if not a YouTube URL) */
+  const extractYouTubeVideoId = (text: string): string | null => {
+    const patterns = [
+      /(?:youtube\.com\/watch\?.*v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+    ];
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match) return match[1];
+    }
+    return null;
+  };
+
   const performSearch = useCallback(async (term: string) => {
     // Cancel previous request
     if (abortRef.current) {
@@ -113,6 +126,9 @@ export function SemanticSearchBar() {
     setSelectedIndex(-1);
 
     try {
+      // Check if the search term is a direct YouTube URL
+      const directVideoId = extractYouTubeVideoId(term);
+
       const res = await fetch(`/api/search?q=${encodeURIComponent(term)}&limit=8`, {
         signal: controller.signal,
       });
@@ -122,8 +138,24 @@ export function SemanticSearchBar() {
       const data = await res.json();
       setResults(data.podcasts || []);
       setChannels(data.channels || []);
-      setVideos(data.videos || []);
-      posthog.capture('search_performed', { query: term });
+
+      let videoResults = data.videos || [];
+
+      // If user pasted a YouTube URL but no video results came back,
+      // create a synthetic result so they can still summarize it
+      if (directVideoId && videoResults.length === 0) {
+        videoResults = [{
+          videoId: directVideoId,
+          title: `YouTube Video (${directVideoId})`,
+          description: '',
+          thumbnailUrl: `https://img.youtube.com/vi/${directVideoId}/mqdefault.jpg`,
+          channelId: '',
+          channelTitle: 'YouTube',
+        }];
+      }
+
+      setVideos(videoResults);
+      posthog.capture('search_performed', { query: term, is_direct_url: !!directVideoId });
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       console.error('Search error:', err);
@@ -202,6 +234,36 @@ export function SemanticSearchBar() {
       }
     } catch {
       window.open(`https://www.youtube.com/watch?v=${video.videoId}`, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const handleVideoSummarize = async (e: React.MouseEvent, video: SearchVideo) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (summarizingVideos[video.videoId]) return;
+
+    setSummarizingVideos((prev) => ({ ...prev, [video.videoId]: true }));
+    try {
+      const res = await fetch(`/api/youtube/${video.videoId}/summary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          level: 'quick',
+          title: video.title,
+          channelId: video.channelId || '',
+          channelTitle: video.channelTitle,
+          thumbnailUrl: video.thumbnailUrl,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setShowResults(false);
+        router.push(`/episode/${data.episodeId}/insights`);
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setSummarizingVideos((prev) => ({ ...prev, [video.videoId]: false }));
     }
   };
 
@@ -402,32 +464,48 @@ export function SemanticSearchBar() {
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: index * 0.05 }}
                             >
-                            <button
-                              onClick={() => handleVideoClick(video)}
-                              className={`flex items-center gap-3 px-4 py-2.5 transition-colors cursor-pointer w-full text-left ${
+                            <div
+                              className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${
                                 globalIndex === selectedIndex
                                   ? 'bg-secondary'
                                   : 'hover:bg-secondary/60'
                               }`}
                             >
-                              <div className="relative w-14 h-9 rounded-md overflow-hidden flex-shrink-0 bg-muted">
-                                <Image
-                                  src={video.thumbnailUrl || '/placeholder-podcast.png'}
-                                  alt={video.title}
-                                  fill
-                                  className="object-cover"
-                                  sizes="56px"
-                                />
-                                {/* Small play overlay */}
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                                  <Play className="h-3 w-3 text-white fill-white" />
+                              <button
+                                onClick={() => handleVideoClick(video)}
+                                className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer text-left"
+                              >
+                                <div className="relative w-14 h-9 rounded-md overflow-hidden flex-shrink-0 bg-muted">
+                                  <Image
+                                    src={video.thumbnailUrl || '/placeholder-podcast.png'}
+                                    alt={video.title}
+                                    fill
+                                    className="object-cover"
+                                    sizes="56px"
+                                  />
+                                  {/* Small play overlay */}
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                    <Play className="h-3 w-3 text-white fill-white" />
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm text-foreground truncate">{video.title}</p>
-                                <p className="text-xs text-muted-foreground truncate">{video.channelTitle}</p>
-                              </div>
-                            </button>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm text-foreground truncate">{video.title}</p>
+                                  <p className="text-xs text-muted-foreground truncate">{video.channelTitle}</p>
+                                </div>
+                              </button>
+                              <button
+                                onClick={(e) => handleVideoSummarize(e, video)}
+                                disabled={summarizingVideos[video.videoId]}
+                                className="flex-shrink-0 flex items-center gap-1 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10 rounded-md transition-colors cursor-pointer"
+                                title="Summarize"
+                              >
+                                {summarizingVideos[video.videoId] ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Sparkles className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            </div>
                             </motion.div>
                           );
                         })}

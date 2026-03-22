@@ -72,29 +72,56 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ episodes: [] });
     }
 
-    // Deduplicate by episode_id (keep the first/most recent due to order above)
+    // Deduplicate by episode_id — group all summaries per episode,
+    // then determine the overall status: if deep is still processing, show that.
+    // Only show "ready" when the deep summary is done.
     const seen = new Set<string>();
     const NON_TERMINAL = ['queued', 'transcribing', 'summarizing'];
     const statusOrder: Record<string, number> = {
       queued: 0, transcribing: 0, summarizing: 0, ready: 1, failed: 2,
     };
 
-    const result = summaries
-      .filter((s: any) => {
-        if (seen.has(s.episode_id)) return false;
-        seen.add(s.episode_id);
-        return true;
-      })
-      .map((s: any) => {
-        const ep = s.episodes;
+    // Group summaries by episode_id
+    const episodeSummaries = new Map<string, any[]>();
+    for (const s of summaries) {
+      const epId = (s as any).episode_id;
+      if (!episodeSummaries.has(epId)) {
+        episodeSummaries.set(epId, []);
+      }
+      episodeSummaries.get(epId)!.push(s);
+    }
+
+    const result = Array.from(episodeSummaries.entries())
+      .map(([_epId, sums]) => {
+        // Pick the most representative summary for display
+        const mostRecent = sums[0]; // already sorted by updated_at desc
+        const ep = (mostRecent as any).episodes;
+
+        // Determine overall status: prioritize non-terminal statuses
+        // If ANY summary for this episode is still processing, show that status
+        const nonTerminal = sums.find((s: any) => NON_TERMINAL.includes(s.status));
+        const deepReady = sums.find((s: any) => s.status === 'ready');
+        const anyFailed = sums.find((s: any) => s.status === 'failed');
+
+        let overallStatus: string;
+        if (nonTerminal) {
+          overallStatus = (nonTerminal as any).status;
+        } else if (deepReady) {
+          overallStatus = 'ready';
+        } else if (anyFailed) {
+          overallStatus = 'failed';
+        } else {
+          overallStatus = (mostRecent as any).status;
+        }
+
         return {
           id: ep.id,
           title: ep.title,
           description: ep.description,
           published_at: ep.published_at,
           duration_seconds: ep.duration_seconds,
-          summary_updated_at: s.updated_at,
-          status: s.status as string,
+          summary_updated_at: (mostRecent as any).updated_at,
+          status: overallStatus,
           podcast: Array.isArray(ep.podcasts) ? ep.podcasts[0] : ep.podcasts,
         };
       })
@@ -107,8 +134,9 @@ export async function GET(request: NextRequest) {
       });
 
     const hasNonTerminal = result.some(r => NON_TERMINAL.includes(r.status));
+    const activeCount = result.filter(r => NON_TERMINAL.includes(r.status)).length;
 
-    return NextResponse.json({ episodes: result }, {
+    return NextResponse.json({ episodes: result, activeCount }, {
       headers: {
         'Cache-Control': hasNonTerminal
           ? 'no-store'

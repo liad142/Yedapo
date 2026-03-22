@@ -4,8 +4,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { YouTubeLogo } from '@/components/YouTubeLogo';
-import { Calendar, Clock, Sparkles, Loader2, ExternalLink } from 'lucide-react';
-import { GemCompleteAnimation } from '@/components/animations';
+import { Clock, Sparkles, Loader2, ExternalLink } from 'lucide-react';
+import { SoundWaveAnimation } from '@/components/animations';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { formatDuration } from '@/lib/formatters';
@@ -33,12 +33,65 @@ export function VideoList({ videos }: VideoListProps) {
   );
 }
 
+type VideoStatus = 'unknown' | 'none' | 'processing' | 'ready';
+
 const VideoListItem = React.memo(function VideoListItem({ video }: { video: VideoItem }) {
   const router = useRouter();
   const { user } = useAuth();
   const [isSummarizing, setIsSummarizing] = useState(false);
-  const [episodeId, setEpisodeId] = useState<string | null>(video.episodeId || null);
-  const [hasSummary, setHasSummary] = useState(video.summaryStatus === 'ready');
+  const [episodeId, setEpisodeId] = useState<string | null>(null);
+  const [status, setStatus] = useState<VideoStatus>('unknown');
+
+  // Check if this video already has an episode/summary in the DB
+  useEffect(() => {
+    let cancelled = false;
+    async function checkExisting() {
+      try {
+        const res = await fetch(`/api/youtube/${video.videoId}/status`);
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled) {
+            if (data.episodeId) {
+              setEpisodeId(data.episodeId);
+              if (data.hasSummary) {
+                setStatus('ready');
+              } else if (data.isProcessing) {
+                setStatus('processing');
+              } else {
+                setStatus('none');
+              }
+            } else {
+              setStatus('none');
+            }
+          }
+        } else {
+          if (!cancelled) setStatus('none');
+        }
+      } catch {
+        if (!cancelled) setStatus('none');
+      }
+    }
+    checkExisting();
+    return () => { cancelled = true; };
+  }, [video.videoId]);
+
+  // Poll while processing
+  useEffect(() => {
+    if (status !== 'processing') return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/youtube/${video.videoId}/status`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.hasSummary) {
+            setStatus('ready');
+            if (data.episodeId) setEpisodeId(data.episodeId);
+          }
+        }
+      } catch { /* ignore */ }
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [status, video.videoId]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -55,7 +108,13 @@ const VideoListItem = React.memo(function VideoListItem({ video }: { video: Vide
   };
 
   const handleSummarize = async () => {
-    if (episodeId) {
+    // Ready → go to insights
+    if (status === 'ready' && episodeId) {
+      router.push(`/episode/${episodeId}/insights`);
+      return;
+    }
+    // Processing → go to insights too (they can see partial)
+    if (status === 'processing' && episodeId) {
       router.push(`/episode/${episodeId}/insights`);
       return;
     }
@@ -79,7 +138,7 @@ const VideoListItem = React.memo(function VideoListItem({ video }: { video: Vide
       if (res.ok) {
         const data = await res.json();
         setEpisodeId(data.episodeId);
-        router.push(`/episode/${data.episodeId}/insights`);
+        setStatus('processing');
       }
     } catch {
       // Silently fail
@@ -90,6 +149,73 @@ const VideoListItem = React.memo(function VideoListItem({ video }: { video: Vide
 
   const handleWatch = () => {
     window.open(video.url, '_blank', 'noopener,noreferrer');
+  };
+
+  const renderButton = () => {
+    if (status === 'unknown') {
+      // Still loading status
+      return (
+        <Button
+          className="gap-2 rounded-full px-5 bg-secondary text-muted-foreground"
+          size="sm"
+          disabled
+        >
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        </Button>
+      );
+    }
+
+    if (isSummarizing) {
+      return (
+        <Button
+          className="gap-2 rounded-full px-5 bg-primary text-primary-foreground"
+          size="sm"
+          disabled
+        >
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Importing...
+        </Button>
+      );
+    }
+
+    if (status === 'processing') {
+      return (
+        <Button
+          className="gap-2 rounded-full px-5 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400"
+          variant="outline"
+          size="sm"
+          onClick={handleSummarize}
+        >
+          <SoundWaveAnimation className="h-4" />
+          Processing...
+        </Button>
+      );
+    }
+
+    if (status === 'ready') {
+      return (
+        <Button
+          className="gap-2 rounded-full px-5 bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm"
+          size="sm"
+          onClick={handleSummarize}
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          View Summary
+        </Button>
+      );
+    }
+
+    // status === 'none'
+    return (
+      <Button
+        className="gap-2 rounded-full px-5 bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm"
+        size="sm"
+        onClick={handleSummarize}
+      >
+        <Sparkles className="h-3.5 w-3.5" />
+        Summarize
+      </Button>
+    );
   };
 
   return (
@@ -123,26 +249,7 @@ const VideoListItem = React.memo(function VideoListItem({ video }: { video: Vide
 
           {/* Actions */}
           <div className="flex items-center gap-2 pt-1.5">
-            <Button
-              className={cn(
-                "gap-2 rounded-full px-5 transition-all hover:scale-105 active:scale-95",
-                "bg-primary border-0 shadow-lg shadow-primary/20 hover:shadow-primary/40"
-              )}
-              size="sm"
-              onClick={handleSummarize}
-              disabled={isSummarizing}
-            >
-              {isSummarizing ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : hasSummary ? (
-                <GemCompleteAnimation className="h-5 w-5" />
-              ) : (
-                <Sparkles className="h-3.5 w-3.5 text-white fill-white/20" />
-              )}
-              <span className="font-semibold text-white">
-                {isSummarizing ? 'Importing...' : hasSummary ? 'View Summary' : 'Summarize'}
-              </span>
-            </Button>
+            {renderButton()}
             <Button
               variant="outline"
               size="sm"
@@ -164,12 +271,9 @@ const VideoListItem = React.memo(function VideoListItem({ video }: { video: Vide
               alt={video.title}
               className="w-full h-full object-cover"
             />
-            {/* YouTube badge — icon only, no text */}
-            <div className="absolute top-1.5 left-1.5 bg-black/70 rounded px-1 py-0.5">
-              <svg viewBox="0 0 159 110" width={14} height={10} aria-hidden="true">
-                <path d="M154 17.5c-1.82-6.73-7.07-12-13.72-13.73C128.04 0 79.5 0 79.5 0S30.96 0 18.72 3.77C12.07 5.5 6.82 10.77 5 17.5 1.23 29.75 1.23 55 1.23 55s0 25.25 3.77 37.5c1.82 6.73 7.07 12 13.72 13.73C30.96 110 79.5 110 79.5 110s48.54 0 60.78-3.77c6.65-1.73 11.9-7 13.72-13.73 3.77-12.25 3.77-37.5 3.77-37.5s0-25.25-3.77-37.5z" fill="#FF0000"/>
-                <path d="M64 79.5L105 55 64 30.5z" fill="#FFF"/>
-              </svg>
+            {/* YouTube badge */}
+            <div className="absolute top-1.5 left-1.5">
+              <YouTubeLogo videoId={video.videoId} size="xs" />
             </div>
             {/* Duration overlay */}
             {video.duration && video.duration > 0 && (

@@ -20,6 +20,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
 import { NotificationBell } from '@/components/NotificationBell';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSummarizeQueueOptional } from '@/contexts/SummarizeQueueContext';
 
 const ROOT_PATHS = ['/', '/discover', '/my-list', '/my-podcasts', '/summaries', '/settings', '/onboarding'];
 
@@ -145,6 +146,8 @@ function SidebarContent({ onNavigate, unreadCount = 0, newEpisodeCount = 0, show
   const pathname = usePathname();
   const router = useRouter();
   const { user, setGuestGateTab, setShowAuthModal } = useAuth();
+  const queueCtx = useSummarizeQueueOptional();
+  const activeSummaryCount = queueCtx?.queue.filter(qi => qi.state !== 'ready' && qi.state !== 'idle' && qi.state !== 'failed').length ?? 0;
 
   const isRoot = ROOT_PATHS.some(p => pathname === p);
 
@@ -194,7 +197,7 @@ function SidebarContent({ onNavigate, unreadCount = 0, newEpisodeCount = 0, show
               }
               onNavigate?.();
             }}
-            badge={item.href === '/my-list' ? newEpisodeCount : undefined}
+            badge={item.href === '/my-list' ? newEpisodeCount : item.href === '/summaries' ? activeSummaryCount : undefined}
           />
         ))}
       </nav>
@@ -309,6 +312,8 @@ const GATED_TAB_MESSAGES: Record<string, string> = {
 function MobileBottomNav({ newEpisodeCount = 0 }: { newEpisodeCount?: number }) {
   const pathname = usePathname();
   const { user, setGuestGateTab } = useAuth();
+  const queueCtx = useSummarizeQueueOptional();
+  const activeSummaryCount = queueCtx?.queue.filter(qi => qi.state !== 'ready' && qi.state !== 'idle' && qi.state !== 'failed').length ?? 0;
 
   return (
     <nav
@@ -319,7 +324,7 @@ function MobileBottomNav({ newEpisodeCount = 0 }: { newEpisodeCount?: number }) 
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = isNavActive(pathname, item.href);
-          const badge = item.href === '/my-list' ? newEpisodeCount : 0;
+          const badge = item.href === '/my-list' ? newEpisodeCount : item.href === '/summaries' ? activeSummaryCount : 0;
           return (
             <Link
               key={item.href}

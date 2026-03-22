@@ -25,11 +25,25 @@ export async function GET(
       return NextResponse.json({ episodeId: null, hasSummary: false });
     }
 
-    const hasSummary = episode.deep_summary_status === 'ready' || episode.quick_summary_status === 'ready';
+    // Check actual summary records for this episode
+    const { data: summaries } = await supabase
+      .from('summaries')
+      .select('level, status')
+      .eq('episode_id', episode.id)
+      .in('level', ['deep', 'quick']);
+
+    const deepSummary = summaries?.find((s: any) => s.level === 'deep');
+    const quickSummary = summaries?.find((s: any) => s.level === 'quick');
+
+    // hasSummary = deep summary is ready (full insights available)
+    const hasSummary = deepSummary?.status === 'ready';
+    // isProcessing = any summary is still being generated
+    const isProcessing = summaries?.some((s: any) => ['queued', 'transcribing', 'summarizing'].includes(s.status)) ?? false;
 
     return NextResponse.json({
       episodeId: episode.id,
       hasSummary,
+      isProcessing,
     });
   } catch {
     return NextResponse.json({ episodeId: null, hasSummary: false });

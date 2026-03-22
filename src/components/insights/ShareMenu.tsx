@@ -73,6 +73,7 @@ export function ShareMenu({
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(currentUrl);
     setCopied(true);
+    showToast("Link copied to clipboard");
     setTimeout(() => setCopied(false), 2000);
   };
 

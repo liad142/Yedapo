@@ -8,7 +8,8 @@ import { YouTubeLogoStatic } from '@/components/YouTubeLogo';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { VideoCard, type VideoItem } from '@/components/VideoCard';
+import { VideoList } from '@/components/VideoList';
+import type { VideoItem } from '@/components/VideoCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { NotifyToggle } from '@/components/NotifyToggle';
 
@@ -242,17 +243,7 @@ export default function YouTubeChannelPage({ params }: PageProps) {
               )}
             </h2>
 
-            {videos.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {videos.map((video) => (
-                  <VideoCard key={video.videoId} video={video} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 rounded-2xl bg-secondary/30 border border-border">
-                <p className="text-muted-foreground">No videos found for this channel</p>
-              </div>
-            )}
+            <VideoList videos={videos} />
           </section>
         </div>
       </div>

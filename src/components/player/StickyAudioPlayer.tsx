@@ -26,6 +26,7 @@ import { sanitizeImageUrl } from '@/lib/sanitize-image-url';
 import { formatTime } from '@/lib/formatters';
 import { ChapterScrubber } from './ChapterScrubber';
 import { ExpandedPlayerView } from './ExpandedPlayerView';
+import { ShortcutHint } from '@/components/ui/ShortcutHint';
 
 export function StickyAudioPlayer() {
   const player = useAudioPlayerSafe();
@@ -219,25 +220,31 @@ export function StickyAudioPlayer() {
                 <SkipBack className="w-4 h-4" />
               </motion.button>
 
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                onClick={toggle}
-                disabled={isLoading}
-                className={cn(
-                  'w-11 h-11 rounded-full flex items-center justify-center transition-all',
-                  'bg-primary text-primary-foreground shadow-lg shadow-primary/20',
-                  isLoading && 'opacity-70'
-                )}
-                aria-label={isPlaying ? 'Pause' : 'Play'}
-              >
-                {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : isPlaying ? (
-                  <Pause className="w-4 h-4" fill="currentColor" />
-                ) : (
-                  <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
-                )}
-              </motion.button>
+              <div className="relative">
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={toggle}
+                  disabled={isLoading}
+                  className={cn(
+                    'w-11 h-11 rounded-full flex items-center justify-center transition-all',
+                    'bg-primary text-primary-foreground shadow-lg shadow-primary/20',
+                    isLoading && 'opacity-70'
+                  )}
+                  aria-label={isPlaying ? 'Pause' : 'Play'}
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : isPlaying ? (
+                    <Pause className="w-4 h-4" fill="currentColor" />
+                  ) : (
+                    <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+                  )}
+                </motion.button>
+                <ShortcutHint
+                  shortcut="Space"
+                  className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 pointer-events-none whitespace-nowrap"
+                />
+              </div>
 
               <motion.button
                 whileTap={{ scale: 0.9 }}

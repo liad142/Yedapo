@@ -21,26 +21,27 @@ export async function GET(
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
   }
 
-  // Check cache
+  const pageToken = request.nextUrl.searchParams.get('pageToken') || undefined;
+  const limit = Math.min(parseInt(request.nextUrl.searchParams.get('limit') || '12', 10), 50);
+
+  // Check cache (first page only)
   const cacheKey = `yt-channel:${channelId}`;
-  const cached = await getCached<any>(cacheKey);
-  if (cached) {
-    const user = await getAuthUser();
-    const followStatus = user ? await checkIsFollowing(user.id, channelId) : { following: false, dbId: null };
-    // Enrich cached videos with current summary status
-    if (cached.videos?.length) {
-      await enrichVideosWithSummaryStatus(cached.videos);
+  if (!pageToken) {
+    const cached = await getCached<any>(cacheKey);
+    if (cached) {
+      const user = await getAuthUser();
+      const followStatus = user ? await checkIsFollowing(user.id, channelId) : { following: false, dbId: null };
+      if (cached.videos?.length) {
+        await enrichVideosWithSummaryStatus(cached.videos);
+      }
+      return NextResponse.json({ ...cached, isFollowing: followStatus.following, channelDbId: followStatus.dbId });
     }
-    return NextResponse.json({ ...cached, isFollowing: followStatus.following, channelDbId: followStatus.dbId });
   }
 
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: 'YouTube API not configured' }, { status: 500 });
   }
-
-  const pageToken = request.nextUrl.searchParams.get('pageToken') || undefined;
-  const limit = Math.min(parseInt(request.nextUrl.searchParams.get('limit') || '12', 10), 50);
 
   try {
     // Fetch channel info + videos in parallel

@@ -38,6 +38,13 @@ export function ShownotesTabContent({
   const [copied, setCopied] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set([0]));
 
+  // Detect RTL from shownotes content
+  const isRTL = useMemo(() => {
+    if (!shownotes) return false;
+    const allText = shownotes.map(s => s.title + ' ' + s.content).join(' ');
+    return isRTLText(allText);
+  }, [shownotes]);
+
   const toggleSection = (index: number) => {
     const newExpanded = new Set(expandedSections);
     if (newExpanded.has(index)) {
@@ -94,13 +101,6 @@ export function ShownotesTabContent({
   if (isGenerating) {
     return <MiniLoadingAnimation message="Generating shownotes..." />;
   }
-
-  // Detect RTL from shownotes content
-  const isRTL = useMemo(() => {
-    if (!shownotes) return false;
-    const allText = shownotes.map(s => s.title + ' ' + s.content).join(' ');
-    return isRTLText(allText);
-  }, [shownotes]);
 
   if (!shownotes || shownotes.length === 0) {
     return (

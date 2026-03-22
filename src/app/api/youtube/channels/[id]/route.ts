@@ -39,15 +39,18 @@ export async function GET(
     return NextResponse.json({ error: 'YouTube API not configured' }, { status: 500 });
   }
 
+  const pageToken = request.nextUrl.searchParams.get('pageToken') || undefined;
+  const limit = Math.min(parseInt(request.nextUrl.searchParams.get('limit') || '12', 10), 50);
+
   try {
     // Fetch channel info + videos in parallel
-    const [channelRes, videos] = await Promise.all([
+    const [channelRes, videosResult] = await Promise.all([
       fetch(`${YT_API_BASE}/channels?${new URLSearchParams({
         part: 'snippet,statistics',
         id: channelId,
         key: apiKey,
       })}`),
-      fetchChannelVideos(channelId, 12),
+      fetchChannelVideos(channelId, limit, pageToken),
     ]);
 
     if (!channelRes.ok) {
@@ -67,7 +70,7 @@ export async function GET(
       subscriberCount: item.statistics?.subscriberCount,
     };
 
-    const videoItems = videos.map((v) => ({
+    const videoItems = videosResult.videos.map((v) => ({
       videoId: v.videoId,
       title: v.title,
       description: v.description,
@@ -80,10 +83,17 @@ export async function GET(
 
     await enrichVideosWithSummaryStatus(videoItems);
 
-    const result = { channel, videos: videoItems };
+    const result = {
+      channel,
+      videos: videoItems,
+      nextPageToken: videosResult.nextPageToken || null,
+      totalResults: videosResult.totalResults || videoItems.length,
+    };
 
-    // Cache for 15 minutes
-    await setCached(cacheKey, result, 900);
+    // Only cache first page (no pageToken)
+    if (!pageToken) {
+      await setCached(cacheKey, result, 900);
+    }
 
     // Check follow status
     const user = await getAuthUser();

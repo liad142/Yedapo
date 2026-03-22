@@ -37,6 +37,9 @@ export default function YouTubeChannelPage({ params }: PageProps) {
   const [isTogglingFollow, setIsTogglingFollow] = useState(false);
   const [notifyEnabled, setNotifyEnabled] = useState(false);
   const [notifyChannels, setNotifyChannels] = useState<string[]>([]);
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null);
+  const [totalResults, setTotalResults] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -49,6 +52,8 @@ export default function YouTubeChannelPage({ params }: PageProps) {
         setChannel(data.channel);
         setVideos(data.videos || []);
         setIsFollowing(data.isFollowing || false);
+        setNextPageToken(data.nextPageToken || null);
+        setTotalResults(data.totalResults || data.videos?.length || 0);
         if (data.channelDbId) setChannelDbId(data.channelDbId);
         if (data.notifyEnabled !== undefined) setNotifyEnabled(data.notifyEnabled);
         if (data.notifyChannels) setNotifyChannels(data.notifyChannels);
@@ -60,6 +65,28 @@ export default function YouTubeChannelPage({ params }: PageProps) {
     }
     load();
   }, [channelId]);
+
+  const handleLoadMore = async () => {
+    if (isLoadingMore || !nextPageToken) return;
+    setIsLoadingMore(true);
+    try {
+      const res = await fetch(`/api/youtube/channels/${channelId}?pageToken=${encodeURIComponent(nextPageToken)}`);
+      if (!res.ok) throw new Error('Failed to load more');
+      const data = await res.json();
+      const newVideos = data.videos || [];
+      setVideos(prev => {
+        const existingIds = new Set(prev.map(v => v.videoId));
+        const unique = newVideos.filter((v: VideoItem) => !existingIds.has(v.videoId));
+        return [...prev, ...unique];
+      });
+      setNextPageToken(data.nextPageToken || null);
+      if (data.totalResults) setTotalResults(data.totalResults);
+    } catch {
+      // silently fail
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   const handleFollowToggle = async () => {
     if (isTogglingFollow || !channel) return;
@@ -238,12 +265,29 @@ export default function YouTubeChannelPage({ params }: PageProps) {
           <section>
             <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground mb-6 flex items-center gap-3">
               Recent Videos
-              {videos.length > 0 && (
-                <Badge variant="secondary">{videos.length}</Badge>
+              {totalResults > 0 && (
+                <Badge variant="secondary">{totalResults}</Badge>
               )}
             </h2>
 
             <VideoList videos={videos} />
+
+            {nextPageToken && (
+              <div className="flex justify-center mt-6">
+                <Button
+                  variant="outline"
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore}
+                  className="rounded-full px-6"
+                >
+                  {isLoadingMore ? (
+                    <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...</>
+                  ) : (
+                    `Load More (${videos.length} of ${totalResults})`
+                  )}
+                </Button>
+              </div>
+            )}
           </section>
         </div>
       </div>

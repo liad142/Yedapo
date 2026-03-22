@@ -121,12 +121,13 @@ export async function fetchUserSubscriptions(userId: string): Promise<YouTubeSub
  */
 export async function fetchChannelVideos(
   channelId: string,
-  maxResults = 5
-): Promise<YouTubeVideo[]> {
+  maxResults = 5,
+  pageToken?: string
+): Promise<{ videos: YouTubeVideo[]; nextPageToken?: string; totalResults?: number }> {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
     log.error('YOUTUBE_API_KEY not set');
-    return [];
+    return { videos: [] };
   }
 
   // First, get the channel's uploads playlist ID
@@ -140,31 +141,34 @@ export async function fetchChannelVideos(
 
   if (!channelRes.ok) {
     log.error('Failed to fetch channel', { status: channelRes.status });
-    return [];
+    return { videos: [] };
   }
 
   const channelData = await channelRes.json();
   const uploadsPlaylistId = channelData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
-  if (!uploadsPlaylistId) return [];
+  if (!uploadsPlaylistId) return { videos: [] };
 
   // Fetch playlist items (recent videos)
+  const params: Record<string, string> = {
+    part: 'snippet',
+    playlistId: uploadsPlaylistId,
+    maxResults: String(maxResults),
+    key: apiKey,
+  };
+  if (pageToken) params.pageToken = pageToken;
+
   const playlistRes = await fetch(
-    `${YT_API_BASE}/playlistItems?${new URLSearchParams({
-      part: 'snippet',
-      playlistId: uploadsPlaylistId,
-      maxResults: String(maxResults),
-      key: apiKey,
-    })}`
+    `${YT_API_BASE}/playlistItems?${new URLSearchParams(params)}`
   );
 
   if (!playlistRes.ok) {
     log.error('Failed to fetch playlist items', { status: playlistRes.status });
-    return [];
+    return { videos: [] };
   }
 
   const playlistData = await playlistRes.json();
 
-  return (playlistData.items || []).map((item: any) => {
+  const videos = (playlistData.items || []).map((item: any) => {
     const snippet = item.snippet;
     return {
       videoId: snippet.resourceId.videoId,
@@ -176,6 +180,12 @@ export async function fetchChannelVideos(
       channelTitle: snippet.channelTitle,
     };
   });
+
+  return {
+    videos,
+    nextPageToken: playlistData.nextPageToken,
+    totalResults: playlistData.pageInfo?.totalResults,
+  };
 }
 
 /**

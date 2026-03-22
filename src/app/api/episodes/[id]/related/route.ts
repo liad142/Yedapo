@@ -86,9 +86,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       (deepSummaries || []).map(s => [s.episode_id, s.status])
     );
 
-    // 6. Build response in overlap-score order, max 2 episodes per podcast
+    // 6. Build response in overlap-score order, max 2 episodes per podcast, skip duplicate titles
     const episodeMap = new Map(episodes.map(e => [e.id, e]));
     const podcastCount = new Map<string, number>();
+    const seenTitles = new Set<string>();
     const related: Record<string, unknown>[] = [];
 
     for (const s of scored) {
@@ -101,6 +102,12 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       // Max 2 episodes from the same podcast
       const count = podcastCount.get(podcastId) || 0;
       if (count >= 2) continue;
+
+      // Skip duplicate titles (case-insensitive)
+      const titleKey = (ep.title as string || "").toLowerCase().trim();
+      if (seenTitles.has(titleKey)) continue;
+      seenTitles.add(titleKey);
+
       podcastCount.set(podcastId, count + 1);
 
       related.push({

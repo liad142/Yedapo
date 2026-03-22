@@ -37,6 +37,28 @@ const VideoListItem = React.memo(function VideoListItem({ video }: { video: Vide
   const { user } = useAuth();
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [episodeId, setEpisodeId] = useState<string | null>(null);
+  const [hasSummary, setHasSummary] = useState(false);
+
+  // Check if this video already has an episode/summary in the DB
+  useEffect(() => {
+    let cancelled = false;
+    async function checkExisting() {
+      try {
+        const res = await fetch(`/api/youtube/${video.videoId}/status`);
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled && data.episodeId) {
+            setEpisodeId(data.episodeId);
+            setHasSummary(data.hasSummary || false);
+          }
+        }
+      } catch {
+        // Ignore - will show Summarize by default
+      }
+    }
+    checkExisting();
+    return () => { cancelled = true; };
+  }, [video.videoId]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -122,7 +144,12 @@ const VideoListItem = React.memo(function VideoListItem({ video }: { video: Vide
           {/* Actions */}
           <div className="flex items-center gap-2 pt-1.5">
             <Button
-              className="gap-2 rounded-full px-5 bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm"
+              className={cn(
+                "gap-2 rounded-full px-5 transition-all shadow-sm",
+                hasSummary
+                  ? "bg-secondary text-foreground hover:bg-secondary/80"
+                  : "bg-primary text-primary-foreground hover:bg-primary/90"
+              )}
               size="sm"
               onClick={handleSummarize}
               disabled={isSummarizing}
@@ -132,7 +159,7 @@ const VideoListItem = React.memo(function VideoListItem({ video }: { video: Vide
               ) : (
                 <Sparkles className="h-3.5 w-3.5" />
               )}
-              {isSummarizing ? 'Importing...' : 'Summarize'}
+              {isSummarizing ? 'Importing...' : hasSummary ? 'View Summary' : 'Summarize'}
             </Button>
             <Button
               variant="outline"

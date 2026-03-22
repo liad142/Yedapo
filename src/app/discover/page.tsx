@@ -12,7 +12,6 @@ import { TodaysInsights } from '@/components/discovery/TodaysInsights';
 import { BrandShelf } from '@/components/discovery/BrandShelf';
 import { HighSignalFeed } from '@/components/discovery/HighSignalFeed';
 import { TrendingFeed } from '@/components/discovery/TrendingFeed';
-import { CommunityCounter } from '@/components/discovery/CommunityCounter';
 import { ApplePodcast } from '@/components/ApplePodcastCard';
 import { motion } from 'framer-motion';
 import { AlertCircle, RefreshCw, Sparkles } from 'lucide-react';
@@ -468,7 +467,6 @@ export default function DiscoverPage() {
 
         {/* Main Content — Order: TodaysInsights, Personalized, DailyMix, TopPodcasts, HighSignalFeed */}
         <main className="max-w-6xl mx-auto px-4 lg:px-8 py-8">
-          <CommunityCounter />
           {/* 1. Today's Insights */}
           <motion.div
             className="mb-12"

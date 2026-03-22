@@ -129,14 +129,16 @@ export async function GET(request: NextRequest) {
     }
 
     // --- Resolve missing episode_ids for YouTube items ---
+    // Note: Supabase returns snake_case (source_type, video_id, episode_id)
     const youtubeWithoutEpisode = items.filter(
-      (item) => item.sourceType === 'youtube' && !item.episodeId
+      (item: any) => (item.source_type || item.sourceType) === 'youtube' && !(item.episode_id || item.episodeId)
     );
     if (youtubeWithoutEpisode.length > 0) {
       const candidateUrls: string[] = [];
       for (const item of youtubeWithoutEpisode) {
-        if (item.videoId) {
-          candidateUrls.push(`https://www.youtube.com/watch?v=${item.videoId}`);
+        const vid = (item as any).video_id || item.videoId;
+        if (vid) {
+          candidateUrls.push(`https://www.youtube.com/watch?v=${vid}`);
         } else if (item.url?.includes('youtube.com/watch')) {
           candidateUrls.push(item.url);
         }
@@ -151,12 +153,14 @@ export async function GET(request: NextRequest) {
         if (resolvedEpisodes) {
           const urlToId = new Map(resolvedEpisodes.map((e) => [e.audio_url, e.id]));
           for (const item of youtubeWithoutEpisode) {
-            const url = item.videoId
-              ? `https://www.youtube.com/watch?v=${item.videoId}`
+            const vid = (item as any).video_id || item.videoId;
+            const url = vid
+              ? `https://www.youtube.com/watch?v=${vid}`
               : item.url;
-            const episodeId = url ? urlToId.get(url) : undefined;
-            if (episodeId) {
-              (item as any).episodeId = episodeId;
+            const epId = url ? urlToId.get(url) : undefined;
+            if (epId) {
+              (item as any).episode_id = epId;
+              (item as any).episodeId = epId;
             }
           }
         }
@@ -165,7 +169,7 @@ export async function GET(request: NextRequest) {
 
     // --- Enrich with summary preview data ---
     const episodeIds = items
-      .map(item => item.episodeId)
+      .map((item: any) => item.episode_id || item.episodeId)
       .filter((id): id is string => !!id);
 
     let summaryMap = new Map<string, {
@@ -217,13 +221,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Attach summary + source data to items
-    const enrichedItems = items.map(item => {
-      const preview = item.episodeId ? summaryMap.get(item.episodeId) : undefined;
-      const source = item.sourceId ? sourceMap.get(item.sourceId) : undefined;
+    const enrichedItems = items.map((item: any) => {
+      const epId = item.episode_id || item.episodeId;
+      const srcId = item.source_id || item.sourceId;
+      const preview = epId ? summaryMap.get(epId) : undefined;
+      const source = srcId ? sourceMap.get(srcId) : undefined;
       return {
         ...item,
+        episodeId: epId,
+        sourceId: srcId,
         sourceName: source?.sourceName || '',
-        sourceArtwork: source?.sourceArtwork || item.thumbnailUrl || '',
+        sourceArtwork: source?.sourceArtwork || item.thumbnail_url || item.thumbnailUrl || '',
         sourceAppleId: source?.sourceAppleId,
         podcastFeedUrl: source?.podcastFeedUrl,
         summaryPreview: preview ? {

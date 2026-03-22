@@ -24,6 +24,8 @@ export interface VideoItem {
   duration?: number;
   bookmarked?: boolean;
   channelId?: string;
+  episodeId?: string;
+  summaryStatus?: string;
 }
 
 type SummaryCardStatus = 'none' | 'loading' | 'ready';

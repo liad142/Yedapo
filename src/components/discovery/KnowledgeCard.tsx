@@ -118,14 +118,14 @@ function estimateReadTime(
 }
 
 function cleanYoutubeDescription(raw: string): string {
-  if (!raw) return 'Tap Summarize to get key takeaways.';
+  if (!raw) return '';
   const lines = raw.split('\n').filter(l => l.trim().length > 0);
   const kept = lines
     .slice(0, 3)
     .filter(line => !line.match(/https?:\/\//))
     .join(' ')
     .trim();
-  if (kept.length < 20) return 'Tap Summarize to get key takeaways.';
+  if (kept.length < 20) return '';
   return kept.length > 200 ? kept.slice(0, 197) + '...' : kept;
 }
 
@@ -399,13 +399,17 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
           const data = await res.json();
           setLocalEpisodeId(data.episodeId);
 
-          // Start polling — only redirect when deep summary is ready (full experience)
-          // Even if quick is cached/ready, deep may still be generating
           const status = data.summary?.status;
+
+          // Summary already exists (previously generated) — go straight to insights
+          if (status === 'ready' && !data.isNew) {
+            setLocalSummaryStatus('ready');
+            router.push(`/episode/${data.episodeId}/insights`);
+            return;
+          }
+
+          // New summarization — show progress and poll until deep is ready
           if (status === 'summarizing') {
-            setLocalSummaryStatus('summarizing');
-          } else if (status === 'ready') {
-            // Quick may be ready but we need deep — poll to check
             setLocalSummaryStatus('summarizing');
           } else {
             setLocalSummaryStatus('transcribing');
@@ -581,7 +585,7 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
                 || (type === 'youtube' && localSummaryStatus !== 'ready'
                   ? cleanYoutubeDescription(description)
                   : stripHtml(description))
-                || (localSummaryStatus === 'ready' ? 'Tap View Summary to read the full insights.' : 'Tap Summarize to get key takeaways.')
+                || ''
             }
           />
 

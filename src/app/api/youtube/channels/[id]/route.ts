@@ -25,9 +25,12 @@ export async function GET(
   const cacheKey = `yt-channel:${channelId}`;
   const cached = await getCached<any>(cacheKey);
   if (cached) {
-    // Still check follow status for the user
     const user = await getAuthUser();
     const followStatus = user ? await checkIsFollowing(user.id, channelId) : { following: false, dbId: null };
+    // Enrich cached videos with current summary status
+    if (cached.videos?.length) {
+      await enrichVideosWithSummaryStatus(cached.videos);
+    }
     return NextResponse.json({ ...cached, isFollowing: followStatus.following, channelDbId: followStatus.dbId });
   }
 
@@ -75,6 +78,8 @@ export async function GET(
       url: `https://www.youtube.com/watch?v=${v.videoId}`,
     }));
 
+    await enrichVideosWithSummaryStatus(videoItems);
+
     const result = { channel, videos: videoItems };
 
     // Cache for 15 minutes
@@ -117,5 +122,39 @@ async function checkIsFollowing(userId: string, channelId: string): Promise<{ fo
     return { following: !!follow, dbId: follow ? data.id : null };
   } catch {
     return { following: false, dbId: null };
+  }
+}
+
+async function enrichVideosWithSummaryStatus(videos: any[]): Promise<void> {
+  if (!videos.length) return;
+  const supabase = createAdminClient();
+  const videoUrls = videos.map((v: any) => v.url).filter(Boolean);
+  if (!videoUrls.length) return;
+
+  const { data: episodes } = await supabase
+    .from('episodes')
+    .select('id, audio_url')
+    .in('audio_url', videoUrls);
+
+  if (!episodes?.length) return;
+
+  const urlToEpId = new Map(episodes.map(e => [e.audio_url, e.id]));
+  const epIds = episodes.map(e => e.id);
+
+  const { data: summaries } = await supabase
+    .from('summaries')
+    .select('episode_id')
+    .in('episode_id', epIds)
+    .eq('status', 'ready')
+    .in('level', ['quick', 'deep']);
+
+  const readyEpIds = new Set((summaries || []).map(s => s.episode_id));
+
+  for (const v of videos) {
+    const epId = urlToEpId.get(v.url);
+    if (epId && readyEpIds.has(epId)) {
+      v.episodeId = epId;
+      v.summaryStatus = 'ready';
+    }
   }
 }

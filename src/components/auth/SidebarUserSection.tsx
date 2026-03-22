@@ -24,6 +24,7 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
   const { usage } = useUsage();
   const [showDropdown, setShowDropdown] = useState(false);
   const [resetTime, setResetTime] = useState(getTimeUntilReset);
+  const [imgError, setImgError] = useState(false);
 
   // Keep reset timer ticking
   useEffect(() => {
@@ -77,7 +78,9 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
     || user.email?.split('@')[0]
     || 'User';
   const email = user.email || '';
-  const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture;
+  const avatarUrl = !imgError
+    ? (user.user_metadata?.avatar_url || user.user_metadata?.picture)
+    : null;
   const initials = displayName.charAt(0).toUpperCase();
 
   if (compact) {
@@ -89,7 +92,7 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
       >
         {avatarUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={avatarUrl} alt={displayName} className="w-9 h-9 rounded-full object-cover" />
+          <img src={avatarUrl} alt={displayName} className="w-9 h-9 rounded-full object-cover" referrerPolicy="no-referrer" onError={() => setImgError(true)} />
         ) : (
           <span className="text-sm font-medium text-primary">{initials}</span>
         )}
@@ -108,7 +111,7 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
         <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 shrink-0 ring-2 ring-background shadow-sm group-hover:shadow-md transition-all">
           {avatarUrl ? (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={avatarUrl} alt={displayName} className="w-10 h-10 rounded-full object-cover" />
+            <img src={avatarUrl} alt={displayName} className="w-10 h-10 rounded-full object-cover" referrerPolicy="no-referrer" onError={() => setImgError(true)} />
           ) : (
             <span className="text-base font-semibold text-primary">{initials}</span>
           )}

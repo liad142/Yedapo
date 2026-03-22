@@ -37,6 +37,13 @@ export function HighlightsTabContent({
   const { cutoffs, isGuest } = useUserPlan();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
+  // Detect RTL from highlights content
+  const isRTL = useMemo(() => {
+    if (!highlights) return false;
+    const allText = highlights.map(h => h.quote + (h.context || '')).join(' ');
+    return isRTLText(allText);
+  }, [highlights]);
+
   const handleCopy = async (quote: string, index: number) => {
     await navigator.clipboard.writeText(quote);
     setCopiedIndex(index);
@@ -95,13 +102,6 @@ export function HighlightsTabContent({
         return `${side}-blue-500`;
     }
   };
-
-  // Detect RTL from highlights content
-  const isRTL = useMemo(() => {
-    if (!highlights) return false;
-    const allText = highlights.map(h => h.quote + (h.context || '')).join(' ');
-    return isRTLText(allText);
-  }, [highlights]);
 
   return (
     <div className="p-4 space-y-4" dir={isRTL ? 'rtl' : 'ltr'}>

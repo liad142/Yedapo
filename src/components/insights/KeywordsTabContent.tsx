@@ -36,6 +36,13 @@ export function KeywordsTabContent({
 }: KeywordsTabContentProps) {
   const [sortMode, setSortMode] = useState<SortMode>('relevance');
 
+  // Detect RTL from keywords content
+  const isRTL = useMemo(() => {
+    if (!keywords) return false;
+    const allText = keywords.map(k => k.word).join(' ');
+    return isRTLText(allText);
+  }, [keywords]);
+
   if (isLoading) {
     return (
       <div className="p-4 space-y-4">
@@ -106,13 +113,6 @@ export function KeywordsTabContent({
         return 'text-xs px-2 py-1';
     }
   };
-
-  // Detect RTL from keywords content
-  const isRTL = useMemo(() => {
-    if (!keywords) return false;
-    const allText = keywords.map(k => k.word).join(' ');
-    return isRTLText(allText);
-  }, [keywords]);
 
   return (
     <div className="p-4 space-y-4" dir={isRTL ? 'rtl' : 'ltr'}>

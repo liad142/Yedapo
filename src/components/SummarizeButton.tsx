@@ -14,6 +14,7 @@ import {
   QueuePositionIndicator
 } from '@/components/animations';
 import { Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
+import { ShortcutHint } from '@/components/ui/ShortcutHint';
 import posthog from 'posthog-js';
 import type { QueueItemState } from '@/types/queue';
 
@@ -107,6 +108,7 @@ export function SummarizeButton({ episodeId, initialStatus = 'not_ready', classN
           <div className="flex items-center">
             <Sparkles className="mr-2 h-4 w-4" />
             {atLimit ? 'Limit reached' : 'Summarize'}
+            {!atLimit && <ShortcutHint shortcut="S" className="ml-2" />}
           </div>
         );
       }
@@ -178,6 +180,7 @@ export function SummarizeButton({ episodeId, initialStatus = 'not_ready', classN
       size="sm"
       onClick={handleClick}
       disabled={!isInteractive}
+      data-shortcut="summarize"
       className={cn(
         'rounded-full px-5 transition-all hover:scale-105 active:scale-95',
         isGradientState && 'bg-primary border-0 shadow-lg shadow-primary/20 hover:shadow-primary/40',

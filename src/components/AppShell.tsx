@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Sidebar } from '@/components/Sidebar';
@@ -8,6 +9,7 @@ import { AskAIProvider } from '@/contexts/AskAIContext';
 import { LegalFooter } from '@/components/LegalFooter';
 import { useAudioPlayerSafe } from '@/contexts/AudioPlayerContext';
 import { useSummarizeQueueOptional } from '@/contexts/SummarizeQueueContext';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 
 // Dynamic imports for components that only appear on user interaction
 const AuthModal = dynamic(() => import('@/components/auth/AuthModal').then(m => ({ default: m.AuthModal })), { ssr: false });
@@ -17,6 +19,7 @@ const AskAIChatPopup = dynamic(() => import('@/components/insights/AskAIChatPopu
 const CookieConsent = dynamic(() => import('@/components/CookieConsent').then(m => ({ default: m.CookieConsent })), { ssr: false });
 const UpgradeModal = dynamic(() => import('@/components/UpgradeModal').then(m => ({ default: m.UpgradeModal })), { ssr: false });
 const GuestGatePopup = dynamic(() => import('@/components/auth/GuestGatePopup').then(m => ({ default: m.GuestGatePopup })), { ssr: false });
+const KeyboardShortcutsModal = dynamic(() => import('@/components/KeyboardShortcutsModal').then(m => ({ default: m.KeyboardShortcutsModal })), { ssr: false });
 
 function AppShellInner({ children }: { children: React.ReactNode }) {
   const player = useAudioPlayerSafe();
@@ -38,6 +41,12 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
       </main>
     </div>
   );
+}
+
+function KeyboardShortcutsManager() {
+  const [helpOpen, setHelpOpen] = useState(false);
+  useKeyboardShortcuts({ helpModalOpen: helpOpen, setHelpModalOpen: setHelpOpen });
+  return <KeyboardShortcutsModal open={helpOpen} onOpenChange={setHelpOpen} />;
 }
 
 function UpgradeModalBridge() {
@@ -72,6 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <AskAIChatPopup />
       <CookieConsent />
       <UpgradeModalBridge />
+      <KeyboardShortcutsManager />
     </AskAIProvider>
   );
 }

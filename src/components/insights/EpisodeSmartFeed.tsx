@@ -25,6 +25,7 @@ import { PaywallOverlay } from "@/components/PaywallOverlay";
 import { DescriptionLinks } from "./DescriptionLinks";
 import { PinnedComment } from "./PinnedComment";
 import { CommentsSection } from "./CommentsSection";
+import { RelatedEpisodes } from "./RelatedEpisodes";
 import { parseStoryboardSpec, getFrameUrlForTimestamp } from "@/lib/youtube/storyboards";
 
 interface EpisodeSmartFeedProps {
@@ -611,7 +612,10 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
           </>
         ) : null}
 
-        {/* --- Section 8: Discussion / Comments --- */}
+        {/* --- Section 8: Related Episodes --- */}
+        <RelatedEpisodes episodeId={episode.id} />
+
+        {/* --- Section 9: Discussion / Comments --- */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}

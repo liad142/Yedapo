@@ -48,29 +48,28 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ related: [] });
     }
 
-    // 3. Score by tag overlap count, pick top 3
+    // 3. Score by tag overlap count, deduplicate per podcast (max 2), pick top 6
     const tagSet = new Set(tags.map(t => t.toLowerCase()));
     const scored = candidateSummaries
       .map(s => {
         const c = s.content_json as Record<string, unknown> | null;
         const sTags = (c?.tags as string[] | undefined) || [];
-        const overlap = sTags.filter(t => tagSet.has(t.toLowerCase())).length;
-        return { episodeId: s.episode_id, overlap };
+        const matchedTags = sTags.filter(t => tagSet.has(t.toLowerCase()));
+        return { episodeId: s.episode_id, overlap: matchedTags.length, sharedTags: matchedTags.slice(0, 2) };
       })
       .filter(s => s.overlap > 0)
-      .sort((a, b) => b.overlap - a.overlap)
-      .slice(0, 3);
+      .sort((a, b) => b.overlap - a.overlap);
 
     if (scored.length === 0) {
       return NextResponse.json({ related: [] });
     }
 
-    // 4. Fetch episode + podcast data
-    const episodeIds = scored.map(s => s.episodeId);
+    // 4. Fetch episode + podcast data (fetch extra to allow dedup filtering)
+    const candidateIds = scored.map(s => s.episodeId);
     const { data: episodes } = await supabase
       .from("episodes")
-      .select("id, title, audio_url, published_at, duration_seconds, podcast_id, podcasts(id, title, image_url, author, rss_feed_url, apple_id)")
-      .in("id", episodeIds);
+      .select("id, title, audio_url, published_at, duration_seconds, description, podcast_id, podcasts(id, title, image_url, author, rss_feed_url, apple_id)")
+      .in("id", candidateIds);
 
     if (!episodes || episodes.length === 0) {
       return NextResponse.json({ related: [] });
@@ -81,31 +80,42 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       .from("summaries")
       .select("episode_id, status")
       .eq("level", "deep")
-      .in("episode_id", episodeIds);
+      .in("episode_id", candidateIds);
 
     const deepStatusMap = new Map(
       (deepSummaries || []).map(s => [s.episode_id, s.status])
     );
 
-    // 6. Build response in overlap-score order
+    // 6. Build response in overlap-score order, max 2 episodes per podcast
     const episodeMap = new Map(episodes.map(e => [e.id, e]));
-    const related = scored
-      .map(s => {
-        const ep = episodeMap.get(s.episodeId);
-        if (!ep) return null;
-        const podcast = (ep as Record<string, unknown>).podcasts as Record<string, unknown> | null;
-        return {
-          episodeId: ep.id,
-          title: ep.title,
-          audioUrl: ep.audio_url,
-          publishedAt: ep.published_at,
-          podcastName: (podcast?.title as string) || "Unknown",
-          podcastArtwork: (podcast?.image_url as string) || "",
-          podcastRssFeedUrl: (podcast?.rss_feed_url as string) || "",
-          hasDeepSummary: deepStatusMap.get(s.episodeId) === "ready",
-        };
-      })
-      .filter(Boolean);
+    const podcastCount = new Map<string, number>();
+    const related: Record<string, unknown>[] = [];
+
+    for (const s of scored) {
+      if (related.length >= 6) break;
+      const ep = episodeMap.get(s.episodeId);
+      if (!ep) continue;
+      const podcast = (ep as Record<string, unknown>).podcasts as Record<string, unknown> | null;
+      const podcastId = ep.podcast_id as string;
+
+      // Max 2 episodes from the same podcast
+      const count = podcastCount.get(podcastId) || 0;
+      if (count >= 2) continue;
+      podcastCount.set(podcastId, count + 1);
+
+      related.push({
+        episodeId: ep.id,
+        title: ep.title,
+        audioUrl: ep.audio_url,
+        publishedAt: ep.published_at,
+        description: ep.description || null,
+        podcastName: (podcast?.title as string) || "Unknown",
+        podcastArtwork: (podcast?.image_url as string) || "",
+        podcastRssFeedUrl: (podcast?.rss_feed_url as string) || "",
+        hasDeepSummary: deepStatusMap.get(s.episodeId) === "ready",
+        sharedTags: s.sharedTags,
+      });
+    }
 
     return NextResponse.json({ related }, {
       headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=7200" },

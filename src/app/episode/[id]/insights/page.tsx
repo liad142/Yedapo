@@ -15,7 +15,6 @@ import { YouTubeLogo } from "@/components/YouTubeLogo";
 import { InlinePlayButton } from "@/components/PlayButton";
 import type { YouTubeEmbedRef } from "@/components/YouTubeEmbed";
 import { FloatingYouTubePlayer } from "@/components/FloatingYouTubePlayer";
-import { RelatedEpisodes } from "@/components/insights/RelatedEpisodes";
 import { isYouTubeContent, extractYouTubeVideoId, getYouTubeThumbnail } from "@/lib/youtube/utils";
 import { createLogger } from '@/lib/logger';
 import { formatDate, formatDuration } from '@/lib/formatters';
@@ -315,8 +314,6 @@ export default function EpisodeInsightsPage() {
         )}
       </div>
 
-      {/* Related Episodes */}
-      {episode && <RelatedEpisodes episodeId={episodeId} />}
     </div>
   );
 }

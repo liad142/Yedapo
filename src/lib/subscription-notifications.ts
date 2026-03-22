@@ -270,36 +270,80 @@ export async function checkNewYouTubeVideos(): Promise<{
       const subscriberUserIds = subscribers.map(s => s.user_id);
 
       for (const item of newItems) {
-        // Try to find a corresponding episode record for summary queueing
-        if (item.video_id) {
-          const videoUrl = `https://www.youtube.com/watch?v=${item.video_id}`;
-          const { data: episode } = await supabase
-            .from('episodes')
+        if (!item.video_id) continue;
+
+        const videoUrl = `https://www.youtube.com/watch?v=${item.video_id}`;
+
+        // Find or create episode record for this video
+        let { data: episode } = await supabase
+          .from('episodes')
+          .select('id')
+          .eq('audio_url', videoUrl)
+          .single();
+
+        // Auto-import video as episode if it doesn't exist yet
+        if (!episode) {
+          // Find the podcast record for this YouTube channel
+          const channelFeedUrl = `youtube:channel:${channel.channel_id}`;
+          let { data: podcast } = await supabase
+            .from('podcasts')
             .select('id')
-            .eq('audio_url', videoUrl)
+            .eq('rss_feed_url', channelFeedUrl)
             .single();
 
-          if (episode) {
-            // Queue both quick + deep summaries for full insights page
-            summariesQueued += await maybeQueueAutoSummary(
-              episode.id,
-              videoUrl,
-              'quick',
-              'en',
-              undefined,
-              { podcastTitle: channel.channel_name, episodeTitle: item.title },
-              subscriberUserIds
-            );
-            summariesQueued += await maybeQueueAutoSummary(
-              episode.id,
-              videoUrl,
-              'deep',
-              'en',
-              undefined,
-              { podcastTitle: channel.channel_name, episodeTitle: item.title },
-              subscriberUserIds
-            );
+          if (!podcast) {
+            // Create podcast record for the channel
+            const { data: newPodcast } = await supabase
+              .from('podcasts')
+              .insert({
+                title: channel.channel_name,
+                rss_feed_url: channelFeedUrl,
+                image_url: null,
+                language: 'en',
+              })
+              .select('id')
+              .single();
+            podcast = newPodcast;
           }
+
+          if (podcast) {
+            const { data: newEpisode } = await supabase
+              .from('episodes')
+              .insert({
+                podcast_id: podcast.id,
+                title: item.title,
+                audio_url: videoUrl,
+                published_at: item.published_at || new Date().toISOString(),
+              })
+              .select('id')
+              .single();
+            episode = newEpisode;
+            if (episode) {
+              log.info('Auto-imported YouTube video as episode', { videoId: item.video_id, episodeId: episode.id });
+            }
+          }
+        }
+
+        if (episode) {
+          // Queue both quick + deep summaries for full insights page
+          summariesQueued += await maybeQueueAutoSummary(
+            episode.id,
+            videoUrl,
+            'quick',
+            'en',
+            undefined,
+            { podcastTitle: channel.channel_name, episodeTitle: item.title },
+            subscriberUserIds
+          );
+          summariesQueued += await maybeQueueAutoSummary(
+            episode.id,
+            videoUrl,
+            'deep',
+            'en',
+            undefined,
+            { podcastTitle: channel.channel_name, episodeTitle: item.title },
+            subscriberUserIds
+          );
         }
 
         // Create notifications for subscribers with notifications enabled

@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       await followYouTubeChannel(user.id, dbChannel.id);
 
       // Fetch recent videos
-      const videos = await fetchChannelVideos(channel.channelId, 5);
+      const { videos } = await fetchChannelVideos(channel.channelId, 5);
       log.info('Fetched videos', { count: videos.length, channel: channel.title });
 
       if (videos.length > 0) {

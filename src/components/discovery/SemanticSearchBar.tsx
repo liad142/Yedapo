@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import posthog from 'posthog-js';
 import { useRouter } from 'next/navigation';
 import { Search, Loader2, X, Podcast, Play, Sparkles } from 'lucide-react';
@@ -447,7 +447,7 @@ export function SemanticSearchBar() {
 
                     {/* YouTube Videos */}
                     {videos.length > 0 && (
-                      <>
+                      <React.Fragment key="videos-section">
                         {channels.length > 0 && <div className="border-t border-border my-1" />}
                         <div className="px-4 py-2 flex items-center gap-1.5">
                           <Play className="h-3.5 w-3.5 text-muted-foreground" />
@@ -459,7 +459,7 @@ export function SemanticSearchBar() {
                           const globalIndex = videoBaseIndex + index;
                           return (
                             <motion.div
-                              key={video.videoId}
+                              key={`video-${video.videoId}`}
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: index * 0.05 }}
@@ -511,7 +511,7 @@ export function SemanticSearchBar() {
                             </motion.div>
                           );
                         })}
-                      </>
+                      </React.Fragment>
                     )}
                   </div>
                 )}

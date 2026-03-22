@@ -59,7 +59,7 @@ function formatDate(dateString: string | null): string {
 }
 
 const NON_TERMINAL_STATUSES = ['queued', 'transcribing', 'summarizing'];
-const POLL_INTERVAL = 10_000;
+const POLL_INTERVAL = 5_000;
 
 /** Get active queue position — only counts non-terminal items ahead */
 function getActiveQueuePosition(queue: Array<{ episodeId: string; state: string }>, episodeId: string): number {
@@ -165,6 +165,15 @@ export default function SummariesPage() {
       return;
     }
     fetchSummaries();
+  }, [user, fetchSummaries]);
+
+  // Refresh when tab becomes visible (user navigates back from channel page)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && user) fetchSummaries(true);
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [user, fetchSummaries]);
 
   // Fetch episode info for queue items not yet in DB results

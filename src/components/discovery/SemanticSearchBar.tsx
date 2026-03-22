@@ -465,7 +465,7 @@ export function SemanticSearchBar() {
                               transition={{ delay: index * 0.05 }}
                             >
                             <div
-                              className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${
+                              className={`flex flex-col px-4 py-3 transition-colors ${
                                 globalIndex === selectedIndex
                                   ? 'bg-secondary'
                                   : 'hover:bg-secondary/60'
@@ -473,7 +473,7 @@ export function SemanticSearchBar() {
                             >
                               <button
                                 onClick={() => handleVideoClick(video)}
-                                className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer text-left"
+                                className="flex items-center gap-3 w-full cursor-pointer text-left"
                               >
                                 <div className="relative w-14 h-9 rounded-md overflow-hidden flex-shrink-0 bg-muted">
                                   <Image
@@ -483,28 +483,30 @@ export function SemanticSearchBar() {
                                     className="object-cover"
                                     sizes="56px"
                                   />
-                                  {/* Small play overlay */}
                                   <div className="absolute inset-0 flex items-center justify-center bg-black/20">
                                     <Play className="h-3 w-3 text-white fill-white" />
                                   </div>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <p className="font-medium text-sm text-foreground truncate">{video.title}</p>
+                                  <p className="font-medium text-sm text-foreground line-clamp-2">{video.title}</p>
                                   <p className="text-xs text-muted-foreground truncate">{video.channelTitle}</p>
                                 </div>
                               </button>
-                              <button
-                                onClick={(e) => handleVideoSummarize(e, video)}
-                                disabled={summarizingVideos[video.videoId]}
-                                className="flex-shrink-0 flex items-center gap-1 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10 rounded-md transition-colors cursor-pointer"
-                                title="Summarize"
-                              >
-                                {summarizingVideos[video.videoId] ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <Sparkles className="h-3.5 w-3.5" />
-                                )}
-                              </button>
+                              <div className="flex justify-end mt-1.5">
+                                <button
+                                  onClick={(e) => handleVideoSummarize(e, video)}
+                                  disabled={summarizingVideos[video.videoId]}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-primary rounded-full transition-all hover:scale-105 active:scale-95 shadow-sm shadow-primary/20 hover:shadow-primary/40 cursor-pointer disabled:opacity-50"
+                                  title="Summarize"
+                                >
+                                  {summarizingVideos[video.videoId] ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Sparkles className="h-3.5 w-3.5 fill-white/20" />
+                                  )}
+                                  <span>Summarize</span>
+                                </button>
+                              </div>
                             </div>
                             </motion.div>
                           );

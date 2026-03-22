@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Heart, Users } from 'lucide-react';
+import { ArrowLeft, Loader2, Heart } from 'lucide-react';
 import { YouTubeLogoStatic } from '@/components/YouTubeLogo';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -11,8 +11,6 @@ import { Badge } from '@/components/ui/badge';
 import { VideoCard, type VideoItem } from '@/components/VideoCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { NotifyToggle } from '@/components/NotifyToggle';
-import { motion } from 'framer-motion';
-import { springBouncy } from '@/lib/motion';
 
 interface ChannelInfo {
   title: string;
@@ -149,42 +147,39 @@ export default function YouTubeChannelPage({ params }: PageProps) {
       <div className="container mx-auto px-4 py-8">
         <div className="space-y-8">
           {/* Immersive Header — matching podcast browse page style */}
-          <div className="relative z-10 rounded-3xl bg-slate-900 border border-white/10 shadow-2xl">
+          <div className="relative z-10 rounded-3xl bg-slate-900 border border-white/10 shadow-2xl overflow-hidden">
             {/* Blurred Background Backdrop */}
-            <div className="absolute inset-0 z-0 overflow-hidden rounded-3xl">
-              <Image
+            <div className="absolute inset-0 z-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src={thumbnailUrl}
                 alt=""
-                fill
-                className="object-cover blur-3xl scale-110 opacity-60"
+                className="w-full h-full object-cover blur-3xl scale-110 opacity-60"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />
             </div>
 
             {/* Content Overlay */}
-            <div className="relative z-10 p-8 md:p-12 flex flex-col md:flex-row gap-8 items-center md:items-start text-center md:text-left">
-              <div className="w-32 h-32 md:w-40 md:h-40 shrink-0 rounded-full overflow-hidden shadow-2xl border-2 border-white/10">
-                <Image
+            <div className="relative z-10 p-6 md:p-12 flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start text-center md:text-left">
+              <div className="w-28 h-28 md:w-40 md:h-40 shrink-0 rounded-full overflow-hidden shadow-2xl border-2 border-white/10">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src={thumbnailUrl}
                   alt={channel.title}
-                  width={160}
-                  height={160}
                   className="w-full h-full object-cover"
-                  priority
                 />
               </div>
 
-              <div className="flex-1 space-y-4 min-w-0">
+              <div className="flex-1 space-y-3 md:space-y-4 min-w-0">
                 <div>
-                  <div className="flex items-center justify-center md:justify-start gap-3 mb-3">
-                    <h1 className="text-2xl md:text-4xl font-bold text-white tracking-tight leading-tight drop-shadow-sm truncate">
+                  <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
+                    <h1 className="text-xl md:text-4xl font-bold text-white tracking-tight leading-tight drop-shadow-sm truncate">
                       {channel.title}
                     </h1>
                     <YouTubeLogoStatic size="md" />
                   </div>
                   {channel.subscriberCount && (
-                    <p className="text-sm text-slate-400 flex items-center justify-center md:justify-start gap-1.5">
-                      <Users className="h-3.5 w-3.5" />
+                    <p className="text-sm text-slate-400">
                       {channel.subscriberCount} subscribers
                     </p>
                   )}
@@ -208,29 +203,23 @@ export default function YouTubeChannelPage({ params }: PageProps) {
 
                 {/* Action Buttons */}
                 <div className="flex items-center gap-1 pt-2 justify-center md:justify-start">
-                  <motion.div
-                    whileTap={{ scale: 1.3 }}
-                    transition={isFollowing ? { duration: 0.4, ease: 'easeInOut' } : springBouncy}
-                    animate={isFollowing ? { scale: [1, 1.25, 1] } : undefined}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleFollowToggle}
+                    disabled={isTogglingFollow}
+                    className={cn(
+                      'rounded-full text-white hover:bg-white/10',
+                      isFollowing && 'text-red-500 hover:text-red-600'
+                    )}
+                    aria-label={isFollowing ? 'Remove from library' : 'Save to library'}
                   >
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleFollowToggle}
-                      disabled={isTogglingFollow}
-                      className={cn(
-                        'rounded-full text-white hover:bg-white/10',
-                        isFollowing && 'text-red-500 hover:text-red-600'
-                      )}
-                      aria-label={isFollowing ? 'Remove from library' : 'Save to library'}
-                    >
-                      {isTogglingFollow ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                      ) : (
-                        <Heart className={cn('h-5 w-5', isFollowing && 'fill-current')} />
-                      )}
-                    </Button>
-                  </motion.div>
+                    {isTogglingFollow ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Heart className={cn('h-5 w-5', isFollowing && 'fill-current')} />
+                    )}
+                  </Button>
 
                   {isFollowing && channelDbId && (
                     <NotifyToggle
@@ -245,7 +234,7 @@ export default function YouTubeChannelPage({ params }: PageProps) {
           </div>
 
           {/* Videos Section */}
-          <section className="bg-secondary/50 md:bg-transparent -mx-4 px-4 py-8 md:px-0 md:mx-0 md:py-0">
+          <section>
             <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground mb-6 flex items-center gap-3">
               Recent Videos
               {videos.length > 0 && (

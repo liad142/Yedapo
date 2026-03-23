@@ -54,11 +54,14 @@ export interface QuickSummaryContent {
 export interface ActionItemResource {
   name: string;       // "LangChain", "The Pragmatic Programmer"
   type: 'github' | 'tool' | 'book' | 'person' | 'paper' | 'website';
+  url?: string;       // Direct URL if mentioned in episode or description
   context?: string;   // "Python framework for LLM apps discussed by the guest"
 }
 
 export interface ActionItem {
   text: string;
+  why?: string;       // Why this matters — the motivation to act
+  effort?: string;    // Time estimate: "5min", "30min", "2hrs", "ongoing"
   category: 'tool' | 'repo' | 'concept' | 'strategy' | 'resource' | 'habit';
   priority?: 'high' | 'medium' | 'low';
   resources?: ActionItemResource[];

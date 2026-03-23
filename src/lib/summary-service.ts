@@ -288,11 +288,13 @@ Return ONLY a JSON object with this EXACT structure. Every field is MANDATORY �
 
   "actionable_takeaways": [
     {
-      "text": "Verb-first, specific task the listener can do (e.g. 'Set up OpenTelemetry tracing for your services')",
+      "text": "Verb-first, specific task the listener can do RIGHT NOW (e.g. 'Set up OpenTelemetry tracing for your Next.js app'). Must be concrete enough that the listener knows exactly what to do — not vague advice like 'think about your strategy'.",
+      "why": "One sentence explaining WHY this matters — the payoff. E.g. 'Catches 80% of production bugs before users report them'. This is the motivation to act.",
+      "effort": "Realistic time estimate: '5min' | '30min' | '1hr' | '2hrs' | 'half-day' | 'ongoing'. Be honest — don't say 5min for something that takes hours.",
       "category": "tool",
       "priority": "high",
       "resources": [
-        { "name": "OpenTelemetry", "type": "tool", "context": "Monitoring framework discussed as the backbone for distributed tracing" }
+        { "name": "OpenTelemetry", "type": "tool", "url": "https://opentelemetry.io", "context": "Monitoring framework discussed as the backbone for distributed tracing" }
       ]
     }
   ],
@@ -318,7 +320,13 @@ HARD RULES (violations = invalid output):
 
 3. **hook is MANDATORY**: Every item in chronological_breakdown MUST have a non-empty "hook" field. A hook is a one-line promise/insight that makes the reader want to read the section (e.g., "Why the CEO thinks remote work is dead"). If you omit hook from any chapter, the output is INVALID.
 
-4. **Action items MUST be objects with resources**: Every item in actionable_takeaways MUST be a JSON object with "text", "category", "priority", and "resources" fields. NEVER return a plain string. The "text" field must start with a verb. Categories: tool/repo/concept/strategy/resource/habit. Priority: high/medium/low. The "resources" array MUST contain at least 1 resource per action item — link the action to a concrete tool, book, website, person, repo, or concept mentioned in the episode. If a specific resource wasn't named, infer the most relevant one (e.g., an action about "start journaling" → resource: {"name": "Morning Pages", "type": "book", "context": "Journaling technique from The Artist's Way"}). An empty resources array is INVALID.
+4. **Action items MUST be objects with resources, why, and effort**: Every item in actionable_takeaways MUST be a JSON object with "text", "why", "effort", "category", "priority", and "resources" fields. NEVER return a plain string.
+   - "text" MUST start with a verb and be specific enough that someone can act on it immediately. BAD: "Consider using AI tools". GOOD: "Install Cursor IDE and migrate your VS Code settings to test AI-assisted coding for one week".
+   - "why" MUST explain the concrete payoff in one sentence. BAD: "It's useful". GOOD: "Reduces code review time by ~40% based on the guest's team metrics".
+   - "effort" MUST be a realistic time estimate: "5min" | "15min" | "30min" | "1hr" | "2hrs" | "half-day" | "ongoing".
+   - Categories: tool/repo/concept/strategy/resource/habit. Priority: high/medium/low.
+   - "resources" array MUST contain at least 1 resource per action item. If the episode or video description mentions a URL, include it in the "url" field. Otherwise omit "url" and let the app generate a search link. IMPORTANT: Check the VIDEO DESCRIPTION and DESCRIPTION LINKS sections for real URLs to include.
+   - An empty resources array is INVALID.
 
 5. **Contrarian views**: 4-8 views. Each view MUST be 2-3 sentences: state the contrarian claim, then bold ONE key term (**Term**) and interpret it for the reader. Every view must contain exactly one **bolded term** with an explanation.
 
@@ -340,7 +348,7 @@ SELF-CHECK before responding:
 - Does topic_tags contain 3-5 tags from the provided list? If not → fix it.
 - Does comprehensive_overview contain 3-5 << >> markers? If not → fix it.
 - Does every chronological_breakdown item have a non-empty "hook"? If not → fix it.
-- Is every actionable_takeaway an object with text/category/priority/resources where resources has ≥1 item? If not → fix it.
+- Is every actionable_takeaway an object with text/why/effort/category/priority/resources where resources has ≥1 item? If not → fix it.
 - Is ALL text in the transcript's language? If not → fix it.
 - Are section_labels values translated to the transcript's language? If not → fix it.
 - Does any text say "Speaker 1" or "Speaker 2"? If so → replace with real names from context, or "the host"/"the guest" if unidentifiable.

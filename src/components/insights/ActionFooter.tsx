@@ -257,22 +257,44 @@ export function ActionFooter({ episode, actionPrompts, summaryReady = false, sec
                         {action.text}
                       </p>
 
+                      {/* Why + Effort row */}
+                      {(action.why || action.effort) && (
+                        <div className="flex items-start gap-3 text-caption text-muted-foreground">
+                          {action.why && (
+                            <span className="flex-1 italic">{action.why}</span>
+                          )}
+                          {action.effort && (
+                            <Badge variant="outline" className="shrink-0 text-[11px] h-5 px-1.5 font-medium">
+                              ⏱ {action.effort}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+
                       {/* Resource pills */}
                       {action.resources && action.resources.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-1">
                           {action.resources.map((resource, ri) => {
                             const ResourceIcon = getResourceIcon(resource.type);
+                            const href = resource.url || getResourceSearchUrl(resource);
+                            const hasDirectUrl = !!resource.url;
                             return (
                               <a
                                 key={ri}
-                                href={getResourceSearchUrl(resource)}
+                                href={href}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-caption font-medium bg-secondary border border-border text-muted-foreground hover:text-primary hover:border-primary transition-all"
-                                title={resource.context || `Search for ${resource.name}`}
+                                className={cn(
+                                  "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-caption font-medium transition-all",
+                                  hasDirectUrl
+                                    ? "bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20"
+                                    : "bg-secondary border border-border text-muted-foreground hover:text-primary hover:border-primary"
+                                )}
+                                title={resource.context || (hasDirectUrl ? resource.url : `Search for ${resource.name}`)}
                               >
                                 <ResourceIcon className="h-3 w-3" />
                                 {resource.name}
+                                {hasDirectUrl && <ExternalLink className="h-2.5 w-2.5 opacity-60" />}
                               </a>
                             );
                           })}

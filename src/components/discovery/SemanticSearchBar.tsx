@@ -50,7 +50,7 @@ export function SemanticSearchBar() {
   const [videos, setVideos] = useState<SearchVideo[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
-  const [summarizingVideos, setSummarizingVideos] = useState<Record<string, boolean>>({});
+  const [summarizingVideos, setSummarizingVideos] = useState<Record<string, 'idle' | 'loading' | 'done'>>({});
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -226,7 +226,7 @@ export function SemanticSearchBar() {
   const handleVideoSummarize = async (e: React.MouseEvent, video: SearchVideo) => {
     e.preventDefault();
     e.stopPropagation();
-    if (summarizingVideos[video.videoId]) return;
+    if (summarizingVideos[video.videoId] === 'loading') return;
 
     // Guest users: show sign-up modal
     if (!user) {
@@ -234,7 +234,7 @@ export function SemanticSearchBar() {
       return;
     }
 
-    setSummarizingVideos((prev) => ({ ...prev, [video.videoId]: true }));
+    setSummarizingVideos((prev) => ({ ...prev, [video.videoId]: 'loading' }));
     try {
       const res = await fetch(`/api/youtube/${video.videoId}/summary`, {
         method: 'POST',
@@ -248,14 +248,17 @@ export function SemanticSearchBar() {
         }),
       });
       if (res.ok) {
-        const data = await res.json();
-        setShowResults(false);
-        router.push(`/episode/${data.episodeId}/insights`);
+        setSummarizingVideos((prev) => ({ ...prev, [video.videoId]: 'done' }));
+        // Brief success animation, then navigate to channel page
+        setTimeout(() => {
+          setShowResults(false);
+          if (video.channelId) {
+            router.push(`/browse/youtube/${video.channelId}`);
+          }
+        }, 800);
       }
     } catch {
-      // Silently fail
-    } finally {
-      setSummarizingVideos((prev) => ({ ...prev, [video.videoId]: false }));
+      setSummarizingVideos((prev) => ({ ...prev, [video.videoId]: 'idle' }));
     }
   };
 
@@ -487,16 +490,28 @@ export function SemanticSearchBar() {
                               <div className="flex justify-end mt-1.5">
                                 <button
                                   onClick={(e) => handleVideoSummarize(e, video)}
-                                  disabled={summarizingVideos[video.videoId]}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-primary rounded-full transition-all hover:scale-105 active:scale-95 shadow-sm shadow-primary/20 hover:shadow-primary/40 cursor-pointer disabled:opacity-50"
+                                  disabled={summarizingVideos[video.videoId] === 'loading' || summarizingVideos[video.videoId] === 'done'}
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-full transition-all shadow-sm cursor-pointer disabled:cursor-default ${
+                                    summarizingVideos[video.videoId] === 'done'
+                                      ? 'bg-green-500 shadow-green-500/20 scale-105'
+                                      : 'bg-primary shadow-primary/20 hover:shadow-primary/40 hover:scale-105 active:scale-95 disabled:opacity-70'
+                                  }`}
                                   title="Summarize"
                                 >
-                                  {summarizingVideos[video.videoId] ? (
+                                  {summarizingVideos[video.videoId] === 'loading' ? (
                                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : summarizingVideos[video.videoId] === 'done' ? (
+                                    <Sparkles className="h-3.5 w-3.5 fill-white/40 animate-pulse" />
                                   ) : (
                                     <Sparkles className="h-3.5 w-3.5 fill-white/20" />
                                   )}
-                                  <span>Summarize</span>
+                                  <span>
+                                    {summarizingVideos[video.videoId] === 'loading'
+                                      ? 'Summarizing...'
+                                      : summarizingVideos[video.videoId] === 'done'
+                                        ? 'Queued!'
+                                        : 'Summarize'}
+                                  </span>
                                 </button>
                               </div>
                             </div>

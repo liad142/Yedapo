@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SearchPodcast {
   id: string;
@@ -37,6 +38,7 @@ interface SearchVideo {
 
 export function SemanticSearchBar() {
   const router = useRouter();
+  const { user, setShowAuthModal } = useAuth();
   // Read initial query from URL without useSearchParams() to avoid dynamic rendering / RSC refetches
   const [query, setQuery] = useState(() => {
     if (typeof window === 'undefined') return '';
@@ -213,26 +215,10 @@ export function SemanticSearchBar() {
   const handleVideoClick = async (video: SearchVideo) => {
     setShowResults(false);
     posthog.capture('search_video_clicked', { query, video_id: video.videoId, video_title: video.title });
-    // Import the video as an episode, then navigate to the insights page
-    try {
-      const res = await fetch(`/api/youtube/${video.videoId}/summary`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          level: 'quick',
-          title: video.title,
-          channelId: video.channelId || '',
-          channelTitle: video.channelTitle,
-          thumbnailUrl: video.thumbnailUrl,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        router.push(`/episode/${data.episodeId}/insights`);
-      } else {
-        window.open(`https://www.youtube.com/watch?v=${video.videoId}`, '_blank', 'noopener,noreferrer');
-      }
-    } catch {
+    // Navigate to the channel page so the user can browse all videos
+    if (video.channelId) {
+      router.push(`/browse/youtube/${video.channelId}`);
+    } else {
       window.open(`https://www.youtube.com/watch?v=${video.videoId}`, '_blank', 'noopener,noreferrer');
     }
   };
@@ -241,6 +227,12 @@ export function SemanticSearchBar() {
     e.preventDefault();
     e.stopPropagation();
     if (summarizingVideos[video.videoId]) return;
+
+    // Guest users: show sign-up modal
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
 
     setSummarizingVideos((prev) => ({ ...prev, [video.videoId]: true }));
     try {

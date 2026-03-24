@@ -8,18 +8,15 @@ function getBaseUrl() {
   return 'http://localhost:3000';
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}): Promise<Metadata> {
-  const { id } = await params;
+async function getEpisodeData(id: string) {
   const supabase = createAdminClient();
 
   const [{ data: episode }, { data: summary }] = await Promise.all([
     supabase
       .from('episodes')
-      .select('title, description, podcasts(title, image_url)')
+      .select(
+        'title, description, audio_url, published_at, duration_seconds, podcasts(title, image_url)'
+      )
       .eq('id', id)
       .single(),
     supabase
@@ -31,12 +28,26 @@ export async function generateMetadata({
       .single(),
   ]);
 
+  return { episode, summary };
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const { episode, summary } = await getEpisodeData(id);
+
   if (!episode) {
     return { title: 'Episode Not Found — Yedapo' };
   }
 
   const podcastRaw = episode.podcasts;
-  const podcast = (Array.isArray(podcastRaw) ? podcastRaw[0] : podcastRaw) as { title: string; image_url: string | null } | null;
+  const podcast = (Array.isArray(podcastRaw) ? podcastRaw[0] : podcastRaw) as {
+    title: string;
+    image_url: string | null;
+  } | null;
   const quick = summary?.content_json as QuickSummaryContent | null;
 
   const title = `${episode.title} — Yedapo`;
@@ -52,6 +63,9 @@ export async function generateMetadata({
   return {
     title,
     description,
+    alternates: {
+      canonical: pageUrl,
+    },
     openGraph: {
       title: episode.title,
       description,
@@ -76,10 +90,64 @@ export async function generateMetadata({
   };
 }
 
-export default function InsightsLayout({
+export default async function InsightsLayout({
+  params,
   children,
 }: {
+  params: Promise<{ id: string }>;
   children: React.ReactNode;
 }) {
-  return children;
+  const { id } = await params;
+  const { episode, summary } = await getEpisodeData(id);
+
+  if (!episode) {
+    return <>{children}</>;
+  }
+
+  const podcastRaw = episode.podcasts;
+  const podcast = (Array.isArray(podcastRaw) ? podcastRaw[0] : podcastRaw) as {
+    title: string;
+    image_url: string | null;
+  } | null;
+  const quick = summary?.content_json as QuickSummaryContent | null;
+  const baseUrl = getBaseUrl();
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'PodcastEpisode',
+    name: episode.title,
+    description:
+      quick?.executive_brief ||
+      episode.description?.substring(0, 300) ||
+      undefined,
+    url: `${baseUrl}/episode/${id}/insights`,
+    datePublished: episode.published_at || undefined,
+    ...(episode.duration_seconds && {
+      timeRequired: `PT${Math.floor(episode.duration_seconds / 60)}M${episode.duration_seconds % 60}S`,
+    }),
+    ...(episode.audio_url && {
+      associatedMedia: {
+        '@type': 'MediaObject',
+        contentUrl: episode.audio_url,
+      },
+    }),
+    ...(podcast && {
+      partOfSeries: {
+        '@type': 'PodcastSeries',
+        name: podcast.title,
+        ...(podcast.image_url && { image: podcast.image_url }),
+      },
+    }),
+    ...(podcast?.image_url && { image: podcast.image_url }),
+  };
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      {children}
+    </>
+  );
 }

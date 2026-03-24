@@ -39,7 +39,7 @@ interface SearchVideo {
 
 export function SemanticSearchBar() {
   const router = useRouter();
-  const { user, setShowAuthModal } = useAuth();
+  const { user, setShowCompactPrompt } = useAuth();
   // Read initial query from URL without useSearchParams() to avoid dynamic rendering / RSC refetches
   const [query, setQuery] = useState(() => {
     if (typeof window === 'undefined') return '';
@@ -234,7 +234,7 @@ export function SemanticSearchBar() {
 
     // Guest users: show sign-up modal
     if (!user) {
-      setShowAuthModal(true);
+      setShowCompactPrompt(true, 'Only registered users can summarize episodes. Please sign in or create an account to continue.');
       return;
     }
 

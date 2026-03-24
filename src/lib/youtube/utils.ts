@@ -20,6 +20,64 @@ export function extractYouTubeVideoId(url: string | null | undefined): string | 
 }
 
 /**
+ * Extract YouTube channel ID from various URL formats
+ */
+export function extractChannelId(url: string): string | null {
+  const patterns = [
+    /youtube\.com\/channel\/([a-zA-Z0-9_-]+)/,
+    /^([a-zA-Z0-9_-]{24})$/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+
+  return null;
+}
+
+/**
+ * Extract YouTube handle from URL or @handle string
+ */
+export function extractHandle(input: string): string | null {
+  const patterns = [
+    /youtube\.com\/@([a-zA-Z0-9_-]+)/,
+    /^@([a-zA-Z0-9_-]+)$/,
+    /^([a-zA-Z0-9_-]+)$/, // Plain handle without @
+  ];
+
+  for (const pattern of patterns) {
+    const match = input.match(pattern);
+    if (match) {
+      const handle = match[1];
+      return handle.startsWith('@') ? handle : `@${handle}`;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Parse YouTube input (URL, channel ID, or handle) and determine the type
+ */
+export function parseYouTubeInput(input: string): {
+  type: 'channel' | 'handle' | 'unknown';
+  value: string;
+} {
+  const channelId = extractChannelId(input);
+  if (channelId) {
+    return { type: 'channel', value: channelId };
+  }
+
+  const handle = extractHandle(input);
+  if (handle) {
+    return { type: 'handle', value: handle };
+  }
+
+  return { type: 'unknown', value: input };
+}
+
+/**
  * Get YouTube thumbnail URL for a video
  */
 export function getYouTubeThumbnail(

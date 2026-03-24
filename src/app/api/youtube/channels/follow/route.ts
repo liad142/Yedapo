@@ -1,16 +1,14 @@
 /**
  * POST /api/youtube/channels/follow
  * Follow a YouTube channel by URL, channel ID, or handle.
- * Accepts either { input } (legacy RSSHub path) or { channelId, title, thumbnailUrl, description }
+ * Accepts either { input } (legacy path) or { channelId, title, thumbnailUrl, description }
  * for direct follow from the browse page.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  fetchYouTubeChannelFeed,
-  parseYouTubeInput,
-  checkRateLimit,
-} from '@/lib/rsshub';
+import { parseYouTubeInput } from '@/lib/youtube/utils';
+import { fetchChannelVideos } from '@/lib/youtube/api';
+import { checkRateLimit } from '@/lib/cache';
 import {
   upsertYouTubeChannel,
   followYouTubeChannel,
@@ -28,7 +26,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Rate limiting
+    // Rate limiting (10 requests per 60 seconds)
     if (!(await checkRateLimit('yt-follow:' + user.id, 10, 60))) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please try again in a minute.' },
@@ -91,44 +89,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Try RSSHub first, fall back to direct upsert
+    // Fetch channel videos via YouTube Data API and upsert
     let dbChannel: YouTubeChannel;
     let videosAdded = 0;
+    const channelId = parsed.type === 'channel' ? parsed.value : parsed.value;
 
     try {
-      const { channel, videos } = await fetchYouTubeChannelFeed(parsed.value);
+      const { videos } = await fetchChannelVideos(channelId, 15);
 
+      const channelName = videos[0]?.channelTitle || channelId;
       dbChannel = await upsertYouTubeChannel({
-        channelId: channel.channelId,
-        channelName: channel.channelName,
-        channelUrl: channel.channelUrl,
-        channelHandle: channel.channelHandle,
-        thumbnailUrl: channel.thumbnailUrl,
-        description: channel.description,
+        channelId,
+        channelName,
+        channelUrl: `https://www.youtube.com/channel/${channelId}`,
       });
 
-      await upsertFeedItems(
-        videos.map((video) => ({
-          sourceType: 'youtube' as const,
-          sourceId: dbChannel.id,
-          title: video.title,
-          description: video.description,
-          thumbnailUrl: video.thumbnailUrl,
-          publishedAt: video.publishedAt,
-          duration: video.duration,
-          url: video.url,
-          videoId: video.videoId,
-          userId: user.id,
-        }))
-      );
-      videosAdded = videos.length;
-    } catch (rsshubError) {
-      console.warn('RSSHub unavailable, falling back to direct follow:', rsshubError);
-      // Fallback: just upsert the channel without feed items
+      if (videos.length > 0) {
+        await upsertFeedItems(
+          videos.map((video) => ({
+            sourceType: 'youtube' as const,
+            sourceId: dbChannel.id,
+            title: video.title,
+            description: video.description,
+            thumbnailUrl: video.thumbnailUrl,
+            publishedAt: new Date(video.publishedAt),
+            url: `https://www.youtube.com/watch?v=${video.videoId}`,
+            videoId: video.videoId,
+            userId: user.id,
+          }))
+        );
+        videosAdded = videos.length;
+      }
+    } catch (apiError) {
+      console.warn('YouTube API unavailable, falling back to direct follow:', apiError);
       dbChannel = await upsertYouTubeChannel({
-        channelId: parsed.value,
-        channelName: parsed.value, // Will be updated when channel page is visited
-        channelUrl: `https://www.youtube.com/channel/${parsed.value}`,
+        channelId,
+        channelName: channelId,
+        channelUrl: `https://www.youtube.com/channel/${channelId}`,
       });
     }
 

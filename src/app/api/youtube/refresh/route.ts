@@ -8,7 +8,8 @@ import {
   getFollowedChannels,
   upsertFeedItems,
 } from '@/lib/rsshub-db';
-import { fetchYouTubeChannelFeed, checkRateLimit } from '@/lib/rsshub';
+import { fetchChannelVideos } from '@/lib/youtube/api';
+import { checkRateLimit } from '@/lib/cache';
 import { getAuthUser } from '@/lib/auth-helpers';
 
 export async function POST(request: NextRequest) {
@@ -40,28 +41,26 @@ export async function POST(request: NextRequest) {
     let totalVideosAdded = 0;
     const errors: string[] = [];
 
-    // Refresh all channels in parallel
+    // Refresh all channels in parallel via YouTube Data API
     const results = await Promise.allSettled(
       channels.map(async (channel) => {
-        const { videos } = await fetchYouTubeChannelFeed(
-          channel.channelId,
-          false
-        );
+        const { videos } = await fetchChannelVideos(channel.channelId, 15);
 
-        await upsertFeedItems(
-          videos.map((video) => ({
-            sourceType: 'youtube' as const,
-            sourceId: channel.id,
-            title: video.title,
-            description: video.description,
-            thumbnailUrl: video.thumbnailUrl,
-            publishedAt: video.publishedAt,
-            duration: video.duration,
-            url: video.url,
-            videoId: video.videoId,
-            userId: user.id,
-          }))
-        );
+        if (videos.length > 0) {
+          await upsertFeedItems(
+            videos.map((video) => ({
+              sourceType: 'youtube' as const,
+              sourceId: channel.id,
+              title: video.title,
+              description: video.description,
+              thumbnailUrl: video.thumbnailUrl,
+              publishedAt: new Date(video.publishedAt),
+              url: `https://www.youtube.com/watch?v=${video.videoId}`,
+              videoId: video.videoId,
+              userId: user.id,
+            }))
+          );
+        }
 
         return { channelName: channel.channelName, videosCount: videos.length };
       })

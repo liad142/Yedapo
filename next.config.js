@@ -50,7 +50,7 @@ const nextConfig = {
     ],
   },
   async headers() {
-    const scriptSrc = `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''} https://va.vercel-scripts.com https://us-assets.i.posthog.com https://www.youtube.com`;
+    const scriptSrc = `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''} https://va.vercel-scripts.com https://us-assets.i.posthog.com https://www.youtube.com https://static.cloudflareinsights.com`;
     return [
       {
         source: "/(.*)",

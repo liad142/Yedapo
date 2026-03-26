@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { fetchEpisodeWithPodcast, fetchEpisodeSummaries } from '@/lib/server/fetch-episode';
-import type { QuickSummaryContent } from '@/types/database';
+import { fetchEpisodeWithPodcast } from '@/lib/server/fetch-episode';
+import { podcastEpisodeJsonLd } from '@/lib/server/json-ld';
 
 function getBaseUrl() {
   if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
@@ -59,10 +59,29 @@ export async function generateMetadata({
   };
 }
 
-export default function EpisodeLayout({
+export default async function EpisodeLayout({
+  params,
   children,
 }: {
+  params: Promise<{ id: string }>;
   children: React.ReactNode;
 }) {
-  return children;
+  const { id } = await params;
+  const episode = await fetchEpisodeWithPodcast(id);
+
+  return (
+    <>
+      {episode && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(
+              podcastEpisodeJsonLd(episode, episode.podcast)
+            ),
+          }}
+        />
+      )}
+      {children}
+    </>
+  );
 }

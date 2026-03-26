@@ -36,6 +36,7 @@ declare global {
 interface YTPlayer {
   seekTo: (seconds: number, allowSeekAhead?: boolean) => void;
   getCurrentTime: () => number;
+  getDuration: () => number;
   getPlayerState: () => number;
   playVideo: () => void;
   pauseVideo: () => void;
@@ -44,6 +45,12 @@ interface YTPlayer {
 
 export interface YouTubeEmbedRef {
   seekTo: (seconds: number) => void;
+  play: () => void;
+  pause: () => void;
+  togglePlayback: () => void;
+  isPlaying: () => boolean;
+  getCurrentTime: () => number;
+  getDuration: () => number;
 }
 
 interface YouTubeEmbedProps {
@@ -105,10 +112,32 @@ export const YouTubeEmbed = forwardRef<YouTubeEmbedRef, YouTubeEmbedProps>(
           playerRef.current.seekTo(seconds, true);
           playerRef.current.playVideo();
         } else {
-          // Activate and seek once ready
           setIsActivated(true);
           pendingSeekRef.current = seconds;
         }
+      },
+      play: () => { playerRef.current?.playVideo(); },
+      pause: () => { playerRef.current?.pauseVideo(); },
+      togglePlayback: () => {
+        const player = playerRef.current;
+        if (!player) return;
+        try {
+          const state = player.getPlayerState();
+          if (state === 1) { player.pauseVideo(); } // 1 = PLAYING
+          else { player.playVideo(); }
+        } catch { player.playVideo(); }
+      },
+      isPlaying: () => {
+        try { return playerRef.current?.getPlayerState() === 1; }
+        catch { return false; }
+      },
+      getCurrentTime: () => {
+        try { return playerRef.current?.getCurrentTime() ?? 0; }
+        catch { return 0; }
+      },
+      getDuration: () => {
+        try { return playerRef.current?.getDuration() ?? 0; }
+        catch { return 0; }
       },
     }));
 

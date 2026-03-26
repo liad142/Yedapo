@@ -173,7 +173,7 @@ export default function EpisodeInsightsPage() {
         : null;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
       {/* ── Hero Header ── */}
       <div className="border-b border-border mb-8">
         <div className="container mx-auto px-4 pt-5 pb-8 max-w-3xl">
@@ -199,22 +199,22 @@ export default function EpisodeInsightsPage() {
           ) : episode ? (
             <div className="space-y-5">
               {/* Breadcrumb */}
-              <nav className="flex items-center gap-1.5 text-caption text-muted-foreground">
+              <nav className="flex items-center gap-1.5 text-caption text-muted-foreground min-w-0">
                 <button
                   onClick={() => router.push('/discover')}
-                  className="hover:text-foreground transition-colors"
+                  className="hidden sm:inline hover:text-foreground transition-colors shrink-0"
                 >
                   Discover
                 </button>
-                <ChevronRight className="h-3.5 w-3.5" />
+                <ChevronRight className="hidden sm:block h-3.5 w-3.5 shrink-0" />
                 <button
                   onClick={navigateToPodcast}
-                  className="hover:text-foreground transition-colors truncate max-w-[200px]"
+                  className="hover:text-foreground transition-colors truncate max-w-[40vw] sm:max-w-[200px]"
                 >
                   {episode.podcast?.title || "Podcast"}
                 </button>
-                <ChevronRight className="h-3.5 w-3.5" />
-                <span className="text-foreground truncate max-w-[200px]">Insights</span>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                <span className="text-foreground shrink-0">Insights</span>
               </nav>
 
               {/* YouTube Embed with floating mini-player on scroll */}

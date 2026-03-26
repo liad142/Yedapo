@@ -289,7 +289,7 @@ export const EpisodeSmartFeed = memo(function EpisodeSmartFeed({ episode, youtub
   }
 
   return (
-    <div className="relative">
+    <div className="relative overflow-x-hidden">
       {/* Generation Status Banner */}
       {isGenerating && (
         <motion.div

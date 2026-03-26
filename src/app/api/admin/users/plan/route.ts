@@ -5,7 +5,7 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('admin');
 
-const VALID_PLANS = ['free', 'pro', 'power'] as const;
+const VALID_PLANS = ['free', 'pro'] as const;
 
 export async function PATCH(request: NextRequest) {
   const { error } = await requireAdmin();

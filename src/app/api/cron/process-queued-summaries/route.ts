@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Receiver } from '@upstash/qstash';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { acquireLock, releaseLock } from '@/lib/cache';
 import { createLogger } from '@/lib/logger';
@@ -6,14 +7,15 @@ import { sendAdminAlert } from '@/lib/notifications/send-admin-alert';
 
 const log = createLogger('cron');
 const MAX_PER_RUN = 5;
-const STALE_THRESHOLD_MS = 25 * 60 * 1000; // 25 minutes
+const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
 export const maxDuration = 300; // 5 min — needs time for HTTP retriggers
 
-/**
- * Safety net: picks up summaries stuck in 'queued' or 'transcribing' status
- * and re-triggers them via HTTP POST (separate function invocation).
- */
+// ---------------------------------------------------------------------------
+// Auth: Vercel cron (GET) or QStash (POST)
+// ---------------------------------------------------------------------------
+
+/** GET — triggered by Vercel cron (daily fallback) */
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
@@ -22,6 +24,43 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  return processStuckSummaries();
+}
+
+/** POST — triggered by QStash (every 10 min) */
+export async function POST(request: NextRequest) {
+  const signature = request.headers.get('upstash-signature');
+  if (!signature) {
+    return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
+  }
+
+  const signingKeys = {
+    currentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY,
+    nextSigningKey: process.env.QSTASH_NEXT_SIGNING_KEY,
+  };
+
+  if (!signingKeys.currentSigningKey || !signingKeys.nextSigningKey) {
+    log.error('QStash signing keys not configured');
+    return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
+  }
+
+  const receiver = new Receiver(signingKeys as { currentSigningKey: string; nextSigningKey: string });
+  const body = await request.text();
+
+  try {
+    await receiver.verify({ signature, body });
+  } catch {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+  }
+
+  return processStuckSummaries();
+}
+
+// ---------------------------------------------------------------------------
+// Shared processing logic
+// ---------------------------------------------------------------------------
+
+async function processStuckSummaries() {
   const lockKey = 'lock:cron:process-queued-summaries';
   const gotLock = await acquireLock(lockKey, 120);
   if (!gotLock) {
@@ -32,8 +71,9 @@ export async function GET(request: NextRequest) {
     const supabase = createAdminClient();
     const staleThreshold = new Date(Date.now() - STALE_THRESHOLD_MS).toISOString();
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const cronSecret = process.env.CRON_SECRET;
 
-    // Find summaries stuck in 'queued' or 'transcribing' for more than 10 minutes
+    // Find summaries stuck in 'queued' or 'transcribing' for more than 5 minutes
     const { data: stuckSummaries, error } = await supabase
       .from('summaries')
       .select('id, episode_id, level')
@@ -70,7 +110,7 @@ export async function GET(request: NextRequest) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-cron-secret': cronSecret,
+            ...(cronSecret && { 'x-cron-secret': cronSecret }),
           },
           body: JSON.stringify({ level: summary.level }),
         });

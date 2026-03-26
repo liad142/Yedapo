@@ -14,12 +14,11 @@ const BarChartWidget = dynamic(() => import('@/components/admin/charts/BarChartW
 const PieChartWidget = dynamic(() => import('@/components/admin/charts/PieChartWidget').then(m => ({ default: m.PieChartWidget })), { ssr: false, loading: () => <div className="h-64 animate-pulse bg-white/5 rounded-xl" /> });
 import type { UserAnalytics } from '@/types/admin';
 
-const PLANS = ['free', 'pro', 'power'] as const;
+const PLANS = ['free', 'pro'] as const;
 
 const PLAN_STYLES: Record<string, { badge: string; dot: string }> = {
   free:  { badge: 'bg-gray-100 text-gray-600', dot: 'bg-gray-400' },
   pro:   { badge: 'bg-blue-50 text-blue-700', dot: 'bg-blue-500' },
-  power: { badge: 'bg-amber-50 text-amber-700', dot: 'bg-amber-500' },
 };
 
 function PlanSelector({ userId, currentPlan, onChanged }: { userId: string; currentPlan: string; onChanged: (plan: string) => void }) {

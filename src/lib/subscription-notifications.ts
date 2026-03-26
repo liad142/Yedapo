@@ -7,7 +7,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createLogger } from '@/lib/logger';
-import { getCached, setCached } from '@/lib/cache';
+import { getCached, setCached, deleteCached, CacheKeys } from '@/lib/cache';
 import { refreshSinglePodcastFeed } from '@/lib/rsshub-db';
 import type { SummaryLevel } from '@/types/database';
 
@@ -116,15 +116,26 @@ export async function checkNewPodcastEpisodes(): Promise<{
 
       newEpisodesFound += newEpisodes.length;
 
-      // Get podcast info for notification messages
+      // Get podcast info for notification messages + cache invalidation
       const { data: podcast } = await supabase
         .from('podcasts')
-        .select('title, language')
+        .select('title, language, rss_feed_url')
         .eq('id', podcastId)
         .single();
 
       const podcastTitle = podcast?.title || 'Unknown Podcast';
       const podcastLanguage = podcast?.language?.split('-')[0] || 'en';
+
+      // Invalidate the cached episode list so the browse page shows new episodes immediately.
+      // The cache key is based on the Apple/PI external ID, not our internal UUID.
+      if (podcast?.rss_feed_url) {
+        const feedUrl = podcast.rss_feed_url;
+        if (feedUrl.startsWith('apple:')) {
+          await deleteCached(CacheKeys.podcastEpisodes(feedUrl.replace('apple:', '')));
+        } else if (feedUrl.startsWith('pi:')) {
+          await deleteCached(CacheKeys.piEpisodes(feedUrl.replace('pi:', '')));
+        }
+      }
       const subscriberUserIds = subscribers.map(s => s.user_id);
 
       for (const episode of newEpisodes) {

@@ -4,7 +4,9 @@ import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Library, Youtube, Radio, RefreshCw, X, UserMinus, Undo2 } from 'lucide-react';
+import { Library, Youtube, Radio, RefreshCw, X, UserMinus, Undo2, Plus, Loader2 } from 'lucide-react';
+import dynamic from 'next/dynamic';
+const YouTubeImportModal = dynamic(() => import('@/components/YouTubeImportModal').then(m => ({ default: m.YouTubeImportModal })), { ssr: false });
 import { YouTubeLogoStatic } from '@/components/YouTubeLogo';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -84,6 +86,12 @@ function MyListContent() {
   const [channels, setChannels] = useState<FollowedChannel[]>([]);
   const [channelsLoading, setChannelsLoading] = useState(true);
   const [channelsError, setChannelsError] = useState<string | null>(null);
+
+  // YouTube import state
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [ytSubscriptions, setYtSubscriptions] = useState<any[]>([]);
+  const [isLoadingYtSubs, setIsLoadingYtSubs] = useState(false);
+  const [isImportingYt, setIsImportingYt] = useState(false);
 
   // Undo state for soft-delete
   const [pendingPodcastRemoval, setPendingPodcastRemoval] = useState<{ id: string; item: PodcastWithStatus } | null>(null);
@@ -178,33 +186,96 @@ function MyListContent() {
     setPendingPodcastRemoval(null);
   };
 
-  const handleUnfollow = (channel: FollowedChannel) => {
-    // Clear any existing timer
+  const handleUnfollow = async (channel: FollowedChannel) => {
+    // Clear any existing undo timer
     if (channelUndoTimerRef.current) clearTimeout(channelUndoTimerRef.current);
 
     // Optimistically remove from list
     setChannels(prev => prev.filter(c => c.id !== channel.id));
     setPendingChannelRemoval({ id: channel.id, item: channel });
 
-    // After 5 seconds, actually perform the deletion
-    channelUndoTimerRef.current = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/youtube/channels/${channel.id}/unfollow`, { method: 'DELETE' });
-        if (!res.ok) throw new Error('Failed to unfollow');
-      } catch (err) {
-        log.error('Error unfollowing', err);
-        // Restore on failure
-        setChannels(prev => [...prev, channel]);
-      }
+    // Immediately unfollow in DB (don't wait 5s — survives page refresh)
+    try {
+      const res = await fetch(`/api/youtube/channels/${channel.id}/unfollow`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to unfollow');
+    } catch (err) {
+      log.error('Error unfollowing', err);
+      // Restore on failure
+      setChannels(prev => [...prev, channel]);
+      setPendingChannelRemoval(null);
+      return;
+    }
+
+    // Auto-dismiss undo toast after 5 seconds
+    channelUndoTimerRef.current = setTimeout(() => {
       setPendingChannelRemoval(null);
     }, 5000);
   };
 
-  const undoChannelRemoval = () => {
+  const undoChannelRemoval = async () => {
     if (!pendingChannelRemoval) return;
     if (channelUndoTimerRef.current) clearTimeout(channelUndoTimerRef.current);
-    setChannels(prev => [...prev, pendingChannelRemoval.item]);
+
+    const channel = pendingChannelRemoval.item;
+    // Re-follow the channel
+    try {
+      await fetch('/api/youtube/channels/follow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channelId: channel.channel_id,
+          title: channel.channel_name,
+          thumbnailUrl: channel.thumbnail_url,
+          description: channel.description,
+        }),
+      });
+      setChannels(prev => [...prev, channel]);
+    } catch (err) {
+      log.error('Error re-following channel', err);
+    }
     setPendingChannelRemoval(null);
+  };
+
+  // YouTube import handlers — same flow as Settings page
+  const handleImportClick = async () => {
+    if (!user) return;
+    setIsLoadingYtSubs(true);
+    try {
+      const res = await fetch('/api/youtube/subscriptions');
+      if (!res.ok) throw new Error('Failed to fetch');
+      const data = await res.json();
+      if (data.needsPermission) {
+        router.push('/settings');
+        return;
+      }
+      const subs = data.subscriptions || [];
+      if (subs.length === 0) return;
+      setYtSubscriptions(subs);
+      setShowImportModal(true);
+    } catch (err) {
+      log.error('Error fetching YouTube subscriptions', err);
+    } finally {
+      setIsLoadingYtSubs(false);
+    }
+  };
+
+  const handleModalImport = async (selectedChannelIds: string[]) => {
+    setIsImportingYt(true);
+    try {
+      const channelsToImport = ytSubscriptions.filter((ch: any) => selectedChannelIds.includes(ch.channelId));
+      const res = await fetch('/api/youtube/subscriptions/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channels: channelsToImport }),
+      });
+      if (!res.ok) throw new Error('Failed to import');
+      setShowImportModal(false);
+      fetchChannels();
+    } catch (err) {
+      log.error('Error importing YouTube channels', err);
+    } finally {
+      setIsImportingYt(false);
+    }
   };
 
   if (authLoading) {
@@ -292,19 +363,33 @@ function MyListContent() {
             </Button>
           </div>
 
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={activeTab === 'podcasts' ? fetchPodcasts : fetchChannels}
-            disabled={activeTab === 'podcasts' ? podcastsLoading : channelsLoading}
-            className="bg-card border-border"
-            aria-label="Refresh"
-          >
-            <RefreshCw className={cn(
-              'w-4 h-4',
-              (activeTab === 'podcasts' ? podcastsLoading : channelsLoading) && 'animate-spin'
-            )} />
-          </Button>
+          {activeTab === 'podcasts' ? (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={fetchPodcasts}
+              disabled={podcastsLoading}
+              className="bg-card border-border"
+              aria-label="Refresh"
+            >
+              <RefreshCw className={cn('w-4 h-4', podcastsLoading && 'animate-spin')} />
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleImportClick}
+              disabled={isLoadingYtSubs}
+              className="bg-card border-border"
+              aria-label="Import YouTube subscriptions"
+            >
+              {isLoadingYtSubs ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4" />
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -354,6 +439,16 @@ function MyListContent() {
           </Button>
         </div>
       </Toast>
+
+      {/* YouTube Import Modal */}
+      {showImportModal && ytSubscriptions.length > 0 && (
+        <YouTubeImportModal
+          channels={ytSubscriptions}
+          onImport={handleModalImport}
+          onClose={() => setShowImportModal(false)}
+          isImporting={isImportingYt}
+        />
+      )}
     </div>
   );
 }
@@ -514,11 +609,12 @@ function YouTubeChannelCard({
         <div className="relative aspect-square w-full bg-secondary flex items-center justify-center">
           {channel.thumbnail_url ? (
             <Image
-              src={channel.thumbnail_url}
+              src={channel.thumbnail_url.replace(/=s\d+/, '=s480')}
               alt={channel.channel_name}
               fill
               className="object-cover"
               sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
+              referrerPolicy="no-referrer"
             />
           ) : (
             <Youtube className="h-12 w-12 text-red-500/40" />

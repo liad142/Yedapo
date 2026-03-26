@@ -1291,18 +1291,16 @@ export async function requestSummary(
         log.info('Updating transcript with identified speaker names...', {
           speakers: speakers.map(s => ({ id: s.id, name: s.name, role: s.role })),
         });
-        supabase
+        const { error: speakerUpdateError } = await supabase
           .from('transcripts')
           .update({
             full_text: namedTranscript,
             diarized_json: transcriptResult.transcript,
           })
           .eq('episode_id', episodeId)
-          .eq('language', transcriptResult.transcript.detectedLanguage || 'en')
-          .then(({ error }) => {
-            if (error) log.error('Failed to update transcript with speaker names', { error });
-            else log.info('Transcript updated with speaker names');
-          });
+          .eq('language', transcriptResult.transcript.detectedLanguage || 'en');
+        if (speakerUpdateError) log.error('Failed to update transcript with speaker names', { error: speakerUpdateError });
+        else log.info('Transcript updated with speaker names');
       }
 
       log.info('=== requestSummary ENDED ===', {

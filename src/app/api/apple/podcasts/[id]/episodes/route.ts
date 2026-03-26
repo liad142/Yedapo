@@ -68,7 +68,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       hasMore,
       count: episodes.length,
     }, {
-      headers: { 'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600' },
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
     });
   } catch (error) {
     console.error('Apple podcast episodes error:', error);

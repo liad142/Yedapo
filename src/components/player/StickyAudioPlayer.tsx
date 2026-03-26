@@ -113,8 +113,9 @@ export function StickyAudioPlayer() {
         exit={{ y: 100, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className={cn(
-          'fixed bottom-5 left-4 right-4 z-[60] flex justify-center',
-          'lg:left-[17rem]' // Account for desktop sidebar
+          'fixed left-4 right-4 z-[60] flex justify-center',
+          'bottom-[4.5rem] lg:bottom-5', // Mobile: above bottom nav (h-14 + gap)
+          'lg:left-[17rem]' // Desktop: account for sidebar
         )}
       >
         {/* Unified Floating Card */}

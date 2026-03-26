@@ -4,7 +4,7 @@
  * UX naming: "Daily limit" / "Creations left today" — NOT "credits".
  */
 
-export type UserPlan = 'free' | 'pro' | 'power';
+export type UserPlan = 'free' | 'pro';
 
 // ---------------------------------------------------------------------------
 // Daily generation quotas
@@ -16,14 +16,13 @@ export interface PlanLimits {
 
 export const PLAN_LIMITS: Record<UserPlan, PlanLimits> = {
   free:  { summariesPerDay: 3,        askAiPerDay: 5 },
-  pro:   { summariesPerDay: 20,       askAiPerDay: 50 },
-  power: { summariesPerDay: Infinity, askAiPerDay: Infinity },
+  pro:   { summariesPerDay: Infinity, askAiPerDay: Infinity },
 };
 
 // ---------------------------------------------------------------------------
 // Content gating cutoffs (item-based, not character %)
 // Values represent how many items FREE users can see.
-// Pro/Power see everything (cutoff = Infinity).
+// Pro sees everything (cutoff = Infinity).
 // ---------------------------------------------------------------------------
 export interface ContentCutoffs {
   deepSummaryParagraphs: number; // paragraphs of comprehensive_overview (split by \n, blanks filtered)
@@ -75,7 +74,6 @@ const FULL_ACCESS: ContentCutoffs = {
 export const PLAN_CUTOFFS: Record<UserPlan, ContentCutoffs> = {
   free: FREE_CUTOFFS,
   pro: FULL_ACCESS,
-  power: FULL_ACCESS,
 };
 
 // ---------------------------------------------------------------------------
@@ -83,7 +81,7 @@ export const PLAN_CUTOFFS: Record<UserPlan, ContentCutoffs> = {
 // ---------------------------------------------------------------------------
 export interface PlanMeta {
   label: string;
-  price: string;         // display string, e.g. "$9/mo"
+  price: string;         // display string, e.g. "$9.99/mo"
   description: string;
   features: string[];
 }
@@ -105,32 +103,21 @@ export const PLAN_META: Record<UserPlan, PlanMeta> = {
   },
   pro: {
     label: 'Explorer',
-    price: '$7.99/mo',
-    description: 'Unlock the full depth of every episode',
+    price: '$9.99/mo',
+    description: 'Unlimited AI power for every episode',
     features: [
-      '20 AI summaries per day',
-      '50 Ask AI questions per day',
+      'Unlimited AI summaries',
+      'Unlimited Ask AI',
       'Full deep summaries & chapters',
       'Full transcript with search',
       'All highlights & counterpoints',
       'Complete shownotes',
       'Unlimited subscriptions',
-      '20 YouTube channel follows',
+      'Unlimited YouTube channels',
       'Export summaries',
       'Priority generation queue',
-    ],
-  },
-  power: {
-    label: 'Obsessed',
-    price: '$14.99/mo',
-    description: 'For power listeners and teams',
-    features: [
-      'Unlimited AI summaries',
-      'Unlimited Ask AI',
-      'Everything in Explorer',
-      'Unlimited YouTube channels',
+      'Email notifications',
       'Early access to new features',
-      'Priority support',
     ],
   },
 };

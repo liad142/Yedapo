@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useEffect, useRef, useCallback, useState } from 'react';
 import Link from 'next/link';
-import { PLAN_LIMITS, PLAN_META } from '@/lib/plans';
+import { PLAN_META } from '@/lib/plans';
 import { getTimeUntilReset } from '@/lib/time-utils';
 
 export type RateLimitFeature = 'summary' | 'askAi';
@@ -133,7 +133,7 @@ export function UpgradeModal({ open, onClose, rateLimitInfo, feature = 'summary'
             Daily limit: {limit} {FEATURE_COPY[feature].noun} &middot; {used}/{limit} used today
           </p>
           <p className="text-xs font-medium text-primary mb-1">
-            Pro gets {feature === 'summary' ? PLAN_LIMITS.pro.summariesPerDay : PLAN_LIMITS.pro.askAiPerDay} per day
+            Pro gets unlimited {FEATURE_COPY[feature].noun} per day
           </p>
 
           {/* Reset timer */}

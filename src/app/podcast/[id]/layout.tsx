@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchPodcast } from '@/lib/server/fetch-podcast';
 
 export async function generateMetadata({
   params,
@@ -7,13 +7,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const supabase = createAdminClient();
-
-  const { data: podcast } = await supabase
-    .from('podcasts')
-    .select('title, author, description, image_url')
-    .eq('id', id)
-    .single();
+  const podcast = await fetchPodcast(id);
 
   if (!podcast) {
     return { title: 'Podcast Not Found — Yedapo' };

@@ -1,6 +1,6 @@
 /**
  * Server-side helper to resolve a user's plan from user_profiles.
- * Returns 'free' on error. Admins resolve to 'power'.
+ * Returns 'free' on error. Admins resolve to 'pro'.
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -11,8 +11,8 @@ import type { UserPlan } from '@/lib/plans';
 const log = createLogger('user-plan');
 
 export async function getUserPlan(userId: string, email?: string): Promise<UserPlan> {
-  // Admin emails always resolve to power
-  if (email && isAdminEmail(email)) return 'power';
+  // Admin emails always resolve to pro
+  if (email && isAdminEmail(email)) return 'pro';
 
   try {
     const admin = createAdminClient();

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Receiver } from '@upstash/qstash';
 import { checkNewPodcastEpisodes, checkNewYouTubeVideos } from '@/lib/subscription-notifications';
 import { acquireLock, releaseLock } from '@/lib/cache';
 import { createLogger } from '@/lib/logger';
@@ -8,8 +9,12 @@ const log = createLogger('cron');
 
 export const maxDuration = 300; // 5 min — needs time for RSS fetches + summary queueing
 
+// ---------------------------------------------------------------------------
+// Auth: Vercel cron (GET) or QStash (POST)
+// ---------------------------------------------------------------------------
+
+/** GET — triggered by Vercel cron (daily fallback) */
 export async function GET(request: NextRequest) {
-  // Validate cron secret
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
 
@@ -17,9 +22,45 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Distributed lock to prevent overlapping cron executions
+  return checkNewEpisodes();
+}
+
+/** POST — triggered by QStash (every 6 hours) */
+export async function POST(request: NextRequest) {
+  const signature = request.headers.get('upstash-signature');
+  if (!signature) {
+    return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
+  }
+
+  const signingKeys = {
+    currentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY,
+    nextSigningKey: process.env.QSTASH_NEXT_SIGNING_KEY,
+  };
+
+  if (!signingKeys.currentSigningKey || !signingKeys.nextSigningKey) {
+    log.error('QStash signing keys not configured');
+    return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
+  }
+
+  const receiver = new Receiver(signingKeys as { currentSigningKey: string; nextSigningKey: string });
+  const body = await request.text();
+
+  try {
+    await receiver.verify({ signature, body });
+  } catch {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+  }
+
+  return checkNewEpisodes();
+}
+
+// ---------------------------------------------------------------------------
+// Shared processing logic
+// ---------------------------------------------------------------------------
+
+async function checkNewEpisodes() {
   const lockKey = 'lock:cron:check-new-episodes';
-  const gotLock = await acquireLock(lockKey, 120); // 2 min TTL
+  const gotLock = await acquireLock(lockKey, 120);
   if (!gotLock) {
     log.warn('Another check is already running, skipping');
     return NextResponse.json({ error: 'Another check is already running' }, { status: 409 });

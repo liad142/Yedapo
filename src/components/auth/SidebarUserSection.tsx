@@ -123,7 +123,6 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
             'text-[10px] font-medium mt-0.5',
             plan === 'free' && 'text-muted-foreground',
             plan === 'pro' && 'text-blue-500 dark:text-blue-400',
-            plan === 'power' && 'text-amber-500 dark:text-amber-400',
           )}>
             {PLAN_META[plan].label} Plan
           </p>

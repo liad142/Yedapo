@@ -623,7 +623,12 @@ export default function SettingsPage() {
                       {followedChannels.map(ch => (
                         <div key={ch.id} className="flex items-center gap-3 px-4 py-2.5 group">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={ch.thumbnailUrl || '/placeholder-podcast.png'} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                          <img
+                            src={ch.thumbnailUrl ? ch.thumbnailUrl.replace(/=s\d+/, '=s176') : undefined}
+                            alt=""
+                            referrerPolicy="no-referrer"
+                            className="w-7 h-7 rounded-full object-cover shrink-0 bg-secondary"
+                          />
                           <span className="text-sm text-foreground truncate flex-1">{ch.channelName}</span>
                           <button
                             onClick={() => handleUnfollow(ch.id)}

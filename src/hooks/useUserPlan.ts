@@ -10,7 +10,6 @@ interface UseUserPlanResult {
   cutoffs: ContentCutoffs;
   isFree: boolean;
   isPro: boolean;
-  isPower: boolean;
   isGuest: boolean;
   isLoading: boolean;
 }
@@ -61,7 +60,6 @@ export function useUserPlan(): UseUserPlanResult {
     cutoffs: isGuest ? GUEST_CUTOFFS : PLAN_CUTOFFS[plan],
     isFree: plan === 'free',
     isPro: plan === 'pro',
-    isPower: plan === 'power',
     isGuest,
     isLoading: authLoading || isLoading,
   }), [plan, isGuest, authLoading, isLoading]);

@@ -102,7 +102,7 @@ const VideoListItem = React.memo(function VideoListItem({ video }: { video: Vide
 
   return (
     <div className="group relative rounded-2xl hover:bg-secondary/50 transition-colors duration-200">
-      <div className="flex gap-4 p-4 items-start">
+      <div className="flex gap-3 sm:gap-4 p-3 sm:p-4 items-start">
         {/* Left: Text content */}
         <div className="flex-1 min-w-0 space-y-1.5">
           {/* Meta line */}
@@ -130,7 +130,7 @@ const VideoListItem = React.memo(function VideoListItem({ video }: { video: Vide
           )}
 
           {/* Actions */}
-          <div className="flex items-center gap-2 pt-1.5">
+          <div className="flex items-center gap-1.5 pt-1.5">
             {episodeId ? (
               /* Episode exists → use SummarizeButton (same as podcast page) */
               <SummarizeButton
@@ -168,8 +168,8 @@ const VideoListItem = React.memo(function VideoListItem({ video }: { video: Vide
         </div>
 
         {/* Right: Video thumbnail */}
-        <div className="shrink-0 self-center">
-          <div className="relative w-28 h-20 sm:w-32 sm:h-[72px] rounded-xl overflow-hidden bg-secondary shadow-sm">
+        <div className="shrink-0 self-start mt-1">
+          <div className="relative w-32 h-[72px] sm:w-40 sm:h-[90px] rounded-xl overflow-hidden bg-secondary shadow-sm">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={video.thumbnailUrl}

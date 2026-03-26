@@ -152,20 +152,27 @@ async function enrichVideosWithSummaryStatus(videos: any[]): Promise<void> {
   const urlToEpId = new Map(episodes.map(e => [e.audio_url, e.id]));
   const epIds = episodes.map(e => e.id);
 
+  // Get the best summary status per episode (ready > summarizing > transcribing > queued)
   const { data: summaries } = await supabase
     .from('summaries')
-    .select('episode_id')
+    .select('episode_id, status')
     .in('episode_id', epIds)
-    .eq('status', 'ready')
     .in('level', ['quick', 'deep']);
 
-  const readyEpIds = new Set((summaries || []).map(s => s.episode_id));
+  const STATUS_PRIORITY: Record<string, number> = { ready: 4, summarizing: 3, transcribing: 2, queued: 1 };
+  const epBestStatus = new Map<string, string>();
+  for (const s of summaries || []) {
+    const current = epBestStatus.get(s.episode_id);
+    if (!current || (STATUS_PRIORITY[s.status] || 0) > (STATUS_PRIORITY[current] || 0)) {
+      epBestStatus.set(s.episode_id, s.status);
+    }
+  }
 
   for (const v of videos) {
     const epId = urlToEpId.get(v.url);
-    if (epId && readyEpIds.has(epId)) {
+    if (epId) {
       v.episodeId = epId;
-      v.summaryStatus = 'ready';
+      v.summaryStatus = epBestStatus.get(epId) || 'not_ready';
     }
   }
 }

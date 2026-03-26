@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { createAdminClient } from '@/lib/supabase/admin';
-import type { QuickSummaryContent } from '@/types/database';
+import type { QuickSummaryContent, DeepSummaryContent } from '@/types/database';
 
 function getBaseUrl() {
   if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
@@ -11,24 +11,32 @@ function getBaseUrl() {
 async function getEpisodeData(id: string) {
   const supabase = createAdminClient();
 
-  const [{ data: episode }, { data: summary }] = await Promise.all([
-    supabase
-      .from('episodes')
-      .select(
-        'title, description, audio_url, published_at, duration_seconds, podcasts(title, image_url)'
-      )
-      .eq('id', id)
-      .single(),
-    supabase
-      .from('summaries')
-      .select('content_json')
-      .eq('episode_id', id)
-      .eq('level', 'quick')
-      .eq('status', 'ready')
-      .single(),
-  ]);
+  const [{ data: episode }, { data: quickSummary }, { data: deepSummary }] =
+    await Promise.all([
+      supabase
+        .from('episodes')
+        .select(
+          'title, description, audio_url, published_at, duration_seconds, podcasts(title, image_url)'
+        )
+        .eq('id', id)
+        .single(),
+      supabase
+        .from('summaries')
+        .select('content_json')
+        .eq('episode_id', id)
+        .eq('level', 'quick')
+        .eq('status', 'ready')
+        .single(),
+      supabase
+        .from('summaries')
+        .select('content_json')
+        .eq('episode_id', id)
+        .eq('level', 'deep')
+        .eq('status', 'ready')
+        .single(),
+    ]);
 
-  return { episode, summary };
+  return { episode, quickSummary, deepSummary };
 }
 
 export async function generateMetadata({
@@ -37,7 +45,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const { episode, summary } = await getEpisodeData(id);
+  const { episode, quickSummary } = await getEpisodeData(id);
 
   if (!episode) {
     return { title: 'Episode Not Found — Yedapo' };
@@ -48,7 +56,7 @@ export async function generateMetadata({
     title: string;
     image_url: string | null;
   } | null;
-  const quick = summary?.content_json as QuickSummaryContent | null;
+  const quick = quickSummary?.content_json as QuickSummaryContent | null;
 
   const title = `${episode.title} — Yedapo`;
   const description =
@@ -98,7 +106,7 @@ export default async function InsightsLayout({
   children: React.ReactNode;
 }) {
   const { id } = await params;
-  const { episode, summary } = await getEpisodeData(id);
+  const { episode, quickSummary, deepSummary } = await getEpisodeData(id);
 
   if (!episode) {
     return <>{children}</>;
@@ -109,7 +117,8 @@ export default async function InsightsLayout({
     title: string;
     image_url: string | null;
   } | null;
-  const quick = summary?.content_json as QuickSummaryContent | null;
+  const quick = quickSummary?.content_json as QuickSummaryContent | null;
+  const deep = deepSummary?.content_json as DeepSummaryContent | null;
   const baseUrl = getBaseUrl();
 
   const jsonLd = {
@@ -147,6 +156,46 @@ export default async function InsightsLayout({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      {/* Server-rendered summary content for SEO crawlers */}
+      {(quick || deep) && (
+        <div className="sr-only" aria-hidden="false">
+          <h2>{episode.title} — AI Summary</h2>
+          {quick?.executive_brief && (
+            <section>
+              <h3>Summary</h3>
+              <p>{quick.executive_brief}</p>
+            </section>
+          )}
+          {deep?.core_concepts && deep.core_concepts.length > 0 && (
+            <section>
+              <h3>Key Topics</h3>
+              <ul>
+                {deep.core_concepts.map((concept, i) => (
+                  <li key={i}>
+                    <strong>{concept.concept}</strong>: {concept.explanation}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {deep?.actionable_takeaways &&
+            deep.actionable_takeaways.length > 0 && (
+              <section>
+                <h3>Key Takeaways</h3>
+                <ul>
+                  {deep.actionable_takeaways.map((item, i) => (
+                    <li key={i}>
+                      {typeof item === 'string' ? item : item.text}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          {quick?.tags && quick.tags.length > 0 && (
+            <p>Topics: {quick.tags.join(', ')}</p>
+          )}
+        </div>
+      )}
       {children}
     </>
   );

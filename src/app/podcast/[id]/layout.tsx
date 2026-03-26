@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { fetchPodcast } from '@/lib/server/fetch-podcast';
+import { podcastSeriesJsonLd } from '@/lib/server/json-ld';
 
 export async function generateMetadata({
   params,
@@ -39,10 +40,27 @@ export async function generateMetadata({
   };
 }
 
-export default function PodcastLayout({
+export default async function PodcastLayout({
+  params,
   children,
 }: {
+  params: Promise<{ id: string }>;
   children: React.ReactNode;
 }) {
-  return children;
+  const { id } = await params;
+  const podcast = await fetchPodcast(id);
+
+  return (
+    <>
+      {podcast && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(podcastSeriesJsonLd(podcast)),
+          }}
+        />
+      )}
+      {children}
+    </>
+  );
 }

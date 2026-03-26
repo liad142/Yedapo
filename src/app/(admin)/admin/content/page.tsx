@@ -35,12 +35,12 @@ export default function ContentPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Content</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-xl sm:text-2xl font-bold">Content</h1>
         <RefreshButton onClick={fetchData} isLoading={loading} />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
         <StatCard icon={Radio} label="Podcasts" value={data.totalPodcasts} />
         <StatCard icon={Layers} label="Episodes" value={data.totalEpisodes} />
         <StatCard icon={Youtube} label="YouTube Channels" value={data.youtubeChannels} />

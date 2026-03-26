@@ -14,6 +14,9 @@ import type { PostHogAnalytics } from '@/types/admin';
 const CACHE_KEY = 'admin:posthog-analytics';
 const CACHE_TTL = 1800; // 30 min
 
+const POSTHOG_CONFIGURED =
+  !!process.env.POSTHOG_PERSONAL_API_KEY && !!process.env.POSTHOG_PROJECT_ID;
+
 export async function GET(request: NextRequest) {
   const { error } = await requireAdmin();
   if (error) return error;
@@ -26,6 +29,14 @@ export async function GET(request: NextRequest) {
   }
 
   const admin = createAdminClient();
+
+  // If PostHog is not configured, use zero/empty defaults for PostHog metrics
+  const phDau = POSTHOG_CONFIGURED ? getActiveUsers('day') : Promise.resolve(0);
+  const phWau = POSTHOG_CONFIGURED ? getActiveUsers('week') : Promise.resolve(0);
+  const phMau = POSTHOG_CONFIGURED ? getActiveUsers('month') : Promise.resolve(0);
+  const phTrend = POSTHOG_CONFIGURED ? getActiveUsersTrend(30) : Promise.resolve([]);
+  const phEvents = POSTHOG_CONFIGURED ? getTopEvents(30) : Promise.resolve([]);
+  const phFunnel = POSTHOG_CONFIGURED ? getEngagementFunnel(30) : Promise.resolve([]);
 
   // Parallel: PostHog queries + Supabase correlation queries
   const [
@@ -40,12 +51,12 @@ export async function GET(request: NextRequest) {
     { count: hasSubscribed },
     { data: playersData },
   ] = await Promise.all([
-    getActiveUsers('day'),
-    getActiveUsers('week'),
-    getActiveUsers('month'),
-    getActiveUsersTrend(30),
-    getTopEvents(30),
-    getEngagementFunnel(30),
+    phDau,
+    phWau,
+    phMau,
+    phTrend,
+    phEvents,
+    phFunnel,
     admin.from('user_profiles').select('*', { count: 'exact', head: true }),
     admin
       .from('user_profiles')
@@ -59,12 +70,12 @@ export async function GET(request: NextRequest) {
     // If the RPC doesn't exist yet, fall back to a simpler query
     console.error('Analytics query error, retrying without RPC:', err);
     return Promise.all([
-      getActiveUsers('day'),
-      getActiveUsers('week'),
-      getActiveUsers('month'),
-      getActiveUsersTrend(30),
-      getTopEvents(30),
-      getEngagementFunnel(30),
+      phDau,
+      phWau,
+      phMau,
+      phTrend,
+      phEvents,
+      phFunnel,
       admin.from('user_profiles').select('*', { count: 'exact', head: true }),
       admin
         .from('user_profiles')
@@ -78,7 +89,9 @@ export async function GET(request: NextRequest) {
   });
 
   // Feature adoption needs MAU for percentage calculation
-  const featureAdoption = await getFeatureAdoption(30, mau);
+  const featureAdoption = POSTHOG_CONFIGURED
+    ? await getFeatureAdoption(30, mau)
+    : [];
 
   const totalReg = totalRegistered ?? 0;
   const onboarded = completedOnboarding ?? 0;

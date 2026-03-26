@@ -57,12 +57,12 @@ export default function NotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Notifications</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-xl sm:text-2xl font-bold">Notifications</h1>
         <RefreshButton onClick={fetchData} isLoading={loading} />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         <StatCard icon={Send} label="Total Sent" value={data.metrics.totalSent} />
         <StatCard icon={Send} label="Sent Today" value={data.metrics.sentToday} />
         <StatCard icon={Clock} label="Pending" value={data.metrics.pending} />
@@ -101,19 +101,20 @@ export default function NotificationsPage() {
             new Date(row.created_at as string).toLocaleString()
           },
           { key: 'actions', label: 'Actions', render: (row) => (
-            <div className="flex gap-2">
+            <div className="flex gap-1 sm:gap-2">
               <Button
                 size="sm"
                 variant="outline"
+                className="text-xs px-2 sm:px-3"
                 onClick={() => handleAction(row.id as string, 'force-send')}
                 disabled={actionLoading === `${row.id}-force-send`}
               >
-                {actionLoading === `${row.id}-force-send` ? '...' : 'Send Now'}
+                {actionLoading === `${row.id}-force-send` ? '...' : 'Send'}
               </Button>
               <Button
                 size="sm"
                 variant="ghost"
-                className="text-red-600 hover:text-red-700"
+                className="text-red-600 hover:text-red-700 text-xs px-2 sm:px-3"
                 onClick={() => handleAction(row.id as string, 'cancel')}
                 disabled={actionLoading === `${row.id}-cancel`}
               >

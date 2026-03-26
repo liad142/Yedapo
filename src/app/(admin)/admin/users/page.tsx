@@ -157,12 +157,12 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Users</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-xl sm:text-2xl font-bold">Users</h1>
         <RefreshButton onClick={fetchData} isLoading={loading} />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
         <StatCard icon={Users} label="Total Users" value={data.totalUsers} />
         <StatCard icon={UserPlus} label="This Week" value={data.usersThisWeek} />
         <StatCard icon={CheckCircle} label="Onboarding %" value={`${data.onboardingRate}%`} />

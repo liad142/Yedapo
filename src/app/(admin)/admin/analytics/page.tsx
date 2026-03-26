@@ -104,9 +104,9 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold">Analytics</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Analytics</h1>
           {data.lastUpdated && (
             <p className="text-xs text-muted-foreground mt-1">
               Last updated:{' '}
@@ -118,7 +118,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Row 1: Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard icon={Users} label="DAU" value={data.dau.toLocaleString()} />
         <StatCard
           icon={UserCheck}
@@ -163,11 +163,11 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Correlation Card */}
-      <div className={cn(elevation.card, 'rounded-xl p-5')}>
+      <div className={cn(elevation.card, 'rounded-xl p-3 sm:p-5')}>
         <h3 className="text-sm font-medium text-muted-foreground mb-4">
           Supabase ↔ PostHog Correlation
         </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           <CorrelationStat
             label="Registered Users"
             value={data.correlation.totalRegistered}

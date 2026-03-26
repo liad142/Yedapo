@@ -118,16 +118,23 @@ export async function getCachedMulti<T>(keys: string[]): Promise<(T | null)[]> {
 /**
  * Acquire a distributed lock using Redis SET NX EX.
  * Returns true if the lock was acquired, false if already held.
+ *
+ * IMPORTANT: Fails OPEN on Redis errors — if Redis is down, we allow the
+ * operation to proceed rather than blocking it. Duplicate work is better
+ * than zero work.
  */
 export async function acquireLock(key: string, ttlSeconds: number): Promise<boolean> {
   try {
     const client = getRedis();
     // SET NX returns 'OK' if the key was set, null if it already exists
     const result = await client.set(key, Date.now(), { nx: true, ex: ttlSeconds });
+    if (result !== 'OK') {
+      log.warn('Lock already held', { key });
+    }
     return result === 'OK';
   } catch (error) {
-    log.error('Failed to acquire lock', { key, error: String(error) });
-    return false;
+    log.error('Redis unavailable for lock — failing OPEN (allowing operation)', { key, error: String(error) });
+    return true; // Fail open: allow the operation to proceed without a lock
   }
 }
 
@@ -285,9 +292,9 @@ export async function checkQuota(
 
     return { allowed: true, used: newCount, limit: maxPerDay };
   } catch (error) {
-    log.error('Quota check failed', { feature, userId: userId.slice(0, 8), error: String(error) });
-    // Fail closed
-    return { allowed: false, used: 0, limit: maxPerDay };
+    log.error('Quota check failed — failing OPEN (Redis unavailable)', { feature, userId: userId.slice(0, 8), error: String(error) });
+    // Fail open: if Redis is down, allow the request rather than blocking all users
+    return { allowed: true, used: 0, limit: maxPerDay };
   }
 }
 

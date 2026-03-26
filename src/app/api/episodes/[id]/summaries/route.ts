@@ -63,9 +63,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const isAdmin = isCronRequest || isAdminEmail(user?.email ?? '');
 
     // Rate limit: 5 requests/min per user (skip for admins and cron)
+    // failOpen=true: if Redis is down, allow requests through rather than blocking all summaries
     if (!isAdmin && user) {
       const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-      const rlAllowed = await checkRateLimit(`summary:${user.id || ip}`, 5, 60, false);
+      const rlAllowed = await checkRateLimit(`summary:${user.id || ip}`, 5, 60, true);
       if (!rlAllowed) {
         return NextResponse.json({ error: 'Too many requests. Try again in a minute.' }, { status: 429 });
       }
@@ -231,7 +232,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             .from('summaries')
             .update({ status: 'failed', error_message: err instanceof Error ? err.message : String(err) })
             .eq('episode_id', id)
-            .eq('level', level);
+            .eq('level', level)
+            .eq('language', resolvedLanguage || 'en');
         } catch (dbErr) {
           log.error('Failed to write failure status', { error: String(dbErr) });
         }

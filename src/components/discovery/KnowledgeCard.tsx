@@ -685,10 +685,7 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
         ) : localSummaryStatus === 'transcribing' ? (
           <Button size="sm" disabled variant="outline" className="rounded-full px-5 transition-all">
             {type === 'youtube' && youtubeQueuePosition > 1 ? (
-              <>
-                <QueuePositionIndicator position={youtubeQueuePosition} className="mr-2" />
-                <span className="text-xs">{youtubeQueuePosition === 1 ? 'Next up' : `${youtubeQueuePosition}${youtubeQueuePosition === 2 ? 'nd' : youtubeQueuePosition === 3 ? 'rd' : 'th'} in queue`}</span>
-              </>
+              <QueuePositionIndicator position={youtubeQueuePosition} />
             ) : (
               <>
                 <SoundWaveAnimation className="h-5 mr-2" />

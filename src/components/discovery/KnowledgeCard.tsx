@@ -20,6 +20,7 @@ import {
   SoundWaveAnimation,
   ParticleGemAnimation,
   GemCompleteAnimation,
+  QueuePositionIndicator,
 } from '@/components/animations';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +31,8 @@ import { DiscoverySummarizeButton } from './DiscoverySummarizeButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useEpisodeLookup } from '@/contexts/EpisodeLookupContext';
+import { useSummarizeQueueOptional } from '@/contexts/SummarizeQueueContext';
+import { useUsage } from '@/contexts/UsageContext';
 import { useRouter } from 'next/navigation';
 import { cn, stripHtml } from '@/lib/utils';
 import posthog from 'posthog-js';
@@ -162,6 +165,8 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
   const { user, setShowAuthModal } = useAuth();
   const { isSubscribed: checkSubscribed, subscribe, unsubscribe } = useSubscription();
   const { registerLookup, getLookupResult, isLoading: isLookupLoading } = useEpisodeLookup();
+  const summarizeQueue = useSummarizeQueueOptional();
+  const { incrementSummary } = useUsage();
   const router = useRouter();
   const [isToggling, setIsToggling] = useState(false);
   const [localSummaryStatus, setLocalSummaryStatus] = useState(summaryStatus);
@@ -180,6 +185,30 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
       if (pollRef.current) clearTimeout(pollRef.current);
     };
   }, []);
+
+  // Sync YouTube queue state into local status so the card reflects queue progress
+  const youtubeQueueItem = localEpisodeId && type === 'youtube' && summarizeQueue
+    ? summarizeQueue.getQueueItem(localEpisodeId)
+    : null;
+  const youtubeQueuePosition = localEpisodeId && type === 'youtube' && summarizeQueue
+    ? summarizeQueue.getQueuePosition(localEpisodeId)
+    : -1;
+
+  useEffect(() => {
+    if (!youtubeQueueItem || type !== 'youtube') return;
+    const qState = youtubeQueueItem.state;
+    if (qState === 'ready') {
+      setLocalSummaryStatus('ready');
+    } else if (qState === 'failed') {
+      setLocalSummaryStatus('failed');
+    } else if (qState === 'summarizing') {
+      setLocalSummaryStatus('summarizing');
+    } else if (qState === 'transcribing') {
+      setLocalSummaryStatus('transcribing');
+    } else if (qState === 'queued') {
+      setLocalSummaryStatus('transcribing');
+    }
+  }, [youtubeQueueItem?.state, type]);
 
   // Poll YouTube summary status until ready/failed, then redirect
   const pollYouTubeStatus = useCallback((epId: string) => {
@@ -380,13 +409,13 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
     }
 
     if (type === 'youtube') {
-      setLocalSummaryStatus('transcribing');
+      // Phase 1: Import the YouTube video to get an episodeId
+      setLocalSummaryStatus('loading');
       try {
-        const res = await fetch(`/api/youtube/${id}/summary`, {
+        const res = await fetch(`/api/youtube/${id}/import`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            level: 'quick',
             title,
             description,
             channelId: sourceId,
@@ -399,22 +428,15 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
           const data = await res.json();
           setLocalEpisodeId(data.episodeId);
 
-          const status = data.summary?.status;
-
-          // Summary already exists (previously generated) — go straight to insights
-          if (status === 'ready' && !data.isNew) {
-            setLocalSummaryStatus('ready');
-            router.push(`/episode/${data.episodeId}/insights`);
-            return;
-          }
-
-          // New summarization — show progress and poll until deep is ready
-          if (status === 'summarizing') {
-            setLocalSummaryStatus('summarizing');
+          // Phase 2: Route through the queue — same as podcasts
+          if (summarizeQueue) {
+            summarizeQueue.addToQueue(data.episodeId);
+            incrementSummary();
           } else {
+            // Fallback: poll directly if queue context not available
             setLocalSummaryStatus('transcribing');
+            pollYouTubeStatus(data.episodeId);
           }
-          pollYouTubeStatus(data.episodeId);
         } else {
           const errBody = await res.json().catch(() => ({}));
           setLocalSummaryStatus('failed');
@@ -574,6 +596,13 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
               ))}
             </div>
           )}
+
+          {/* Recommend reason */}
+          {recommendReason && (
+            <p className="text-caption text-primary/80 italic">
+              {recommendReason}
+            </p>
+          )}
         </div>
       ) : (
         <div className="space-y-1.5">
@@ -655,8 +684,17 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
           </Button>
         ) : localSummaryStatus === 'transcribing' ? (
           <Button size="sm" disabled variant="outline" className="rounded-full px-5 transition-all">
-            <SoundWaveAnimation className="h-5 mr-2" />
-            <span className="text-xs">Transcribing...</span>
+            {type === 'youtube' && youtubeQueuePosition > 1 ? (
+              <>
+                <QueuePositionIndicator position={youtubeQueuePosition} className="mr-2" />
+                <span className="text-xs">{youtubeQueuePosition === 1 ? 'Next up' : `${youtubeQueuePosition}${youtubeQueuePosition === 2 ? 'nd' : youtubeQueuePosition === 3 ? 'rd' : 'th'} in queue`}</span>
+              </>
+            ) : (
+              <>
+                <SoundWaveAnimation className="h-5 mr-2" />
+                <span className="text-xs">Transcribing...</span>
+              </>
+            )}
           </Button>
         ) : localSummaryStatus === 'summarizing' || localSummaryStatus === 'loading' ? (
           <Button size="sm" disabled variant="outline" className="rounded-full px-5 transition-all">

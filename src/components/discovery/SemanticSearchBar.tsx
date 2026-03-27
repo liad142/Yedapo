@@ -244,11 +244,10 @@ export function SemanticSearchBar() {
 
     setImportingVideos((prev) => ({ ...prev, [video.videoId]: true }));
     try {
-      const res = await fetch(`/api/youtube/${video.videoId}/summary`, {
+      const res = await fetch(`/api/youtube/${video.videoId}/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          level: 'quick',
           title: video.title,
           channelId: video.channelId || '',
           channelTitle: video.channelTitle,

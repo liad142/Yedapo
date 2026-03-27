@@ -243,7 +243,7 @@ export function StickyAudioPlayer() {
                 </motion.button>
                 <ShortcutHint
                   shortcut="Space"
-                  className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 pointer-events-none whitespace-nowrap"
+                  className="sr-only"
                 />
               </div>
 

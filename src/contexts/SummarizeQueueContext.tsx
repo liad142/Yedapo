@@ -213,6 +213,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
             setTimeout(() => startProcessingRef.current?.(episodeId), RETRY_DELAY);
           } else {
             log.error('Max retries reached', { episodeId });
+            updateQueueItem(episodeId, { state: 'failed', error: 'Processing failed after retries' });
             setStats(prev => ({ ...prev, failed: prev.failed + 1 }));
             finishProcessing();
             processNext();

@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { YouTubeLogo } from '@/components/YouTubeLogo';
-import { Bookmark, Play, Clock, Calendar, ExternalLink, Sparkles, Loader2 } from 'lucide-react';
+import { Bookmark, Play, Clock, Calendar, ExternalLink, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import { SoundWaveAnimation, ParticleGemAnimation, GemCompleteAnimation } from '@/components/animations';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSummarizeQueueOptional } from '@/contexts/SummarizeQueueContext';
@@ -51,6 +51,7 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, episodeI
   const [isSaving, setIsSaving] = useState(false);
   const [localSummaryStatus, setLocalSummaryStatus] = useState<SummaryCardStatus>(summaryStatus);
   const [localEpisodeId, setLocalEpisodeId] = useState<string | undefined>(episodeId);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   // Sync queue state into local status
   const queueItem = localEpisodeId && summarizeQueue ? summarizeQueue.getQueueItem(localEpisodeId) : null;
@@ -58,7 +59,10 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, episodeI
     if (!queueItem) return;
     const qState = queueItem.state;
     if (qState === 'ready') setLocalSummaryStatus('ready');
-    else if (qState === 'failed') setLocalSummaryStatus('failed');
+    else if (qState === 'failed') {
+      setLocalSummaryStatus('failed');
+      setLocalError(queueItem.error || 'Oops! No transcript available for this video.');
+    }
     else if (qState === 'summarizing') setLocalSummaryStatus('summarizing');
     else if (qState === 'transcribing' || qState === 'queued') setLocalSummaryStatus('transcribing');
   }, [queueItem?.state]);
@@ -349,6 +353,12 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, episodeI
             </Button>
           </div>
         </div>
+        {localError && localSummaryStatus === 'failed' && (
+          <div className="mt-2 p-2 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-2">
+            <AlertCircle className="h-3.5 w-3.5 text-destructive flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-destructive leading-relaxed">{localError}</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

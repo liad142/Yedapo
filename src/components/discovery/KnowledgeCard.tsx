@@ -201,6 +201,7 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
       setLocalSummaryStatus('ready');
     } else if (qState === 'failed') {
       setLocalSummaryStatus('failed');
+      setLocalError(youtubeQueueItem.error || 'Oops! No transcript available for this video. It may not have subtitles enabled.');
     } else if (qState === 'summarizing') {
       setLocalSummaryStatus('summarizing');
     } else if (qState === 'transcribing') {
@@ -742,7 +743,10 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
 
       {/* Error message */}
       {localError && localSummaryStatus === 'failed' && (
-        <p className="text-xs text-destructive mt-1.5">{localError}</p>
+        <div className="mt-3 mx-4 mb-3 p-2.5 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-destructive leading-relaxed">{localError}</p>
+        </div>
       )}
     </motion.article>
   );

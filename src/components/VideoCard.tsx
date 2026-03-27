@@ -1,13 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import posthog from 'posthog-js';
 import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { YouTubeLogo } from '@/components/YouTubeLogo';
 import { Bookmark, Play, Clock, Calendar, ExternalLink, Sparkles, Loader2 } from 'lucide-react';
+import { SoundWaveAnimation, ParticleGemAnimation, GemCompleteAnimation } from '@/components/animations';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSummarizeQueueOptional } from '@/contexts/SummarizeQueueContext';
+import { useUsage } from '@/contexts/UsageContext';
 import { cn } from '@/lib/utils';
 import { formatDuration as formatDurationHuman } from '@/lib/formatters';
 import { useRouter } from 'next/navigation';
@@ -28,7 +31,7 @@ export interface VideoItem {
   summaryStatus?: string;
 }
 
-type SummaryCardStatus = 'none' | 'loading' | 'ready';
+type SummaryCardStatus = 'none' | 'loading' | 'transcribing' | 'summarizing' | 'ready' | 'failed';
 
 interface VideoCardProps {
   video: VideoItem;
@@ -42,10 +45,23 @@ interface VideoCardProps {
 export const VideoCard = React.memo(function VideoCard({ video, onSave, episodeId, summaryStatus = 'none', onSummarize, className }: VideoCardProps) {
   const { user } = useAuth();
   const router = useRouter();
+  const summarizeQueue = useSummarizeQueueOptional();
+  const { incrementSummary } = useUsage();
   const [isSaved, setIsSaved] = useState(video.bookmarked || false);
   const [isSaving, setIsSaving] = useState(false);
   const [localSummaryStatus, setLocalSummaryStatus] = useState<SummaryCardStatus>(summaryStatus);
   const [localEpisodeId, setLocalEpisodeId] = useState<string | undefined>(episodeId);
+
+  // Sync queue state into local status
+  const queueItem = localEpisodeId && summarizeQueue ? summarizeQueue.getQueueItem(localEpisodeId) : null;
+  useEffect(() => {
+    if (!queueItem) return;
+    const qState = queueItem.state;
+    if (qState === 'ready') setLocalSummaryStatus('ready');
+    else if (qState === 'failed') setLocalSummaryStatus('failed');
+    else if (qState === 'summarizing') setLocalSummaryStatus('summarizing');
+    else if (qState === 'transcribing' || qState === 'queued') setLocalSummaryStatus('transcribing');
+  }, [queueItem?.state]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -118,7 +134,7 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, episodeI
       return;
     }
 
-    if (!user || localSummaryStatus === 'loading') return;
+    if (!user || localSummaryStatus === 'loading' || localSummaryStatus === 'transcribing' || localSummaryStatus === 'summarizing') return;
 
     if (onSummarize) {
       onSummarize(video);
@@ -127,11 +143,10 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, episodeI
 
     setLocalSummaryStatus('loading');
     try {
-      const res = await fetch(`/api/youtube/${video.videoId}/summary`, {
+      const res = await fetch(`/api/youtube/${video.videoId}/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          level: 'quick',
           title: video.title,
           description: video.description,
           channelId: video.channelId || '',
@@ -144,7 +159,10 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, episodeI
       if (res.ok) {
         const data = await res.json();
         setLocalEpisodeId(data.episodeId);
-        setLocalSummaryStatus(data.summary?.status === 'ready' ? 'ready' : 'loading');
+        if (summarizeQueue) {
+          summarizeQueue.addToQueue(data.episodeId);
+          incrementSummary();
+        }
       } else {
         setLocalSummaryStatus('none');
       }
@@ -168,11 +186,10 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, episodeI
 
     setIsImporting(true);
     try {
-      const res = await fetch(`/api/youtube/${video.videoId}/summary`, {
+      const res = await fetch(`/api/youtube/${video.videoId}/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          level: 'quick',
           title: video.title,
           description: video.description,
           channelId: video.channelId || '',
@@ -187,7 +204,6 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, episodeI
         setLocalEpisodeId(data.episodeId);
         router.push(`/episode/${data.episodeId}/insights`);
       } else {
-        // Fallback: open on YouTube if import fails
         window.open(video.url, '_blank', 'noopener,noreferrer');
       }
     } catch {
@@ -303,14 +319,23 @@ export const VideoCard = React.memo(function VideoCard({ video, onSave, episodeI
                   localSummaryStatus === 'ready' && 'text-primary'
                 )}
                 onClick={handleSummarize}
-                disabled={localSummaryStatus === 'loading'}
+                disabled={localSummaryStatus === 'loading' || localSummaryStatus === 'transcribing' || localSummaryStatus === 'summarizing'}
               >
                 {localSummaryStatus === 'loading' ? (
                   <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                ) : localSummaryStatus === 'transcribing' ? (
+                  <SoundWaveAnimation className="h-4 mr-1" />
+                ) : localSummaryStatus === 'summarizing' ? (
+                  <ParticleGemAnimation className="h-4 w-5 mr-1" />
+                ) : localSummaryStatus === 'ready' ? (
+                  <GemCompleteAnimation className="h-4 w-4 mr-1" />
                 ) : (
                   <Sparkles className="w-3 h-3 mr-1" />
                 )}
-                {localSummaryStatus === 'ready' ? 'Insights' : 'Summarize'}
+                {localSummaryStatus === 'ready' ? 'Insights'
+                  : localSummaryStatus === 'transcribing' ? 'Transcribing...'
+                  : localSummaryStatus === 'summarizing' ? 'Summarizing...'
+                  : 'Summarize'}
               </Button>
             )}
             <Button

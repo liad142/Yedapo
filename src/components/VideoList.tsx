@@ -61,11 +61,10 @@ const VideoListItem = React.memo(function VideoListItem({ video }: { video: Vide
     if (!user || isImporting) return;
     setIsImporting(true);
     try {
-      const res = await fetch(`/api/youtube/${video.videoId}/summary`, {
+      const res = await fetch(`/api/youtube/${video.videoId}/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          level: 'quick',
           title: video.title,
           description: video.description,
           channelId: video.channelId || '',

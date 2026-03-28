@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import posthog from 'posthog-js';
 import Link from 'next/link';
 import { Bell, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -55,6 +56,7 @@ export function NotificationBell({ unreadCount, markAllRead }: NotificationBellP
 
   const handleOpen = () => {
     if (!isOpen) {
+      posthog.capture('notifications_opened', { count: unreadCount });
       fetchNotifications();
     }
     setIsOpen(!isOpen);
@@ -127,7 +129,10 @@ export function NotificationBell({ unreadCount, markAllRead }: NotificationBellP
                   {notif.episode_id ? (
                     <Link
                       href={`/episode/${notif.episode_id}/insights`}
-                      onClick={() => setIsOpen(false)}
+                      onClick={() => {
+                        posthog.capture('notification_clicked', { notification_id: notif.id, type: notif.source_type });
+                        setIsOpen(false);
+                      }}
                       className="block"
                     >
                       <NotifContent notif={notif} formatTime={formatTime} />

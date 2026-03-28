@@ -175,6 +175,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
 
       if (elapsedMs > MAX_POLL_DURATION_MS) {
         log.error('Polling TIMEOUT - giving up', { episodeId, pollCount, elapsedMs });
+        posthog.capture('summary_failed', { episode_id: episodeId, error: 'Processing timed out', duration_ms: elapsedMs });
         updateQueueItem(episodeId, { state: 'failed', error: 'Processing timed out' });
         setStats(prev => ({ ...prev, failed: prev.failed + 1 }));
         finishProcessing();
@@ -188,6 +189,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
 
       if (state === 'ready') {
         log.success('Processing complete', { episodeId, durationMs: elapsedMs });
+        posthog.capture('summary_completed', { episode_id: episodeId, duration_ms: elapsedMs });
         setStats(prev => ({ ...prev, completed: prev.completed + 1 }));
         refreshUsage();
         finishProcessing();
@@ -213,6 +215,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
             setTimeout(() => startProcessingRef.current?.(episodeId), RETRY_DELAY);
           } else {
             log.error('Max retries reached', { episodeId });
+            posthog.capture('summary_failed', { episode_id: episodeId, error: 'Processing failed after retries', duration_ms: elapsedMs });
             updateQueueItem(episodeId, { state: 'failed', error: 'Processing failed after retries' });
             setStats(prev => ({ ...prev, failed: prev.failed + 1 }));
             finishProcessing();

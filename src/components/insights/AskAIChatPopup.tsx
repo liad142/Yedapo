@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import posthog from "posthog-js";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, X, Send, Loader2, AlertCircle, Trash2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -146,11 +147,13 @@ export function AskAIChatPopup() {
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim() || isStreaming) return;
+    posthog.capture('ask_ai_used', { episode_id: episodeId, question_length: input.trim().length });
     sendMessage(input);
     setInput("");
   };
 
   const handleSuggestion = (q: string) => {
+    posthog.capture('ask_ai_used', { episode_id: episodeId, question_length: q.length });
     sendMessage(q);
   };
 

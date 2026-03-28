@@ -95,8 +95,10 @@ export async function getEngagementFunnel(
   days: number = 30
 ): Promise<{ step: string; count: number }[]> {
   const funnelEvents = [
-    { step: 'Signed Up', event: 'auth_signed_up' },
+    { step: 'Signed Up', event: 'auth_google_started' },
     { step: 'Onboarded', event: 'onboarding_completed' },
+    { step: 'Requested Summary', event: 'summary_requested' },
+    { step: 'Viewed Insights', event: 'insights_viewed' },
     { step: 'Played Episode', event: 'episode_played' },
     { step: 'Subscribed', event: 'podcast_subscribed' },
   ];

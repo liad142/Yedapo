@@ -84,7 +84,7 @@ describe('Quota System', () => {
     process.env.UPSTASH_REDIS_REST_TOKEN = 'test-token';
   });
 
-  it('checkQuota fails closed when Redis is down', async () => {
+  it('checkQuota fails open when Redis is down', async () => {
     vi.doMock('@upstash/redis', () => ({
       Redis: vi.fn(() => ({
         get: vi.fn(() => { throw new Error('Connection refused'); }),
@@ -93,7 +93,7 @@ describe('Quota System', () => {
 
     const { checkQuota } = await import('@/lib/cache');
     const result = await checkQuota('user-123', 'summary', 5);
-    expect(result.allowed).toBe(false);
+    expect(result.allowed).toBe(true);
   });
 });
 

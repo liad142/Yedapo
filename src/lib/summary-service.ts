@@ -7,6 +7,7 @@ import { extractYouTubeVideoId } from "@/lib/youtube/utils";
 import { fetchYouTubeTranscript } from "@/lib/youtube/transcripts";
 import type { YouTubeMetadata } from "@/lib/youtube/transcripts";
 import { ensureYouTubeMetadata } from "@/lib/youtube/metadata";
+import { extractYouTubeAudioUrl } from "@/lib/youtube/audio-extractor";
 import { acquireLock, releaseLock } from '@/lib/cache';
 import { repairJsonString } from '@/lib/json-repair';
 import { getModel, DEFAULT_MODELS, withTimeout } from '@/lib/gemini';
@@ -665,6 +666,21 @@ export async function ensureTranscript(
     }
 
     // ============================================
+    // PRIORITY 0.5: YouTube audio fallback — extract direct audio URL for Deepgram/Voxtral
+    // When captions aren't available, get a direct audio stream URL from YouTube
+    // ============================================
+    let youtubeAudioUrl: string | null = null;
+    if (!transcriptText && youtubeVideoId) {
+      log.info('PRIORITY 0.5: Captions unavailable, extracting YouTube audio URL for transcription...');
+      youtubeAudioUrl = await extractYouTubeAudioUrl(youtubeVideoId);
+      if (youtubeAudioUrl) {
+        log.info('SUCCESS: Got direct YouTube audio URL', { urlLength: youtubeAudioUrl.length });
+      } else {
+        log.warn('PRIORITY 0.5 FAILED: Could not extract YouTube audio URL');
+      }
+    }
+
+    // ============================================
     // PRIORITY A+: Try Apple Podcasts transcript (FREE, instant!)
     // Apple has 125M+ episodes already transcribed
     // ============================================
@@ -754,13 +770,14 @@ export async function ensureTranscript(
 
     // ============================================
     // PRIORITY B1: Use Voxtral if language is supported (cheaper, built-in diarization)
-    // Skip for YouTube URLs — they return HTML, not audio
+    // Skip for YouTube URLs unless we have a direct audio URL from PRIORITY 0.5
     // ============================================
-    if (!transcriptText && !youtubeVideoId && isVoxtralSupported(language)) {
-      log.info('PRIORITY B1: Language supported by Voxtral, attempting Voxtral transcription...', { language });
+    const effectiveAudioUrl = youtubeAudioUrl ?? audioUrl;
+    if (!transcriptText && (!youtubeVideoId || youtubeAudioUrl) && isVoxtralSupported(language)) {
+      log.info('PRIORITY B1: Language supported by Voxtral, attempting Voxtral transcription...', { language, usingYoutubeAudio: !!youtubeAudioUrl });
       try {
         const voxtralStart = Date.now();
-        diarizedTranscript = await transcribeWithVoxtral(audioUrl, language);
+        diarizedTranscript = await transcribeWithVoxtral(effectiveAudioUrl, language);
         provider = 'voxtral';
         log.info('Voxtral transcription succeeded', {
           durationMs: Date.now() - voxtralStart,
@@ -788,22 +805,22 @@ export async function ensureTranscript(
         diarizedTranscript = null;
         provider = 'deepgram';
       }
-    } else if (!transcriptText && !youtubeVideoId) {
+    } else if (!transcriptText && (!youtubeVideoId || youtubeAudioUrl)) {
       log.info('PRIORITY B1: Language not supported by Voxtral, skipping to Deepgram', { language });
     }
 
     // ============================================
     // PRIORITY B2: Use Deepgram with explicit language (fallback)
-    // Skip for YouTube URLs — they return HTML, not audio
+    // Skip for YouTube URLs unless we have a direct audio URL from PRIORITY 0.5
     // ============================================
-    if (!transcriptText && !youtubeVideoId) {
+    if (!transcriptText && (!youtubeVideoId || youtubeAudioUrl)) {
       log.info('PRIORITY B: Starting transcription via Deepgram with explicit language...');
       const transcribeStart = Date.now();
       
       // ALWAYS pass language explicitly to Deepgram - this avoids paying for language detection
       // and improves transcription accuracy
-      log.info('Passing explicit language to Deepgram', { language });
-      diarizedTranscript = await transcribeFromUrl(audioUrl, language);
+      log.info('Passing explicit language to Deepgram', { language, usingYoutubeAudio: !!youtubeAudioUrl });
+      diarizedTranscript = await transcribeFromUrl(effectiveAudioUrl, language);
       
       const formattedText = formatTranscriptWithTimestamps(diarizedTranscript);
       log.info('Deepgram transcription completed', {

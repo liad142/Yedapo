@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, User, Loader2, Info } from 'lucide-react';
+import { Mail, Lock, Loader2, Info } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +26,6 @@ export function AuthModal() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -34,7 +33,6 @@ export function AuthModal() {
   const resetForm = () => {
     setEmail('');
     setPassword('');
-    setDisplayName('');
     setError(null);
     setSuccessMessage(null);
     setIsLoading(false);
@@ -54,15 +52,21 @@ export function AuthModal() {
     setIsLoading(true);
 
     try {
-      const result = await signUpOrIn(email, password, displayName || undefined);
+      const result = await signUpOrIn(email, password);
       if (result.error) {
         setError(result.error);
       } else if (result.needsConfirmation) {
         setSuccessMessage('Check your email for a confirmation link!');
       } else {
-        // Signed in (new or existing user)
+        // Signed in — check if onboarding already done
         setShowAuthModal(false);
-        router.push('/onboarding');
+        try {
+          const res = await fetch('/api/user/profile');
+          const { profile } = await res.json();
+          router.push(profile?.onboarding_completed ? '/discover' : '/onboarding');
+        } catch {
+          router.push('/onboarding');
+        }
       }
     } finally {
       setIsLoading(false);
@@ -163,20 +167,6 @@ export function AuthModal() {
 
           {/* Email Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="relative">
-              <label htmlFor="auth-display-name" className="sr-only">Display name</label>
-              <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="auth-display-name"
-                type="text"
-                placeholder="Display name (optional)"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                className="pl-9"
-                autoComplete="name"
-              />
-            </div>
-
             <div className="relative">
               <label htmlFor="auth-email" className="sr-only">Email</label>
               <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />

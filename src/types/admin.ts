@@ -132,4 +132,10 @@ export interface SystemHealth {
     timestamp: string;
     episode_id?: string;
   }[];
+  errorGroups: {
+    message: string;
+    count: number;
+    lastSeen: string;
+    type: string;
+  }[];
 }

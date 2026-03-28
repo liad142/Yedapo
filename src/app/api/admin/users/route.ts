@@ -78,6 +78,7 @@ export async function GET() {
   // Fetch auth emails for recent users
   const emailMap: Record<string, string> = {};
   if (recentUsers && recentUsers.length > 0) {
+    // TODO: At scale, use Promise.all(recentUsers.map(u => admin.auth.admin.getUserById(u.id))) for targeted lookups
     const { data: authUsers } = await admin.auth.admin.listUsers({ perPage: 50 });
     if (authUsers?.users) {
       for (const au of authUsers.users) {

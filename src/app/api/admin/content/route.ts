@@ -9,19 +9,31 @@ export async function GET() {
 
   const admin = createAdminClient();
 
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+
   const [
     { count: totalPodcasts },
     { count: totalEpisodes },
     { count: youtubeChannels },
     { data: podcasts },
-    { data: episodes },
+    { data: recentEpisodes },
+    { data: topEpisodeIds },
     { data: channelFollows },
   ] = await Promise.all([
     admin.from('podcasts').select('*', { count: 'exact', head: true }),
     admin.from('episodes').select('*', { count: 'exact', head: true }),
     admin.from('youtube_channels').select('*', { count: 'exact', head: true }),
     admin.from('podcasts').select('id, title, language, image_url').limit(1000),
-    admin.from('episodes').select('id, podcast_id, created_at').limit(5000),
+    // Episodes over time: bounded to last 90 days (no arbitrary limit)
+    admin.from('episodes')
+      .select('id, created_at')
+      .gte('created_at', ninetyDaysAgo)
+      .order('created_at', { ascending: true }),
+    // Top podcasts: 500 most recent episodes for ranking
+    admin.from('episodes')
+      .select('podcast_id')
+      .order('created_at', { ascending: false })
+      .limit(500),
     admin.from('youtube_channel_follows').select('channel_id, youtube_channels(id, channel_name)').limit(1000),
   ]);
 
@@ -36,9 +48,9 @@ export async function GET() {
     .slice(0, 10)
     .map(([label, count]) => ({ label, count }));
 
-  // Episodes over time (by week)
+  // Episodes over time (by week) — bounded to last 90 days
   const episodesByWeek: Record<string, number> = {};
-  (episodes ?? []).forEach((e: { created_at: string }) => {
+  (recentEpisodes ?? []).forEach((e: { created_at: string }) => {
     const date = new Date(e.created_at);
     const weekStart = new Date(date);
     weekStart.setDate(date.getDate() - date.getDay());
@@ -49,24 +61,24 @@ export async function GET() {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, value]) => ({ date, value }));
 
-  // Top podcasts by episode count
+  // Top podcasts by episode count (from 500 most recent episodes)
   const podcastEpisodeCounts: Record<string, number> = {};
-  (episodes ?? []).forEach((e: { podcast_id: string }) => {
+  (topEpisodeIds ?? []).forEach((e: { podcast_id: string }) => {
     podcastEpisodeCounts[e.podcast_id] = (podcastEpisodeCounts[e.podcast_id] || 0) + 1;
   });
-  const podcastMap = new Map((podcasts ?? []).map((p: { id: string; title: string; image_url: string | null }) => [p.id, p]));
-  const topPodcasts = Object.entries(podcastEpisodeCounts)
+  const topPodcastIds = Object.entries(podcastEpisodeCounts)
     .sort(([, a], [, b]) => b - a)
-    .slice(0, 10)
-    .map(([id, episode_count]) => {
-      const p = podcastMap.get(id) as { id: string; title: string; image_url: string | null } | undefined;
-      return {
-        id,
-        title: p?.title ?? 'Unknown',
-        episode_count,
-        image_url: p?.image_url ?? null,
-      };
-    });
+    .slice(0, 10);
+  const podcastMap = new Map((podcasts ?? []).map((p: { id: string; title: string; image_url: string | null }) => [p.id, p]));
+  const topPodcasts = topPodcastIds.map(([id, episode_count]) => {
+    const p = podcastMap.get(id) as { id: string; title: string; image_url: string | null } | undefined;
+    return {
+      id,
+      title: p?.title ?? 'Unknown',
+      episode_count,
+      image_url: p?.image_url ?? null,
+    };
+  });
 
   // Top YouTube channels by follow count
   const channelFollowCounts: Record<string, { title: string; count: number }> = {};

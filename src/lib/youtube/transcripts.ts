@@ -107,66 +107,77 @@ function decodeEntities(text: string): string {
 }
 
 /**
+ * Map modern ISO 639-1 codes to legacy codes YouTube uses internally.
+ * YouTube's caption system uses the old Java Locale codes for some languages.
+ */
+const LANG_TO_YOUTUBE: Record<string, string> = {
+  he: 'iw', // Hebrew
+  id: 'in', // Indonesian
+  yi: 'ji', // Yiddish
+};
+
+/**
  * Fetch auto-generated or manual captions from a YouTube video.
+ * Tries multiple language codes in order: requested language (+ legacy variant), 'en', then auto.
  *
  * Uses youtube-transcript-plus which:
  * 1. Scrapes the watch page to extract the INNERTUBE_API_KEY
  * 2. Calls InnerTube /player with ANDROID client + API key (bypasses POT requirement)
- * 3. Fetches caption XML from the baseUrl (strips &fmt= to get raw XML)
+ * 3. Fetches caption XML from the baseUrl
  */
-export async function fetchYouTubeTranscript(videoId: string): Promise<YouTubeTranscriptResult | null> {
-  try {
-    log.info('Fetching transcript via youtube-transcript-plus', { videoId });
+export async function fetchYouTubeTranscript(videoId: string, language?: string): Promise<YouTubeTranscriptResult | null> {
+  // Build ordered list of languages to try
+  const langsToTry: (string | undefined)[] = [];
+  if (language) {
+    langsToTry.push(language);
+    const legacy = LANG_TO_YOUTUBE[language];
+    if (legacy) langsToTry.push(legacy);
+  }
+  langsToTry.push('en');
+  langsToTry.push(undefined); // auto-detect (no lang param)
 
-    const segments = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'en' });
+  // Deduplicate while preserving order
+  const seen = new Set<string>();
+  const uniqueLangs = langsToTry.filter(l => {
+    const key = l ?? '__auto__';
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 
-    if (!segments || segments.length === 0) {
-      log.warn('No transcript segments', { videoId });
-      return null;
-    }
+  log.info('Fetching transcript', { videoId, langsToTry: uniqueLangs.map(l => l ?? 'auto') });
 
-    const language = segments[0]?.lang || 'en';
-    const fullText = segments
-      .map(s => decodeEntities(s.text))
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    if (!fullText) {
-      log.warn('Empty transcript text', { videoId });
-      return null;
-    }
-
-    log.success('Got transcript', { segments: segments.length, chars: fullText.length, videoId });
-    return { text: fullText, language };
-  } catch (err) {
-    // Try without language preference as fallback
+  for (const lang of uniqueLangs) {
     try {
-      log.warn('English failed, trying default language', { videoId });
-      const segments = await YoutubeTranscript.fetchTranscript(videoId);
+      const opts = lang ? { lang } : {};
+      const segments = await YoutubeTranscript.fetchTranscript(videoId, opts);
 
-      if (!segments || segments.length === 0) {
-        log.warn('No transcript segments (fallback)', { videoId });
-        return null;
-      }
+      if (!segments || segments.length === 0) continue;
 
-      const language = segments[0]?.lang || 'en';
+      const detectedLang = segments[0]?.lang || lang || 'en';
       const fullText = segments
         .map(s => decodeEntities(s.text))
         .join(' ')
         .replace(/\s+/g, ' ')
         .trim();
 
-      if (!fullText) return null;
+      if (!fullText) continue;
 
-      log.success('Got transcript (fallback)', { segments: segments.length, language, videoId });
-      return { text: fullText, language };
-    } catch (fallbackErr) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      log.error('Failed to fetch transcript', { videoId, error: errorMsg });
-      return null;
+      log.success('Got transcript', {
+        videoId,
+        lang: lang ?? 'auto',
+        detectedLang,
+        segments: segments.length,
+        chars: fullText.length,
+      });
+      return { text: fullText, language: detectedLang };
+    } catch {
+      log.info('No transcript for lang', { videoId, lang: lang ?? 'auto' });
     }
   }
+
+  log.warn('No transcript available in any language', { videoId });
+  return null;
 }
 
 /**

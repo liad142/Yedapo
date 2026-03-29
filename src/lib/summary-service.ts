@@ -614,7 +614,7 @@ export async function ensureTranscript(
     if (!transcriptText && youtubeVideoId) {
       log.info('PRIORITY 0: YouTube URL detected, fetching captions...', { youtubeVideoId });
       try {
-        const ytResult = await fetchYouTubeTranscript(youtubeVideoId);
+        const ytResult = await fetchYouTubeTranscript(youtubeVideoId, language);
         if (ytResult) {
           transcriptText = ytResult.text;
           provider = 'youtube-captions';

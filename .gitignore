@@ -55,3 +55,6 @@ skills-lock.json
 test-*.png
 
 .vercel
+
+.env.vercel-check*
+*.player-script.js

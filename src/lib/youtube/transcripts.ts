@@ -118,16 +118,55 @@ const LANG_TO_YOUTUBE: Record<string, string> = {
 
 /**
  * Fetch auto-generated or manual captions from a YouTube video.
- * Tries multiple language codes in order: requested language (+ legacy variant), 'en', then auto.
- *
- * Uses youtube-transcript-plus which:
- * 1. Scrapes the watch page to extract the INNERTUBE_API_KEY
- * 2. Calls InnerTube /player with ANDROID client + API key (bypasses POT requirement)
- * 3. Fetches caption XML from the baseUrl
+ * 
+ * PRIORITY 1: External transcript service (Railway microservice) — works from cloud IPs
+ * PRIORITY 2: youtube-transcript-plus (local InnerTube) — fallback, may be blocked on cloud
  */
 const YOUTUBE_TRANSCRIPT_TIMEOUT_MS = 30_000; // 30s max for YouTube transcript attempts
+const YT_TRANSCRIPT_SERVICE_URL = process.env.YT_TRANSCRIPT_SERVICE_URL; // e.g. https://xxx.up.railway.app
+const YT_TRANSCRIPT_SERVICE_KEY = process.env.YT_TRANSCRIPT_SERVICE_KEY; // API key for the service
+
+async function fetchFromTranscriptService(videoId: string, language?: string): Promise<YouTubeTranscriptResult | null> {
+  if (!YT_TRANSCRIPT_SERVICE_URL) return null;
+
+  try {
+    const params = new URLSearchParams({ lang: language || 'en' });
+    if (YT_TRANSCRIPT_SERVICE_KEY) params.set('key', YT_TRANSCRIPT_SERVICE_KEY);
+
+    const res = await fetch(`${YT_TRANSCRIPT_SERVICE_URL}/transcript/${videoId}?${params}`, {
+      signal: AbortSignal.timeout(20_000),
+    });
+
+    if (!res.ok) {
+      log.warn('Transcript service returned error', { videoId, status: res.status });
+      return null;
+    }
+
+    const data = await res.json();
+    if (!data.text || data.text.length === 0) return null;
+
+    log.success('Got transcript from service', {
+      videoId,
+      lang: data.language,
+      chars: data.text.length,
+      segments: data.segments?.length ?? 0,
+    });
+
+    return {
+      text: data.text,
+      language: data.language || language || 'en',
+    };
+  } catch (err) {
+    log.warn('Transcript service failed', { videoId, error: err instanceof Error ? err.message : String(err) });
+    return null;
+  }
+}
 
 export async function fetchYouTubeTranscript(videoId: string, language?: string): Promise<YouTubeTranscriptResult | null> {
+  // PRIORITY 1: External transcript service (not blocked by YouTube)
+  const serviceResult = await fetchFromTranscriptService(videoId, language);
+  if (serviceResult) return serviceResult;
+
   // Build ordered list of languages to try.
   // Always include legacy variants since YouTube channels often have wrong language metadata.
   const langsToTry: (string | undefined)[] = [];

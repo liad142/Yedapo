@@ -237,8 +237,14 @@ export default function SummariesPage() {
     const dbIds = new Set(episodes.map(ep => ep.id));
 
     // Update status for DB episodes that are in the client queue
+    const TERMINAL_STATUSES = ['ready', 'failed'];
     const updated = episodes.map(ep => {
       const qi = queueMap.get(ep.id);
+      // DB terminal status (ready/failed) always wins — it's authoritative
+      if (TERMINAL_STATUSES.includes(ep.status)) {
+        return ep;
+      }
+      // For non-terminal DB statuses, client queue may have fresher state
       if (qi && qi.state !== 'ready' && qi.state !== 'idle') {
         return { ...ep, status: qi.state };
       }

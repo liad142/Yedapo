@@ -151,11 +151,25 @@ export async function POST(
       isNew = imported.isNew;
     }
 
+    // Resolve podcast language for transcript fetching (e.g., 'he' for Hebrew channels)
+    let podcastLanguage = 'en';
+    if (podcastId) {
+      const { data: podcast } = await supabase
+        .from('podcasts')
+        .select('language')
+        .eq('id', podcastId)
+        .single();
+      if (podcast?.language) {
+        podcastLanguage = podcast.language.split('-')[0]; // 'en-US' → 'en'
+      }
+    }
+
     // Request summary
     const result = await requestYouTubeSummary(
       episodeId,
       videoId,
-      level as SummaryLevel
+      level as SummaryLevel,
+      podcastLanguage
     );
 
     // Record user ownership so this shows on the Summaries page

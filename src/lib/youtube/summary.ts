@@ -18,10 +18,10 @@ const log = createLogger('youtube');
 export async function requestYouTubeSummary(
   episodeId: string,
   videoId: string,
-  level: SummaryLevel
+  level: SummaryLevel,
+  language: string = 'en'
 ): Promise<{ status: SummaryStatus; error?: string }> {
   const supabase = createAdminClient();
-  const language = 'en';
 
   // Check for existing summary
   const { data: existingSummary } = await supabase
@@ -54,7 +54,7 @@ export async function requestYouTubeSummary(
     transcriptText = existingTranscript.full_text;
   } else {
     // Fetch YouTube captions
-    const ytTranscript = await fetchYouTubeTranscript(videoId);
+    const ytTranscript = await fetchYouTubeTranscript(videoId, language);
 
     if (!ytTranscript) {
       // Update summary status to failed

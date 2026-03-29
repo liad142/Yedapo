@@ -63,6 +63,37 @@ export interface ContentAnalytics {
   }[];
 }
 
+export interface AiAnalyticsFailure {
+  episode_id: string;
+  episode_title: string;
+  type: 'summary' | 'transcript';
+  level?: string;
+  error_message: string | null;
+  failed_at: string;
+}
+
+export interface YouTubePipelineRow {
+  episode_id: string;
+  episode_title: string;
+  podcast_id: string;
+  podcast_title: string;
+  rss_feed_url: string | null;
+  video_url: string | null;
+  summary_id: string | null;
+  transcript_id: string | null;
+  level: string;
+  language: string | null;
+  summary_status: string | null;
+  transcript_status: string | null;
+  transcript_provider: string | null;
+  summary_error: string | null;
+  transcript_error: string | null;
+  updated_at: string;
+  requested_by_user_id: string | null;
+  requested_by_email: string | null;
+  requested_at: string | null;
+}
+
 export interface AiAnalytics {
   totalSummaries: number;
   totalTranscripts: number;
@@ -75,13 +106,17 @@ export interface AiAnalytics {
   }[];
   transcriptsByStatus: LabeledCount[];
   generationOverTime: TimeSeriesPoint[];
-  recentFailures: {
-    episode_id: string;
-    episode_title: string;
-    type: 'summary' | 'transcript';
-    error_message: string | null;
-    failed_at: string;
-  }[];
+  recentFailures: AiAnalyticsFailure[];
+  youtubeSummaryHealth: {
+    totalSummaries: number;
+    queuedSummaries: number;
+    failedSummaries: number;
+    failureRate: number;
+    totalTranscripts: number;
+    failedTranscripts: number;
+    youtubeChannels: number;
+    recentFailures: AiAnalyticsFailure[];
+  };
 }
 
 export type TodoStatus = 'idea' | 'planned' | 'in_progress' | 'done';

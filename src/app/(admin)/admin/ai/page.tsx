@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { FileText, Brain, Layers, AlertTriangle, RotateCcw, Loader2, Clock, Zap } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { FileText, Brain, Layers, AlertTriangle, RotateCcw, Loader2, Clock, Zap, Youtube } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { StatCard } from '@/components/admin/StatCard';
 import { ChartCard } from '@/components/admin/ChartCard';
@@ -13,7 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 
 const AreaChartWidget = dynamic(() => import('@/components/admin/charts/AreaChartWidget').then(m => ({ default: m.AreaChartWidget })), { ssr: false, loading: () => <div className="h-64 animate-pulse bg-white/5 rounded-xl" /> });
 const StatusBreakdown = dynamic(() => import('@/components/admin/charts/StatusBreakdown').then(m => ({ default: m.StatusBreakdown })), { ssr: false, loading: () => <div className="h-64 animate-pulse bg-white/5 rounded-xl" /> });
-import type { AiAnalytics } from '@/types/admin';
+import type { AiAnalytics, YouTubePipelineRow } from '@/types/admin';
 
 interface StuckItem {
   id: string;
@@ -36,22 +36,37 @@ export default function AiPage() {
   const [loading, setLoading] = useState(true);
   const [stuck, setStuck] = useState<StuckData | null>(null);
   const [resetting, setResetting] = useState<string | null>(null);
+  const [youtubeRows, setYouTubeRows] = useState<YouTubePipelineRow[]>([]);
+  const [youtubeStatus, setYouTubeStatus] = useState('all');
+  const [youtubeLevel, setYouTubeLevel] = useState('all');
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (status = youtubeStatus, level = youtubeLevel) => {
     setLoading(true);
     try {
-      const [aiRes, stuckRes] = await Promise.all([
+      const youtubeParams = new URLSearchParams({ status, level, limit: '100' });
+      const [aiRes, stuckRes, youtubeRes] = await Promise.all([
         fetch('/api/admin/ai'),
         fetch('/api/admin/ai/stuck'),
+        fetch(`/api/admin/ai/youtube-pipeline?${youtubeParams.toString()}`),
       ]);
       if (aiRes.ok) setData(await aiRes.json());
       if (stuckRes.ok) setStuck(await stuckRes.json());
+      if (youtubeRes.ok) {
+        const payload = await youtubeRes.json();
+        setYouTubeRows(payload.rows ?? []);
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [youtubeLevel, youtubeStatus]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    if (data) {
+      fetchData(youtubeStatus, youtubeLevel);
+    }
+  }, [youtubeStatus, youtubeLevel]);
 
   const resetStuck = async (type: 'summary' | 'transcript' | 'all', ids?: string[]) => {
     setResetting(type);
@@ -103,12 +118,15 @@ export default function AiPage() {
 
   const hasStuckItems = stuck ? (stuck.stuckSummaries.length > 0 || stuck.stuckTranscripts.length > 0) : false;
   const stuckCount = stuck ? stuck.stuckSummaries.length + stuck.stuckTranscripts.length : 0;
+  const youtubeHealth = data.youtubeSummaryHealth;
+  const youtubeUserCount = useMemo(() => new Set(youtubeRows.map(row => row.requested_by_user_id).filter(Boolean)).size, [youtubeRows]);
+  const youtubeVideoCount = useMemo(() => new Set(youtubeRows.map(row => row.episode_id)).size, [youtubeRows]);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl sm:text-2xl font-bold">AI Pipeline</h1>
-        <RefreshButton onClick={fetchData} isLoading={loading} />
+        <RefreshButton onClick={() => fetchData()} isLoading={loading} />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -240,6 +258,76 @@ export default function AiPage() {
           )}
         </CardContent>
       </Card>
+
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold">YouTube Summary Health</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <StatCard icon={Youtube} label="YouTube Summaries" value={youtubeHealth.totalSummaries} />
+          <StatCard icon={Layers} label="YouTube Queue" value={youtubeHealth.queuedSummaries} />
+          <StatCard icon={AlertTriangle} label="YouTube Failure Rate" value={`${youtubeHealth.failureRate}%`} />
+          <StatCard icon={Brain} label="YouTube Channels" value={youtubeHealth.youtubeChannels} />
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <StatCard icon={FileText} label="Visible Videos" value={youtubeVideoCount} />
+          <StatCard icon={Brain} label="Visible Users" value={youtubeUserCount} />
+          <StatCard icon={FileText} label="YouTube Transcripts" value={youtubeHealth.totalTranscripts} />
+          <StatCard icon={AlertTriangle} label="Failed Transcripts" value={youtubeHealth.failedTranscripts} />
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <select
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            value={youtubeStatus}
+            onChange={(e) => setYouTubeStatus(e.target.value)}
+          >
+            <option value="all">All statuses</option>
+            <option value="ready">Ready</option>
+            <option value="failed">Failed</option>
+            <option value="queued">Queued</option>
+            <option value="transcribing">Transcribing</option>
+            <option value="summarizing">Summarizing</option>
+          </select>
+          <select
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            value={youtubeLevel}
+            onChange={(e) => setYouTubeLevel(e.target.value)}
+          >
+            <option value="all">All levels</option>
+            <option value="quick">Quick</option>
+            <option value="deep">Deep</option>
+          </select>
+        </div>
+
+        <DataTable
+          columns={[
+            { key: 'episode_title', label: 'Episode', render: (row) => {
+              const title = row.episode_title as string;
+              return title.length > 42 ? title.slice(0, 42) + '...' : title;
+            }},
+            { key: 'podcast_title', label: 'Channel', render: (row) => {
+              const title = row.podcast_title as string;
+              return title.length > 28 ? title.slice(0, 28) + '...' : title;
+            }},
+            { key: 'requested_by_email', label: 'User', render: (row) => (row.requested_by_email as string) || ((row.requested_by_user_id as string) ? String(row.requested_by_user_id).slice(0, 8) + '...' : '-') },
+            { key: 'level', label: 'Level' },
+            { key: 'summary_status', label: 'Summary', sortable: true },
+            { key: 'transcript_status', label: 'Transcript', sortable: true },
+            { key: 'transcript_provider', label: 'Provider' },
+            { key: 'summary_error', label: 'Error', render: (row) => {
+              const msg = (row.summary_error as string) || (row.transcript_error as string) || '-';
+              return <span className="text-xs">{msg.length > 52 ? msg.slice(0, 52) + '...' : msg}</span>;
+            }},
+            {
+              key: 'updated_at',
+              label: 'Updated',
+              sortable: true,
+              render: (row) => new Date(row.updated_at as string).toLocaleString(),
+            },
+          ]}
+          data={youtubeRows as unknown as Record<string, unknown>[]}
+        />
+      </div>
 
       <h2 className="text-lg font-semibold">Recent Failures</h2>
       <DataTable

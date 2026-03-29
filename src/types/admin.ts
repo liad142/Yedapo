@@ -72,6 +72,28 @@ export interface AiAnalyticsFailure {
   failed_at: string;
 }
 
+export interface YouTubePipelineRow {
+  episode_id: string;
+  episode_title: string;
+  podcast_id: string;
+  podcast_title: string;
+  rss_feed_url: string | null;
+  video_url: string | null;
+  summary_id: string | null;
+  transcript_id: string | null;
+  level: string;
+  language: string | null;
+  summary_status: string | null;
+  transcript_status: string | null;
+  transcript_provider: string | null;
+  summary_error: string | null;
+  transcript_error: string | null;
+  updated_at: string;
+  requested_by_user_id: string | null;
+  requested_by_email: string | null;
+  requested_at: string | null;
+}
+
 export interface AiAnalytics {
   totalSummaries: number;
   totalTranscripts: number;

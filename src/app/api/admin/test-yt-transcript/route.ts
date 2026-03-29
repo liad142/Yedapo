@@ -139,5 +139,97 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Test 9: Timedtext with kind=asr
+  try {
+    const start = Date.now();
+    const res = await fetch(`https://www.youtube.com/api/timedtext?v=${videoId}&lang=en&kind=asr&fmt=json3`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(10000),
+    });
+    const text = await res.text();
+    results.push(`Timedtext (asr, json3): ${res.status}, ${text.length} bytes in ${Date.now() - start}ms`);
+  } catch (e: any) {
+    results.push(`Timedtext (asr): FAILED - ${e.message}`);
+  }
+
+  // Test 10: Timedtext with srv3 format
+  try {
+    const start = Date.now();
+    const res = await fetch(`https://www.youtube.com/api/timedtext?v=${videoId}&lang=en&fmt=srv3`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(10000),
+    });
+    const text = await res.text();
+    results.push(`Timedtext (srv3): ${res.status}, ${text.length} bytes in ${Date.now() - start}ms`);
+  } catch (e: any) {
+    results.push(`Timedtext (srv3): FAILED - ${e.message}`);
+  }
+
+  // Test 11: video.google.com timedtext
+  try {
+    const start = Date.now();
+    const res = await fetch(`https://video.google.com/timedtext?lang=en&v=${videoId}`, {
+      signal: AbortSignal.timeout(10000),
+    });
+    const text = await res.text();
+    results.push(`video.google.com timedtext: ${res.status}, ${text.length} bytes in ${Date.now() - start}ms`);
+    if (text.length > 0) results.push(`  preview: ${text.substring(0, 200)}`);
+  } catch (e: any) {
+    results.push(`video.google.com: FAILED - ${e.message}`);
+  }
+
+  // Test 12: InnerTube with IOS client (different from ANDROID)
+  try {
+    const start = Date.now();
+    const innertubeRes = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'User-Agent': 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)' },
+      body: JSON.stringify({
+        videoId,
+        context: { client: { clientName: 'IOS', clientVersion: '19.29.1', hl: 'en', deviceModel: 'iPhone16,2' } },
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+    const data = await innertubeRes.json();
+    const captionTracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    results.push(`InnerTube IOS: ${innertubeRes.status}, captionTracks=${captionTracks?.length ?? 0} in ${Date.now() - start}ms`);
+    if (captionTracks?.length > 0) {
+      const baseUrl = captionTracks[0].baseUrl;
+      results.push(`  baseUrl: ${baseUrl?.substring(0, 120)}...`);
+      // Try fetching the actual caption content
+      const captionRes = await fetch(baseUrl, { signal: AbortSignal.timeout(10000) });
+      const captionText = await captionRes.text();
+      results.push(`  Caption content: ${captionRes.status}, ${captionText.length} bytes`);
+    }
+  } catch (e: any) {
+    results.push(`InnerTube IOS: FAILED - ${e.message}`);
+  }
+
+  // Test 13: InnerTube TVHTML5_EMBEDDED
+  try {
+    const start = Date.now();
+    const innertubeRes = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        videoId,
+        context: { client: { clientName: 'TVHTML5_SIMPLY_EMBEDDED_PLAYER', clientVersion: '2.0' }, thirdParty: { embedUrl: 'https://www.google.com' } },
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+    const data = await innertubeRes.json();
+    const captionTracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    results.push(`InnerTube TVHTML5: ${innertubeRes.status}, captionTracks=${captionTracks?.length ?? 0} in ${Date.now() - start}ms`);
+    if (captionTracks?.length > 0) {
+      const baseUrl = captionTracks[0].baseUrl;
+      results.push(`  baseUrl: ${baseUrl?.substring(0, 120)}...`);
+      const captionRes = await fetch(baseUrl, { signal: AbortSignal.timeout(10000) });
+      const captionText = await captionRes.text();
+      results.push(`  Caption content: ${captionRes.status}, ${captionText.length} bytes`);
+    }
+  } catch (e: any) {
+    results.push(`InnerTube TVHTML5: FAILED - ${e.message}`);
+  }
+
   return NextResponse.json({ videoId, results });
 }

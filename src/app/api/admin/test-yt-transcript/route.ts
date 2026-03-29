@@ -231,6 +231,32 @@ export async function GET(request: NextRequest) {
     results.push(`InnerTube TVHTML5: FAILED - ${e.message}`);
   }
 
+  // Test 0: Railway transcript service (via our fetchYouTubeTranscript)
+  try {
+    const start = Date.now();
+    const serviceUrl = process.env.YT_TRANSCRIPT_SERVICE_URL;
+    const serviceKey = process.env.YT_TRANSCRIPT_SERVICE_KEY;
+    results.push(`ENV: YT_TRANSCRIPT_SERVICE_URL=${serviceUrl ? 'SET (' + serviceUrl.substring(0, 30) + '...)' : 'NOT SET'}`);
+    results.push(`ENV: YT_TRANSCRIPT_SERVICE_KEY=${serviceKey ? 'SET' : 'NOT SET'}`);
+    
+    if (serviceUrl) {
+      const params = new URLSearchParams({ lang: 'en' });
+      if (serviceKey) params.set('key', serviceKey);
+      const res = await fetch(`${serviceUrl}/transcript/${videoId}?${params}`, {
+        signal: AbortSignal.timeout(20000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        results.push(`Railway service: SUCCESS ${data.text?.length ?? 0} chars, lang=${data.language} in ${Date.now() - start}ms`);
+      } else {
+        const body = await res.text();
+        results.push(`Railway service: ${res.status} - ${body.substring(0, 150)} in ${Date.now() - start}ms`);
+      }
+    }
+  } catch (e: any) {
+    results.push(`Railway service: FAILED - ${e.message}`);
+  }
+
   // Test 14: OLD youtube-transcript package (the one that worked before)
   try {
     const start = Date.now();

@@ -98,7 +98,7 @@ interface PersonalizedSection {
 export default function DiscoverPage() {
   const { country } = useCountry();
   const { subscribedAppleIds } = useSubscription();
-  const { user } = useAuth();
+  const { user, setShowAuthModal } = useAuth();
 
   // PROGRESSIVE loading states - each section loads independently
   const [topPodcasts, setTopPodcasts] = useState<ApplePodcast[]>([]);
@@ -441,6 +441,18 @@ export default function DiscoverPage() {
     }
   }, [country]);
 
+  // Deduplicate trending feed: exclude podcasts already well-represented in Daily Mix
+  const trendingEpisodes = (() => {
+    if (dailyMixEpisodes.length === 0 || feedEpisodes.length === 0) return feedEpisodes;
+    const dailyMixPodcasts = new Map<string, number>();
+    dailyMixEpisodes.forEach(ep => {
+      const name = ep.podcastName;
+      if (name) dailyMixPodcasts.set(name, (dailyMixPodcasts.get(name) || 0) + 1);
+    });
+    const deduped = feedEpisodes.filter(ep => (dailyMixPodcasts.get(ep.podcastName) || 0) < 2);
+    return deduped.length >= 5 ? deduped : feedEpisodes;
+  })();
+
   // Quota visibility
   const { usage } = useUsage();
 
@@ -538,7 +550,7 @@ export default function DiscoverPage() {
             </motion.div>
           )}
 
-          {/* 5. For You Feed — personalized */}
+          {/* 5. For You Feed — personalized (auth-gated) */}
           <motion.div
             className="mb-12"
             initial={{ opacity: 0, y: 20 }}
@@ -546,7 +558,19 @@ export default function DiscoverPage() {
             viewport={{ once: true, margin: "-100px" }}
             transition={{ duration: 0.4 }}
           >
-            <HighSignalFeed />
+            {user ? (
+              <HighSignalFeed />
+            ) : (
+              <div className="rounded-2xl border border-border bg-card p-8 text-center">
+                <h2 className="text-lg font-semibold mb-2">Your personalized feed</h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Sign in to get AI-powered recommendations based on your interests
+                </p>
+                <Button onClick={() => setShowAuthModal(true, 'Sign in to get personalized podcast recommendations.')} size="sm">
+                  Sign In
+                </Button>
+              </div>
+            )}
           </motion.div>
 
           {/* 6. Trending Feed — editorial, always visible */}
@@ -562,7 +586,7 @@ export default function DiscoverPage() {
               transition={{ duration: 0.4 }}
             >
               <TrendingFeed
-                episodes={feedEpisodes}
+                episodes={trendingEpisodes}
                 isLoading={isLoadingFeed}
                 hasMore={hasMoreFeed}
                 onLoadMore={handleLoadMore}

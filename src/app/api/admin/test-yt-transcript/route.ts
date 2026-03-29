@@ -59,5 +59,85 @@ export async function GET(request: NextRequest) {
     results.push(`Raw fetch: FAILED - ${e.message}`);
   }
 
+  // Test 5: YouTube timedtext API directly
+  try {
+    const start = Date.now();
+    const res = await fetch(`https://www.youtube.com/api/timedtext?v=${videoId}&lang=en&fmt=json3`, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      signal: AbortSignal.timeout(10000),
+    });
+    const text = await res.text();
+    results.push(`Timedtext API (en): ${res.status}, ${text.length} bytes in ${Date.now() - start}ms`);
+  } catch (e: any) {
+    results.push(`Timedtext API (en): FAILED - ${e.message}`);
+  }
+
+  // Test 6: InnerTube API directly (what youtube-transcript-plus does internally)
+  try {
+    const start = Date.now();
+    const innertubeRes = await fetch('https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'User-Agent': 'com.google.android.youtube/17.36.4 (Linux; U; Android 12)' },
+      body: JSON.stringify({
+        videoId,
+        context: { client: { clientName: 'ANDROID', clientVersion: '17.36.4', hl: 'en' } },
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+    const data = await innertubeRes.json();
+    const captionTracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    results.push(`InnerTube ANDROID: ${innertubeRes.status}, captionTracks=${captionTracks?.length ?? 0} in ${Date.now() - start}ms`);
+    if (captionTracks?.length > 0) {
+      results.push(`  First track: lang=${captionTracks[0].languageCode} baseUrl=${captionTracks[0].baseUrl?.substring(0, 80)}...`);
+    }
+  } catch (e: any) {
+    results.push(`InnerTube ANDROID: FAILED - ${e.message}`);
+  }
+
+  // Test 7: InnerTube with WEB client
+  try {
+    const start = Date.now();
+    const innertubeRes = await fetch('https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      body: JSON.stringify({
+        videoId,
+        context: { client: { clientName: 'WEB', clientVersion: '2.20240101.00.00', hl: 'en' } },
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+    const data = await innertubeRes.json();
+    const captionTracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    results.push(`InnerTube WEB: ${innertubeRes.status}, captionTracks=${captionTracks?.length ?? 0} in ${Date.now() - start}ms`);
+    if (captionTracks?.length > 0) {
+      results.push(`  First track: lang=${captionTracks[0].languageCode} baseUrl=${captionTracks[0].baseUrl?.substring(0, 80)}...`);
+    }
+  } catch (e: any) {
+    results.push(`InnerTube WEB: FAILED - ${e.message}`);
+  }
+
+  // Test 8: YouTube Data API v3 (using their API key)
+  const ytApiKey = process.env.YOUTUBE_API_KEY;
+  if (ytApiKey) {
+    try {
+      const start = Date.now();
+      const res = await fetch(`https://www.googleapis.com/youtube/v3/captions?videoId=${videoId}&part=snippet&key=${ytApiKey}`, {
+        signal: AbortSignal.timeout(10000),
+      });
+      const data = await res.json();
+      results.push(`YouTube Data API captions: ${res.status}, items=${data.items?.length ?? 0} in ${Date.now() - start}ms`);
+      if (data.items?.length > 0) {
+        data.items.forEach((item: any) => {
+          results.push(`  caption: lang=${item.snippet?.language} name=${item.snippet?.name} trackKind=${item.snippet?.trackKind}`);
+        });
+      }
+      if (data.error) {
+        results.push(`  error: ${JSON.stringify(data.error.message)}`);
+      }
+    } catch (e: any) {
+      results.push(`YouTube Data API: FAILED - ${e.message}`);
+    }
+  }
+
   return NextResponse.json({ videoId, results });
 }

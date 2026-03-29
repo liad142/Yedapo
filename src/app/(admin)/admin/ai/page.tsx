@@ -118,7 +118,16 @@ export default function AiPage() {
 
   const hasStuckItems = stuck ? (stuck.stuckSummaries.length > 0 || stuck.stuckTranscripts.length > 0) : false;
   const stuckCount = stuck ? stuck.stuckSummaries.length + stuck.stuckTranscripts.length : 0;
-  const youtubeHealth = data.youtubeSummaryHealth;
+  const youtubeHealth = data.youtubeSummaryHealth ?? {
+    totalSummaries: 0,
+    queuedSummaries: 0,
+    failedSummaries: 0,
+    failureRate: 0,
+    totalTranscripts: 0,
+    failedTranscripts: 0,
+    youtubeChannels: 0,
+    recentFailures: [],
+  };
   const youtubeUserCount = useMemo(() => new Set(youtubeRows.map(row => row.requested_by_user_id).filter(Boolean)).size, [youtubeRows]);
   const youtubeVideoCount = useMemo(() => new Set(youtubeRows.map(row => row.episode_id)).size, [youtubeRows]);
 

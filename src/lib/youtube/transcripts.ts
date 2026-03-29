@@ -126,7 +126,8 @@ const LANG_TO_YOUTUBE: Record<string, string> = {
  * 3. Fetches caption XML from the baseUrl
  */
 export async function fetchYouTubeTranscript(videoId: string, language?: string): Promise<YouTubeTranscriptResult | null> {
-  // Build ordered list of languages to try
+  // Build ordered list of languages to try.
+  // Always include legacy variants since YouTube channels often have wrong language metadata.
   const langsToTry: (string | undefined)[] = [];
   if (language) {
     langsToTry.push(language);
@@ -134,6 +135,11 @@ export async function fetchYouTubeTranscript(videoId: string, language?: string)
     if (legacy) langsToTry.push(legacy);
   }
   langsToTry.push('en');
+  // Always try common legacy codes — many YouTube channels have incorrect language metadata
+  for (const [modern, legacy] of Object.entries(LANG_TO_YOUTUBE)) {
+    langsToTry.push(modern);
+    langsToTry.push(legacy);
+  }
   langsToTry.push(undefined); // auto-detect (no lang param)
 
   // Deduplicate while preserving order

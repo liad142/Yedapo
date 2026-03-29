@@ -84,6 +84,9 @@ export default function AiPage() {
     }
   };
 
+  const youtubeUserCount = useMemo(() => new Set(youtubeRows.map(row => row.requested_by_user_id).filter(Boolean)).size, [youtubeRows]);
+  const youtubeVideoCount = useMemo(() => new Set(youtubeRows.map(row => row.episode_id)).size, [youtubeRows]);
+
   if (loading && !data) {
     return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" /></div>;
   }
@@ -128,8 +131,6 @@ export default function AiPage() {
     youtubeChannels: 0,
     recentFailures: [],
   };
-  const youtubeUserCount = useMemo(() => new Set(youtubeRows.map(row => row.requested_by_user_id).filter(Boolean)).size, [youtubeRows]);
-  const youtubeVideoCount = useMemo(() => new Set(youtubeRows.map(row => row.episode_id)).size, [youtubeRows]);
 
   return (
     <div className="space-y-6">

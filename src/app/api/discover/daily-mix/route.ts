@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAuthUser } from '@/lib/auth-helpers';
 import { getCountryLanguages } from '@/lib/region-data';
+import { getCached, setCached } from '@/lib/cache';
 import type { QuickSummaryContent, DeepSummaryContent } from '@/types/database';
 
 // Map each Apple genre to expanded keyword sets for matching
@@ -104,6 +105,17 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Math.max(limitParam, 1), 50); // clamp 1-50
   const cursor = request.nextUrl.searchParams.get('cursor'); // ISO date string for pagination
 
+  // Check Redis cache for first page (no cursor)
+  const cacheKey = `daily-mix:${country}:${limit}`;
+  if (!cursor) {
+    const cached = await getCached<{ episodes: any[]; nextCursor: string | null }>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300' },
+      });
+    }
+  }
+
   // 1. Get episode_ids with ANY ready summary (quick or deep)
   // Only fetch display fields for scoring — NOT full content_json
   const { data: summaries, error: summariesError } = await admin
@@ -112,7 +124,7 @@ export async function GET(request: NextRequest) {
     .eq('status', 'ready')
     .in('level', ['quick', 'deep'])
     .order('updated_at', { ascending: false })
-    .limit(200);
+    .limit(100);
 
   if (summariesError || !summaries?.length) {
     return NextResponse.json({ episodes: [], nextCursor: null });
@@ -208,7 +220,13 @@ export async function GET(request: NextRequest) {
     : episodes;
 
   // If filtering removed everything, fall back to unfiltered
-  const episodesPool = languageFiltered.length > 0 ? languageFiltered : episodes;
+  const languagePool = languageFiltered.length > 0 ? languageFiltered : episodes;
+
+  // Filter out episodes with missing podcast data
+  const episodesPool = languagePool.filter((ep: any) => {
+    const podcast = Array.isArray(ep.podcasts) ? ep.podcasts[0] : ep.podcasts;
+    return podcast && podcast.title;
+  });
 
   // 5. Score all episodes
   const scored = episodesPool.map((ep: any) => {
@@ -264,16 +282,27 @@ export async function GET(request: NextRequest) {
     return b._score - a._score;
   });
 
+  // 7b. Limit per-source to prevent single podcast dominating the feed
+  const MAX_PER_SOURCE = 2;
+  const sourceCounts = new Map<string, number>();
+  const diversified = filtered.filter(ep => {
+    const source = ep.podcastName || ep.podcastId;
+    const count = sourceCounts.get(source) || 0;
+    if (count >= MAX_PER_SOURCE) return false;
+    sourceCounts.set(source, count + 1);
+    return true;
+  });
+
   // 8. Apply cursor-based pagination
   let startIndex = 0;
   if (cursor) {
     const cursorTime = new Date(cursor).getTime();
-    startIndex = filtered.findIndex(ep => ep._publishedAt <= cursorTime);
-    if (startIndex === -1) startIndex = filtered.length;
+    startIndex = diversified.findIndex(ep => ep._publishedAt <= cursorTime);
+    if (startIndex === -1) startIndex = diversified.length;
   }
 
-  const page = filtered.slice(startIndex, startIndex + limit);
-  const hasMore = startIndex + limit < filtered.length;
+  const page = diversified.slice(startIndex, startIndex + limit);
+  const hasMore = startIndex + limit < diversified.length;
   const nextCursor = hasMore && page.length > 0
     ? new Date(page[page.length - 1]._publishedAt).toISOString()
     : null;
@@ -281,7 +310,14 @@ export async function GET(request: NextRequest) {
   // 9. Strip internal fields and return
   const result = page.map(({ _score, _publishedAt, ...ep }) => ep);
 
-  return NextResponse.json({ episodes: result, nextCursor }, {
+  const responseBody = { episodes: result, nextCursor };
+
+  // Cache first page in Redis (10 min TTL)
+  if (!cursor) {
+    setCached(cacheKey, responseBody, 600);
+  }
+
+  return NextResponse.json(responseBody, {
     headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300' },
   });
 }

@@ -63,6 +63,15 @@ export interface ContentAnalytics {
   }[];
 }
 
+export interface AiAnalyticsFailure {
+  episode_id: string;
+  episode_title: string;
+  type: 'summary' | 'transcript';
+  level?: string;
+  error_message: string | null;
+  failed_at: string;
+}
+
 export interface AiAnalytics {
   totalSummaries: number;
   totalTranscripts: number;
@@ -75,13 +84,17 @@ export interface AiAnalytics {
   }[];
   transcriptsByStatus: LabeledCount[];
   generationOverTime: TimeSeriesPoint[];
-  recentFailures: {
-    episode_id: string;
-    episode_title: string;
-    type: 'summary' | 'transcript';
-    error_message: string | null;
-    failed_at: string;
-  }[];
+  recentFailures: AiAnalyticsFailure[];
+  youtubeSummaryHealth: {
+    totalSummaries: number;
+    queuedSummaries: number;
+    failedSummaries: number;
+    failureRate: number;
+    totalTranscripts: number;
+    failedTranscripts: number;
+    youtubeChannels: number;
+    recentFailures: AiAnalyticsFailure[];
+  };
 }
 
 export type TodoStatus = 'idea' | 'planned' | 'in_progress' | 'done';

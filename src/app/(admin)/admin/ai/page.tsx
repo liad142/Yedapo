@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { FileText, Brain, Layers, AlertTriangle, RotateCcw, Loader2, Clock, Zap } from 'lucide-react';
+import { FileText, Brain, Layers, AlertTriangle, RotateCcw, Loader2, Clock, Zap, Youtube } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { StatCard } from '@/components/admin/StatCard';
 import { ChartCard } from '@/components/admin/ChartCard';
@@ -103,6 +103,7 @@ export default function AiPage() {
 
   const hasStuckItems = stuck ? (stuck.stuckSummaries.length > 0 || stuck.stuckTranscripts.length > 0) : false;
   const stuckCount = stuck ? stuck.stuckSummaries.length + stuck.stuckTranscripts.length : 0;
+  const youtubeHealth = data.youtubeSummaryHealth;
 
   return (
     <div className="space-y-6">
@@ -240,6 +241,37 @@ export default function AiPage() {
           )}
         </CardContent>
       </Card>
+
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold">YouTube Summary Health</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <StatCard icon={Youtube} label="YouTube Summaries" value={youtubeHealth.totalSummaries} />
+          <StatCard icon={Layers} label="YouTube Queue" value={youtubeHealth.queuedSummaries} />
+          <StatCard icon={AlertTriangle} label="YouTube Failure Rate" value={`${youtubeHealth.failureRate}%`} />
+          <StatCard icon={Brain} label="YouTube Channels" value={youtubeHealth.youtubeChannels} />
+        </div>
+        <DataTable
+          columns={[
+            { key: 'type', label: 'Type' },
+            { key: 'level', label: 'Level', render: (row) => (row.level as string) || '-' },
+            { key: 'episode_title', label: 'Episode', render: (row) => {
+              const title = row.episode_title as string;
+              return title.length > 50 ? title.slice(0, 50) + '...' : title;
+            }},
+            { key: 'error_message', label: 'Error', render: (row) => {
+              const msg = (row.error_message as string) || 'Unknown';
+              return <span className="text-red-600 dark:text-red-400 text-xs">{msg.length > 80 ? msg.slice(0, 80) + '...' : msg}</span>;
+            }},
+            {
+              key: 'failed_at',
+              label: 'Time',
+              sortable: true,
+              render: (row) => new Date(row.failed_at as string).toLocaleString(),
+            },
+          ]}
+          data={youtubeHealth.recentFailures as unknown as Record<string, unknown>[]}
+        />
+      </div>
 
       <h2 className="text-lg font-semibold">Recent Failures</h2>
       <DataTable

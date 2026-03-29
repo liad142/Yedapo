@@ -6,7 +6,7 @@ import { createLogger } from '@/lib/logger';
 import { sendAdminAlert } from '@/lib/notifications/send-admin-alert';
 
 const log = createLogger('cron');
-const MAX_PER_RUN = 5;
+const MAX_PER_RUN = 15;
 const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
 export const maxDuration = 300; // 5 min — needs time for HTTP retriggers
@@ -73,11 +73,11 @@ async function processStuckSummaries() {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const cronSecret = process.env.CRON_SECRET;
 
-    // Find summaries stuck in 'queued' or 'transcribing' for more than 5 minutes
+    // Find summaries stuck in 'queued', 'transcribing', or 'summarizing' for more than 5 minutes
     const { data: stuckSummaries, error } = await supabase
       .from('summaries')
       .select('id, episode_id, level')
-      .in('status', ['queued', 'transcribing'])
+      .in('status', ['queued', 'transcribing', 'summarizing'])
       .lt('updated_at', staleThreshold)
       .order('created_at', { ascending: true })
       .limit(MAX_PER_RUN);

@@ -125,6 +125,8 @@ const LANG_TO_YOUTUBE: Record<string, string> = {
  * 2. Calls InnerTube /player with ANDROID client + API key (bypasses POT requirement)
  * 3. Fetches caption XML from the baseUrl
  */
+const YOUTUBE_TRANSCRIPT_TIMEOUT_MS = 30_000; // 30s max for YouTube transcript attempts
+
 export async function fetchYouTubeTranscript(videoId: string, language?: string): Promise<YouTubeTranscriptResult | null> {
   // Build ordered list of languages to try.
   // Always include legacy variants since YouTube channels often have wrong language metadata.
@@ -153,10 +155,25 @@ export async function fetchYouTubeTranscript(videoId: string, language?: string)
 
   log.info('Fetching transcript', { videoId, langsToTry: uniqueLangs.map(l => l ?? 'auto') });
 
+  const startTime = Date.now();
+
   for (const lang of uniqueLangs) {
+    // Enforce overall timeout across all language attempts
+    const elapsed = Date.now() - startTime;
+    if (elapsed > YOUTUBE_TRANSCRIPT_TIMEOUT_MS) {
+      log.warn('YouTube transcript timeout reached, aborting', { videoId, elapsedMs: elapsed });
+      return null;
+    }
+
     try {
       const opts = lang ? { lang } : {};
-      const segments = await YoutubeTranscript.fetchTranscript(videoId, opts);
+      const remaining = YOUTUBE_TRANSCRIPT_TIMEOUT_MS - (Date.now() - startTime);
+      const segments = await Promise.race([
+        YoutubeTranscript.fetchTranscript(videoId, opts),
+        new Promise<null>((_, reject) =>
+          setTimeout(() => reject(new Error('YouTube transcript attempt timed out')), Math.max(remaining, 1000))
+        ),
+      ]);
 
       if (!segments || segments.length === 0) continue;
 

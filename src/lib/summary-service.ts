@@ -613,8 +613,16 @@ export async function ensureTranscript(
     const youtubeVideoId = extractYouTubeVideoId(audioUrl);
     if (!transcriptText && youtubeVideoId) {
       log.info('PRIORITY 0: YouTube URL detected, fetching captions...', { youtubeVideoId });
+      const ytStart = Date.now();
       try {
-        const ytResult = await fetchYouTubeTranscript(youtubeVideoId, language);
+        // 30s hard timeout for YouTube transcript attempts
+        const ytResult = await Promise.race([
+          fetchYouTubeTranscript(youtubeVideoId, language),
+          new Promise<null>((resolve) => setTimeout(() => {
+            log.warn('YouTube transcript hard timeout (30s)', { youtubeVideoId });
+            resolve(null);
+          }, 30_000)),
+        ]);
         if (ytResult) {
           transcriptText = ytResult.text;
           provider = 'youtube-captions';
@@ -625,13 +633,13 @@ export async function ensureTranscript(
             speakerCount: 1,
             detectedLanguage: language,
           };
-          log.info('SUCCESS: Got YouTube captions!', { textLength: transcriptText.length });
+          log.info('SUCCESS: Got YouTube captions!', { textLength: transcriptText.length, durationMs: Date.now() - ytStart });
         } else {
-          log.warn('PRIORITY 0 FAILED: No YouTube captions available');
+          log.warn('PRIORITY 0 FAILED: No YouTube captions available', { durationMs: Date.now() - ytStart });
         }
       } catch (ytError) {
         const errorMsg = ytError instanceof Error ? ytError.message : String(ytError);
-        log.error('PRIORITY 0 ERROR: YouTube caption fetch failed', { error: errorMsg });
+        log.error('PRIORITY 0 ERROR: YouTube caption fetch failed', { error: errorMsg, durationMs: Date.now() - ytStart });
       }
     }
 
@@ -1228,7 +1236,24 @@ export async function requestSummary(
     // Ensure transcript exists (this is blocking for now, could be async)
     checkBudget('before transcription');
     log.info('Calling ensureTranscript...', { hasTranscriptUrl: !!transcriptUrl, hasMetadata: !!metadata });
-    const transcriptResult = await ensureTranscript(episodeId, audioUrl, language, transcriptUrl, metadata);
+    // Stage timeout: 120s for transcription
+    const TRANSCRIPT_STAGE_TIMEOUT = 120_000;
+    type TranscriptResult = Awaited<ReturnType<typeof ensureTranscript>>;
+    const transcriptResult: TranscriptResult = await Promise.race([
+      ensureTranscript(episodeId, audioUrl, language, transcriptUrl, metadata),
+      new Promise<TranscriptResult>((resolve) =>
+        setTimeout(async () => {
+          log.error('Transcript stage timeout (120s)', { episodeId });
+          await supabase
+            .from('summaries')
+            .update({ status: 'failed', error_message: 'Transcription timed out (120s)', updated_at: new Date().toISOString() })
+            .eq('episode_id', episodeId)
+            .eq('level', level)
+            .eq('language', language);
+          resolve({ status: 'failed' as TranscriptStatus, error: 'Transcription timed out (120s)' });
+        }, TRANSCRIPT_STAGE_TIMEOUT)
+      ),
+    ]);
     log.info('ensureTranscript returned', { status: transcriptResult.status, hasText: !!transcriptResult.text, hasTranscript: !!transcriptResult.transcript, error: transcriptResult.error });
 
     if (transcriptResult.status !== 'ready' || !transcriptResult.text) {
@@ -1273,12 +1298,29 @@ export async function requestSummary(
 
     // Generate the summary (language is known from RSS feed)
     checkBudget('before summary generation');
+    // Stage timeout: 120s for AI summary generation
+    const SUMMARY_STAGE_TIMEOUT = 120_000;
+    const makeSummaryTimeout = () => new Promise<{ status: SummaryStatus; error: string }>((resolve) =>
+      setTimeout(async () => {
+        log.error('Summary stage timeout (120s)', { episodeId });
+        await supabase
+          .from('summaries')
+          .update({ status: 'failed', error_message: 'AI summary generation timed out (120s)', updated_at: new Date().toISOString() })
+          .eq('episode_id', episodeId)
+          .eq('level', level)
+          .eq('language', language);
+        resolve({ status: 'failed' as SummaryStatus, error: 'AI summary generation timed out (120s)' });
+      }, SUMMARY_STAGE_TIMEOUT)
+    );
     // If speaker identification is pending (Apple multi-speaker), run it in parallel
     // with summary generation to save ~20s
     if (transcriptResult.pendingSpeakerIdentification && transcriptResult.transcript) {
       log.info('Running identifySpeakers in PARALLEL with generateSummaryForLevel...', { language });
       const [result, speakers] = await Promise.all([
-        generateSummaryForLevel(episodeId, level, transcriptResult.text, language, transcriptResult.transcript, youtubeContext),
+        Promise.race([
+          generateSummaryForLevel(episodeId, level, transcriptResult.text, language, transcriptResult.transcript, youtubeContext),
+          makeSummaryTimeout(),
+        ]),
         identifySpeakers(transcriptResult.transcript),
       ]);
 
@@ -1312,14 +1354,10 @@ export async function requestSummary(
     }
 
     log.info('Calling generateSummaryForLevel...', { language });
-    const result = await generateSummaryForLevel(
-      episodeId,
-      level,
-      transcriptResult.text,
-      language,
-      transcriptResult.transcript,
-      youtubeContext
-    );
+    const result = await Promise.race([
+      generateSummaryForLevel(episodeId, level, transcriptResult.text, language, transcriptResult.transcript, youtubeContext),
+      makeSummaryTimeout(),
+    ]);
     log.info('=== requestSummary ENDED ===', {
       status: result.status,
       language,

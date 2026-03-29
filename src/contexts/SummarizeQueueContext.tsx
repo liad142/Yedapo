@@ -25,7 +25,8 @@ export function useSummarizeQueueOptional() {
 
 const MAX_RETRIES = 1;
 const RETRY_DELAY = 2000;
-const MAX_POLL_DURATION_MS = 10 * 60 * 1000; // 10 minutes max polling before giving up
+const MAX_POLL_DURATION_MS = 5 * 60 * 1000; // 5 minutes max polling before giving up
+const STUCK_RETRIGGER_MS = 3 * 60 * 1000; // After 3 min stuck in transcribing, retrigger POST
 
 // Improved backoff intervals (ms) — much more conservative to reduce thundering herd
 const POLL_INTERVALS = {
@@ -55,6 +56,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
   const tabVisibleRef = useRef(true);
   const pendingPollRef = useRef<{ episodeId: string; pollCount: number; startTime: number } | null>(null);
   const startProcessingRef = useRef<((id: string) => Promise<void>) | null>(null);
+  const retriggeredRef = useRef<Set<string>>(new Set());
 
   // Track tab visibility — pause polling when tab is hidden
   useEffect(() => {
@@ -124,11 +126,12 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
     }
   }, []);
 
-  const finishProcessing = useCallback(() => {
+  const finishProcessing = useCallback((episodeId?: string) => {
     if (pollingRef.current) { clearTimeout(pollingRef.current); pollingRef.current = null; }
     processingRef.current = false;
     setProcessingId(null);
     pendingPollRef.current = null;
+    if (episodeId) retriggeredRef.current.delete(episodeId);
   }, []);
 
   const processNext = useCallback(() => {
@@ -178,7 +181,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
         posthog.capture('summary_failed', { episode_id: episodeId, error: 'Processing timed out', duration_ms: elapsedMs });
         updateQueueItem(episodeId, { state: 'failed', error: 'Processing timed out' });
         setStats(prev => ({ ...prev, failed: prev.failed + 1 }));
-        finishProcessing();
+        finishProcessing(episodeId);
         processNext();
         return;
       }
@@ -187,12 +190,23 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
       log.debug('Poll result', { episodeId, state, durationMs: elapsedMs });
       updateQueueItem(episodeId, { state });
 
+      // If stuck in transcribing for > 3 min, retrigger a fresh POST to unstick
+      if (state === 'transcribing' && elapsedMs > STUCK_RETRIGGER_MS && !retriggeredRef.current.has(episodeId)) {
+        retriggeredRef.current.add(episodeId);
+        log.warn('Stuck in transcribing > 3min, retriggering POST', { episodeId, elapsedMs });
+        fetch(`/api/episodes/${episodeId}/summaries`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ level: 'deep' }),
+        }).catch(err => log.error('Retrigger POST failed', { episodeId, error: String(err) }));
+      }
+
       if (state === 'ready') {
         log.success('Processing complete', { episodeId, durationMs: elapsedMs });
         posthog.capture('summary_completed', { episode_id: episodeId, duration_ms: elapsedMs });
         setStats(prev => ({ ...prev, completed: prev.completed + 1 }));
         refreshUsage();
-        finishProcessing();
+        finishProcessing(episodeId);
         processNext();
         return;
       }
@@ -218,7 +232,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
             posthog.capture('summary_failed', { episode_id: episodeId, error: 'Processing failed after retries', duration_ms: elapsedMs });
             updateQueueItem(episodeId, { state: 'failed', error: 'Processing failed after retries' });
             setStats(prev => ({ ...prev, failed: prev.failed + 1 }));
-            finishProcessing();
+            finishProcessing(episodeId);
             processNext();
           }
           return currentQueue;
@@ -265,7 +279,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
             refreshUsage();
             updateQueueItem(episodeId, { state: 'failed', error: 'Daily limit reached' });
             setStats(prev => ({ ...prev, failed: prev.failed + 1 }));
-            finishProcessing();
+            finishProcessing(episodeId);
             processNext();
             return;
           }
@@ -273,7 +287,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
           log.warn('Rate limited', { episodeId });
           updateQueueItem(episodeId, { state: 'failed', error: 'Too many requests. Try again in a minute.' });
           setStats(prev => ({ ...prev, failed: prev.failed + 1 }));
-          finishProcessing();
+          finishProcessing(episodeId);
           processNext();
           return;
         }
@@ -295,7 +309,7 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
         } else {
           updateQueueItem(episodeId, { state: 'failed', error: 'Failed to start processing' });
           setStats(prev => ({ ...prev, failed: prev.failed + 1 }));
-          finishProcessing();
+          finishProcessing(episodeId);
           processNext();
         }
         return currentQueue;

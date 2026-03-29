@@ -20,6 +20,8 @@ export async function GET() {
     { count: totalFollows },
     { data: recentSummaries },
     { data: signups },
+    { count: failedLast7d },
+    { count: totalLast7d },
     ...statusResults
   ] = await Promise.all([
     admin.from('user_profiles').select('*', { count: 'exact', head: true }),
@@ -33,6 +35,14 @@ export async function GET() {
       .select('created_at')
       .gte('created_at', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString())
       .order('created_at', { ascending: true }),
+    // Failure rate: last 7 days only (not skewed by old data)
+    admin.from('summaries')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'failed')
+      .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+    admin.from('summaries')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
     // Per-status count queries (head:true = no row data transferred)
     ...SUMMARY_STATUSES.map(status =>
       admin.from('summaries').select('*', { count: 'exact', head: true }).eq('status', status)
@@ -50,7 +60,7 @@ export async function GET() {
   const summariesFailed = statusCounts['failed'] || 0;
   const totalSummaries = Object.values(statusCounts).reduce((sum, c) => sum + c, 0);
   const queueDepth = (statusCounts['queued'] || 0) + (statusCounts['transcribing'] || 0) + (statusCounts['summarizing'] || 0);
-  const failureRate = totalSummaries > 0 ? Math.round((summariesFailed / totalSummaries) * 100) : 0;
+  const failureRate = (totalLast7d ?? 0) > 0 ? Math.round(((failedLast7d ?? 0) / (totalLast7d ?? 0)) * 100) : 0;
 
   // AI status breakdown
   const aiStatusBreakdown = Object.entries(statusCounts).map(([label, count]) => ({ label, count }));

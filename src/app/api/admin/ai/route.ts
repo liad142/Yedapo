@@ -5,6 +5,9 @@ import { getCached, setCached } from '@/lib/cache';
 import type { AiAnalytics } from '@/types/admin';
 
 const CACHE_KEY = 'admin:ai-analytics';
+const SUMMARY_LEVELS = ['quick', 'deep'] as const;
+const SUMMARY_STATUSES = ['ready', 'failed', 'queued', 'transcribing', 'summarizing'] as const;
+const TRANSCRIPT_STATUSES = ['ready', 'failed', 'pending', 'transcribing'] as const;
 
 export async function GET() {
   const { error } = await requireAdmin();
@@ -18,20 +21,25 @@ export async function GET() {
 
   const admin = createAdminClient();
 
-  // Use COUNT queries instead of fetching all rows
+  // Individual count queries per level+status combination (no row fetching)
+  const summaryCountQueries = SUMMARY_LEVELS.flatMap(level =>
+    SUMMARY_STATUSES.map(status =>
+      admin.from('summaries').select('*', { count: 'exact', head: true }).eq('level', level).eq('status', status)
+    )
+  );
+  const transcriptCountQueries = TRANSCRIPT_STATUSES.map(status =>
+    admin.from('transcripts').select('*', { count: 'exact', head: true }).eq('status', status)
+  );
+
   const [
     { count: totalSummaries },
     { count: totalTranscripts },
-    { data: summaryStatusCounts },
-    { data: transcriptStatusCounts },
     { data: recentFailedSummaries },
     { data: recentFailedTranscripts },
+    ...countResults
   ] = await Promise.all([
     admin.from('summaries').select('*', { count: 'exact', head: true }),
     admin.from('transcripts').select('*', { count: 'exact', head: true }),
-    // Fetch only level + status for grouping (no content_json, much lighter)
-    admin.from('summaries').select('level, status').limit(5000),
-    admin.from('transcripts').select('status').limit(5000),
     admin.from('summaries')
       .select('episode_id, level, status, error_message, updated_at, episodes(title)')
       .eq('status', 'failed')
@@ -42,36 +50,35 @@ export async function GET() {
       .eq('status', 'failed')
       .order('updated_at', { ascending: false })
       .limit(5),
+    ...summaryCountQueries,
+    ...transcriptCountQueries,
   ]);
 
-  const allSummaryStatuses = summaryStatusCounts ?? [];
-  const allTranscriptStatuses = transcriptStatusCounts ?? [];
+  // Parse summary counts from level x status matrix
+  const summaryResults = countResults.slice(0, SUMMARY_LEVELS.length * SUMMARY_STATUSES.length);
+  const transcriptResults = countResults.slice(SUMMARY_LEVELS.length * SUMMARY_STATUSES.length);
 
-  // Summaries by level + status
-  const levelStatusCounts: Record<string, number> = {};
-  allSummaryStatuses.forEach(s => {
-    const key = `${s.level}:${s.status}`;
-    levelStatusCounts[key] = (levelStatusCounts[key] || 0) + 1;
+  const summariesByLevelAndStatus: { level: string; status: string; count: number }[] = [];
+  let queueDepth = 0;
+  let failedCount = 0;
+  const queueStatuses = new Set(['queued', 'transcribing', 'summarizing']);
+
+  SUMMARY_LEVELS.forEach((level, li) => {
+    SUMMARY_STATUSES.forEach((status, si) => {
+      const count = summaryResults[li * SUMMARY_STATUSES.length + si]?.count ?? 0;
+      if (count > 0) {
+        summariesByLevelAndStatus.push({ level, status, count });
+      }
+      if (status === 'failed') failedCount += count;
+      if (queueStatuses.has(status)) queueDepth += count;
+    });
   });
-  const summariesByLevelAndStatus = Object.entries(levelStatusCounts).map(([key, count]) => {
-    const [level, status] = key.split(':');
-    return { level, status, count };
-  });
 
-  // Transcripts by status
-  const tStatusCounts: Record<string, number> = {};
-  allTranscriptStatuses.forEach(t => {
-    tStatusCounts[t.status] = (tStatusCounts[t.status] || 0) + 1;
-  });
-  const transcriptsByStatus = Object.entries(tStatusCounts).map(([label, count]) => ({ label, count }));
+  const transcriptsByStatus = TRANSCRIPT_STATUSES
+    .map((status, i) => ({ label: status, count: transcriptResults[i]?.count ?? 0 }))
+    .filter(t => t.count > 0);
 
-  // Queue depth
-  const queueStatuses = ['queued', 'transcribing', 'summarizing'];
-  const queueDepth = allSummaryStatuses.filter(s => queueStatuses.includes(s.status)).length;
-
-  // Failure rate
-  const failedCount = allSummaryStatuses.filter(s => s.status === 'failed').length;
-  const total = totalSummaries ?? allSummaryStatuses.length;
+  const total = totalSummaries ?? 0;
   const failureRate = total > 0 ? Math.round((failedCount / total) * 100) : 0;
 
   // Generation over time — fetch only ready summaries with minimal fields

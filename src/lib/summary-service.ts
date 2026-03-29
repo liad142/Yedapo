@@ -1,5 +1,4 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-const supabase = createAdminClient();
 import { transcribeFromUrl, formatTranscriptWithTimestamps, formatTranscriptWithSpeakerNames } from "./deepgram";
 import { isVoxtralSupported, transcribeWithVoxtral } from "./voxtral";
 import { getAppleTranscript } from "./apple-transcripts";
@@ -10,7 +9,7 @@ import { ensureYouTubeMetadata } from "@/lib/youtube/metadata";
 import { extractYouTubeAudioUrl } from "@/lib/youtube/audio-extractor";
 import { acquireLock, releaseLock } from '@/lib/cache';
 import { repairJsonString } from '@/lib/json-repair';
-import { getModel, DEFAULT_MODELS, withTimeout } from '@/lib/gemini';
+import { getModel, DEFAULT_MODELS, withTimeout, generateWithFallback } from '@/lib/gemini';
 import type { DiarizedTranscript } from "@/types/deepgram";
 import type {
   SummaryLevel,
@@ -29,41 +28,12 @@ function getModelChain(level: SummaryLevel): readonly string[] {
   return level === 'deep' ? DEEP_MODELS : QUICK_MODELS;
 }
 
-/** Generate content with automatic model fallback on 503/429/500 errors */
-async function generateWithFallback(
-  level: SummaryLevel,
-  prompt: string,
-  logPrefix: string
-): Promise<{ text: string; modelUsed: string }> {
-  const chain = getModelChain(level);
-  let lastError: Error | null = null;
-
-  for (const modelId of chain) {
-    try {
-      log.info(`${logPrefix} trying ${modelId}...`);
-      const model = getModel(modelId, true);
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
-      return { text, modelUsed: modelId };
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      const isRetryable = lastError.message.includes('503') ||
-        lastError.message.includes('429') ||
-        lastError.message.includes('500') ||
-        lastError.message.includes('overloaded') ||
-        lastError.message.includes('high demand');
-
-      log.warn(`${logPrefix} ${modelId} failed: ${lastError.message.substring(0, 120)}`);
-
-      if (!isRetryable) {
-        throw lastError; // Non-retryable error (e.g. bad request), don't try fallbacks
-      }
-      // Continue to next model in chain
-    }
-  }
-
-  throw lastError || new Error('All models in fallback chain failed');
-}
+// Stale thresholds — centralized to keep cron and API routes aligned
+const STALE_THRESHOLDS = {
+  TRANSCRIPT: 10 * 60 * 1000,    // 10 min — transcription can be slow
+  SUMMARY: 5 * 60 * 1000,        // 5 min — aligned with cron
+  CHECK_EXISTING: 5 * 60 * 1000, // 5 min — aligned with cron
+};
 
 // Pre-compiled regex patterns for transcript parsing (Fix 3: avoid recompilation in loops)
 const SRT_SEQUENCE_RE = /^\d+$/;
@@ -555,12 +525,13 @@ export async function ensureTranscript(
   pendingSpeakerIdentification?: boolean;
   error?: string;
 }> {
+  const supabase = createAdminClient();
   const startTime = Date.now();
-  log.info('ensureTranscript started', { 
-    episodeId, 
-    audioUrl: audioUrl.substring(0, 80) + '...', 
+  log.info('ensureTranscript started', {
+    episodeId,
+    audioUrl: audioUrl.substring(0, 80) + '...',
     language,
-    hasTranscriptUrl: !!transcriptUrl 
+    hasTranscriptUrl: !!transcriptUrl
   });
 
   // Check if transcript exists
@@ -590,9 +561,8 @@ export async function ensureTranscript(
       // Don't return early - allow retry by continuing to transcription
     }
     if (existing.status === 'queued' || existing.status === 'transcribing') {
-      const STALE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
       const updatedAt = existing.updated_at ? new Date(existing.updated_at).getTime() : 0;
-      const isStale = Date.now() - updatedAt > STALE_THRESHOLD_MS;
+      const isStale = Date.now() - updatedAt > STALE_THRESHOLDS.TRANSCRIPT;
 
       if (isStale) {
         log.warn('Transcript is STALE - resetting to retry', {
@@ -913,6 +883,7 @@ export async function generateSummaryForLevel(
   diarizedTranscript?: DiarizedTranscript,
   youtubeContext?: { description: string; chapters: { title: string; startSeconds: number }[]; descriptionLinks: { url: string; text: string }[] }
 ): Promise<{ status: SummaryStatus; content?: QuickSummaryContent | DeepSummaryContent; error?: string }> {
+  const supabase = createAdminClient();
   const startTime = Date.now();
   log.info('generateSummaryForLevel started', { episodeId, level, language, transcriptLength: transcriptText.length });
 
@@ -987,7 +958,7 @@ export async function generateSummaryForLevel(
     const apiStart = Date.now();
     const fullPrompt = SYSTEM_MESSAGE + "\n\n" + prompt + truncatedTranscript;
 
-    const { text, modelUsed } = await generateWithFallback(level, fullPrompt, `${level.toUpperCase()} Summary`);
+    const { text, modelUsed } = await generateWithFallback(fullPrompt, getModelChain(level));
 
     log.info(`Gemini API completed for ${level.toUpperCase()} Summary`, {
       model: modelUsed,
@@ -1108,6 +1079,7 @@ export async function checkExistingSummary(
   level: SummaryLevel,
   language = 'en'
 ): Promise<{ status: SummaryStatus; content?: QuickSummaryContent | DeepSummaryContent } | null> {
+  const supabase = createAdminClient();
   const { data: existingSummaries } = await supabase
     .from('summaries')
     .select('id, status, content_json, updated_at')
@@ -1134,10 +1106,9 @@ export async function checkExistingSummary(
     return { status: 'ready', content: best.content_json };
   }
   if (['transcribing', 'summarizing'].includes(best.status)) {
-    // Check for stale summaries (stuck > 30 min)
-    const STALE_THRESHOLD_MS = 30 * 60 * 1000;
+    // Check for stale summaries
     const updatedAt = best.updated_at ? new Date(best.updated_at).getTime() : 0;
-    if (Date.now() - updatedAt > STALE_THRESHOLD_MS) {
+    if (Date.now() - updatedAt > STALE_THRESHOLDS.CHECK_EXISTING) {
       return null; // Stale — let requestSummary retry
     }
     return { status: best.status as SummaryStatus };
@@ -1155,6 +1126,7 @@ export async function requestSummary(
   transcriptUrl?: string,
   metadata?: { podcastTitle: string; episodeTitle: string }
 ): Promise<{ status: SummaryStatus; content?: QuickSummaryContent | DeepSummaryContent }> {
+  const supabase = createAdminClient();
   const startTime = Date.now();
   log.info('=== requestSummary STARTED ===', { episodeId, level, language, hasTranscriptUrl: !!transcriptUrl, hasMetadata: !!metadata });
 
@@ -1198,11 +1170,8 @@ export async function requestSummary(
     }
     if (['transcribing', 'summarizing'].includes(existing.status)) {
       // Check for stale summaries stuck in processing
-      // 3 minutes — on Vercel Hobby plan, functions timeout at 60s so stuck records
-      // need faster recovery than the previous 30-minute threshold.
-      const STALE_THRESHOLD_MS = 3 * 60 * 1000; // 3 minutes
       const updatedAt = existing.updated_at ? new Date(existing.updated_at).getTime() : 0;
-      const isStale = Date.now() - updatedAt > STALE_THRESHOLD_MS;
+      const isStale = Date.now() - updatedAt > STALE_THRESHOLDS.SUMMARY;
 
       if (isStale) {
         log.info('Summary is STALE - resetting to retry', {
@@ -1227,7 +1196,8 @@ export async function requestSummary(
 
   // Acquire distributed lock to prevent duplicate generation
   const lockKey = `lock:summary:${episodeId}:${level}:${language}`;
-  const gotLock = await acquireLock(lockKey, 270); // 4.5 min TTL
+  // 90s TTL: enough for Hobby 60s timeout + buffer, expires fast if function dies
+  const gotLock = await acquireLock(lockKey, 90);
   if (!gotLock) {
     log.info('Summary generation already in progress (locked)', { episodeId, level });
     return { status: 'transcribing' as SummaryStatus };
@@ -1352,6 +1322,7 @@ export async function requestSummary(
 }
 
 export async function getSummariesStatus(episodeId: string, language = 'en') {
+  const supabase = createAdminClient();
   // Check Redis cache for terminal states
   const { getCached, setCached, CacheKeys, CacheTTL } = await import('@/lib/cache');
   const cacheKey = CacheKeys.summaryStatus(episodeId, language);

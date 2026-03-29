@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
       headers: {
         'Cache-Control': hasNonTerminal
           ? 'no-store'
-          : 'private, s-maxage=300, stale-while-revalidate=600',
+          : 'private, s-maxage=60, stale-while-revalidate=120',
       },
     });
   } catch (error) {

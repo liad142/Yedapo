@@ -224,7 +224,7 @@ export const CacheTTL = {
   // Episode detail & status caching
   EPISODE_DETAIL_READY: 86400,   // 24 hours (summary ready)
   EPISODE_DETAIL_SHORT: 300,     // 5 minutes (still processing)
-  STATUS_TERMINAL: 86400,        // 24 hours (ready/failed - won't change)
+  STATUS_TERMINAL: 3600,         // 1 hour (safety net — routes invalidate on retry)
 };
 
 /**

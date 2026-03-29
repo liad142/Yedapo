@@ -69,10 +69,12 @@ export async function GET(request: NextRequest) {
 
     const admin = createAdminClient();
 
-    // 2a. Fallback query logic
+    // 2a. Query last 3 days, fall back to most recent if empty
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayISO = today.toISOString();
+    const threeDaysAgo = new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000);
+    const recentISO = threeDaysAgo.toISOString();
     let isStale = false;
     let dataDate = new Date().toISOString().split('T')[0];
 
@@ -81,7 +83,7 @@ export async function GET(request: NextRequest) {
       .select('episode_id, level, language, content_json, updated_at')
       .eq('status', 'ready')
       .in('level', ['quick', 'deep'])
-      .gte('updated_at', todayISO)
+      .gte('updated_at', recentISO)
       .order('updated_at', { ascending: false })
       .limit(50);
 
@@ -100,6 +102,13 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ items: [], date: dataDate, isStale: false } satisfies TodaysBriefResponse, { headers: CACHE_HEADERS });
       }
       isStale = true;
+      dataDate = summaries[0].updated_at.split('T')[0];
+    } else {
+      // Mark stale only if no items are from today
+      const hasToday = summaries.some(s => s.updated_at >= todayISO);
+      if (!hasToday) {
+        isStale = true;
+      }
       dataDate = summaries[0].updated_at.split('T')[0];
     }
 
@@ -211,7 +220,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 2e. Sort and limit
+    // 2e. Sort and select with diversity constraints
     rawItems.sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority;
       if (a.hasResources !== b.hasResources) return a.hasResources ? -1 : 1;
@@ -219,15 +228,42 @@ export async function GET(request: NextRequest) {
       return 0;
     });
 
-    // Max 2 per episode, top MAX_ITEMS total
+    // Dynamic per-episode cap: fewer sources → fewer items per source
+    const uniqueSources = new Set(rawItems.map(i => i.episodeId)).size;
+    const effectiveMaxPerEpisode = uniqueSources <= 2 ? 1 : uniqueSources <= 4 ? 2 : MAX_PER_EPISODE;
+    const MIN_SOURCES = 3;
+
+    // Pass 1: select with per-episode cap
     const episodeCounts = new Map<string, number>();
     const selected: RawBriefItem[] = [];
     for (const item of rawItems) {
       if (selected.length >= MAX_ITEMS) break;
       const count = episodeCounts.get(item.episodeId) || 0;
-      if (count >= MAX_PER_EPISODE) continue;
+      if (count >= effectiveMaxPerEpisode) continue;
       episodeCounts.set(item.episodeId, count + 1);
       selected.push(item);
+    }
+
+    // Pass 2: ensure minimum source diversity — swap in items from new sources
+    const selectedSources = new Set(selected.map(i => i.episodeId));
+    if (selectedSources.size < MIN_SOURCES && selected.length >= MAX_ITEMS) {
+      const unseenItems = rawItems.filter(i => !selectedSources.has(i.episodeId));
+      for (const newItem of unseenItems) {
+        if (selectedSources.size >= MIN_SOURCES) break;
+        // Replace the last item from the most-represented source
+        let replaceIdx = -1;
+        let maxCount = 0;
+        for (let i = selected.length - 1; i >= 0; i--) {
+          const cnt = episodeCounts.get(selected[i].episodeId) || 0;
+          if (cnt > maxCount) { maxCount = cnt; replaceIdx = i; }
+        }
+        if (replaceIdx === -1 || maxCount <= 1) break;
+        const removed = selected[replaceIdx];
+        episodeCounts.set(removed.episodeId, (episodeCounts.get(removed.episodeId) || 1) - 1);
+        selected[replaceIdx] = newItem;
+        episodeCounts.set(newItem.episodeId, 1);
+        selectedSources.add(newItem.episodeId);
+      }
     }
 
     // Get episode + podcast info

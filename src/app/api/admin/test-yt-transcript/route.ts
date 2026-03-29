@@ -231,5 +231,39 @@ export async function GET(request: NextRequest) {
     results.push(`InnerTube TVHTML5: FAILED - ${e.message}`);
   }
 
+  // Test 14: OLD youtube-transcript package (the one that worked before)
+  try {
+    const start = Date.now();
+    const { YoutubeTranscript: YTOld } = await import('youtube-transcript');
+    const segments = await YTOld.fetchTranscript(videoId);
+    results.push(`youtube-transcript (OLD): SUCCESS ${segments.length} segments in ${Date.now() - start}ms`);
+    if (segments.length > 0) results.push(`  preview: ${segments.slice(0,3).map((s:any) => s.text).join(' ').substring(0, 150)}`);
+  } catch (e: any) {
+    results.push(`youtube-transcript (OLD): FAILED - ${e.message?.substring(0, 150)}`);
+  }
+
+  // Test 15: Supadata API
+  const supadataKey = process.env.SUPADATA_API_KEY;
+  if (supadataKey) {
+    try {
+      const start = Date.now();
+      const res = await fetch(`https://api.supadata.ai/v1/transcript?url=https://www.youtube.com/watch?v=${videoId}&lang=en&text=true`, {
+        headers: { 'x-api-key': supadataKey },
+        signal: AbortSignal.timeout(30000),
+      });
+      const data = await res.json();
+      if (data.content) {
+        results.push(`Supadata: SUCCESS, ${data.content.length} chars, lang=${data.lang} in ${Date.now() - start}ms`);
+        results.push(`  preview: ${data.content.substring(0, 150)}...`);
+      } else {
+        results.push(`Supadata: ${res.status}, no content, ${JSON.stringify(data).substring(0, 200)} in ${Date.now() - start}ms`);
+      }
+    } catch (e: any) {
+      results.push(`Supadata: FAILED - ${e.message}`);
+    }
+  } else {
+    results.push('Supadata: SKIPPED (no SUPADATA_API_KEY env var)');
+  }
+
   return NextResponse.json({ videoId, results });
 }

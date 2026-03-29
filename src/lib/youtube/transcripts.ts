@@ -69,7 +69,7 @@ async function fetchPlayerFromPage(videoId: string): Promise<Record<string, unkn
         'User-Agent': BROWSER_USER_AGENT,
         'Accept-Language': 'en-US,en;q=0.9',
       },
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(8_000),
     });
 
     if (!res.ok) {

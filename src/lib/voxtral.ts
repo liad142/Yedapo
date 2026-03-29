@@ -6,7 +6,7 @@ const log = createLogger('voxtral');
 
 const client = new Mistral({
   apiKey: process.env.MISTRAL_API_KEY!,
-  timeoutMs: 90_000, // 90s — fail fast rather than hang for minutes on rate limits
+  timeoutMs: 60_000, // 60s — aligned with pipeline budget
 });
 
 export const VOXTRAL_SUPPORTED_LANGUAGES = [
@@ -21,7 +21,7 @@ export function isVoxtralSupported(language: string): boolean {
 
 async function withRetry<T>(
   fn: () => Promise<T>,
-  maxRetries: number = 3,
+  maxRetries: number = 1,
   baseDelayMs: number = 1000
 ): Promise<T> {
   let lastError: Error | null = null;

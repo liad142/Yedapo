@@ -11,9 +11,22 @@ const log = createLogger('deepgram');
 
 const deepgram = createClient(process.env.DEEPGRAM_API_KEY!);
 
+/**
+ * Race a promise against a timeout. Rejects with a descriptive error on expiry.
+ */
+function withDeepgramTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Deepgram timeout after ${ms}ms: ${label}`)), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
 async function withRetry<T>(
   fn: () => Promise<T>,
-  maxRetries: number = 3,
+  maxRetries: number = 1,
   baseDelayMs: number = 1000
 ): Promise<T> {
   let lastError: Error | null = null;
@@ -189,7 +202,7 @@ async function forceResolveAudioUrl(url: string, maxRedirects = 10): Promise<str
  * This bypasses any host-level blocking of Deepgram's IPs.
  */
 async function downloadAudioBuffer(url: string): Promise<Buffer> {
-  const DOWNLOAD_TIMEOUT = 120_000; // 2 minutes for large files
+  const DOWNLOAD_TIMEOUT = 45_000; // 45s — aligned with pipeline budget
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT);
 
@@ -335,10 +348,11 @@ function parseDeepgramResponse(response: DeepgramResponse): DiarizedTranscript {
 }
 
 /**
- * Transcribe audio with a 3-step fallback chain:
+ * Transcribe audio with a 2-step fallback chain:
  *  1. Pass URL directly to Deepgram (fast path, works for most podcasts)
- *  2. If REMOTE_CONTENT_ERROR: force-resolve redirects and retry with resolved URL
- *  3. If still fails: download audio ourselves and send raw bytes to Deepgram
+ *  2. If fails: download audio ourselves and send raw bytes to Deepgram
+ *
+ * Each Deepgram API call is wrapped with a 60s timeout to stay within the 240s pipeline budget.
  */
 export async function transcribeFromUrl(
   audioUrl: string,
@@ -359,11 +373,15 @@ export async function transcribeFromUrl(
 
     log.info('Sending to Deepgram API...', config);
 
-    const { result, error } = await withRetry(() =>
-      deepgram.listen.prerecorded.transcribeUrl(
-        { url: resolvedUrl },
-        config
-      )
+    const { result, error } = await withDeepgramTimeout(
+      withRetry(() =>
+        deepgram.listen.prerecorded.transcribeUrl(
+          { url: resolvedUrl },
+          config
+        )
+      ),
+      60_000,
+      'Step 1 transcribeUrl'
     );
 
     if (error) {
@@ -379,71 +397,31 @@ export async function transcribeFromUrl(
 
     return parseDeepgramResponse(result as DeepgramResponse);
   } catch (step1Error) {
-    if (!isRemoteContentError(step1Error)) {
-      // Not a remote content error — don't bother with fallbacks
-      const duration = Date.now() - startTime;
-      const errorMsg = step1Error instanceof Error ? step1Error.message : String(step1Error);
-      log.error('Step 1 FAILED (non-recoverable)', { durationMs: duration, error: errorMsg });
-      throw new (class extends Error { name = 'TranscriptionError'; })(
-        `Deepgram transcription failed: ${errorMsg}`
-      );
-    }
-
-    log.warn('Step 1 FAILED with REMOTE_CONTENT_ERROR, trying Step 2 (force-resolve redirects)...');
+    const errorMsg = step1Error instanceof Error ? step1Error.message : String(step1Error);
+    log.warn('Step 1 FAILED, trying Step 2 (download audio ourselves)...', { error: errorMsg });
   }
 
-  // ── Step 2: Force-resolve all redirects (even for .mp3 URLs) and retry ──
+  // ── Step 2: Download audio ourselves and send raw bytes to Deepgram ──
   try {
-    const resolvedUrl = await forceResolveAudioUrl(audioUrl);
-    log.info('Step 2: Force-resolved URL', { resolved: resolvedUrl.substring(0, 100) + '...' });
-
-    // Only try if we got a different URL
-    if (resolvedUrl !== audioUrl) {
-      const { result, error } = await withRetry(() =>
-        deepgram.listen.prerecorded.transcribeUrl(
-          { url: resolvedUrl },
-          config
-        )
-      );
-
-      if (error) {
-        throw new Error(`Deepgram API error: ${JSON.stringify(error)}`);
-      }
-
-      const duration = Date.now() - startTime;
-      log.info('Step 2 succeeded', {
-        durationMs: duration,
-        audioDuration: result.metadata?.duration,
-        utteranceCount: result.results?.utterances?.length || 0,
-      });
-
-      return parseDeepgramResponse(result as DeepgramResponse);
-    } else {
-      log.info('Step 2: URL unchanged after force-resolve, skipping to Step 3');
-    }
-  } catch (step2Error) {
-    log.warn('Step 2 FAILED, trying Step 3 (download audio ourselves)...', {
-      error: step2Error instanceof Error ? step2Error.message : String(step2Error),
-    });
-  }
-
-  // ── Step 3: Download audio ourselves and send raw bytes to Deepgram ──
-  try {
-    log.info('Step 3: Downloading audio to buffer...');
+    log.info('Step 2: Downloading audio to buffer...');
     const downloadStart = Date.now();
     const audioBuffer = await downloadAudioBuffer(audioUrl);
-    log.info('Step 3: Audio downloaded', {
+    log.info('Step 2: Audio downloaded', {
       durationMs: Date.now() - downloadStart,
       sizeBytes: audioBuffer.length,
       sizeMB: (audioBuffer.length / (1024 * 1024)).toFixed(1),
     });
 
-    log.info('Step 3: Sending audio buffer to Deepgram...');
-    const { result, error } = await withRetry(() =>
-      deepgram.listen.prerecorded.transcribeFile(
-        audioBuffer,
-        config
-      )
+    log.info('Step 2: Sending audio buffer to Deepgram...');
+    const { result, error } = await withDeepgramTimeout(
+      withRetry(() =>
+        deepgram.listen.prerecorded.transcribeFile(
+          audioBuffer,
+          config
+        )
+      ),
+      60_000,
+      'Step 2 transcribeFile'
     );
 
     if (error) {
@@ -451,17 +429,17 @@ export async function transcribeFromUrl(
     }
 
     const duration = Date.now() - startTime;
-    log.info('Step 3 succeeded', {
+    log.info('Step 2 succeeded', {
       totalDurationMs: duration,
       audioDuration: result.metadata?.duration,
       utteranceCount: result.results?.utterances?.length || 0,
     });
 
     return parseDeepgramResponse(result as DeepgramResponse);
-  } catch (step3Error) {
+  } catch (step2Error) {
     const duration = Date.now() - startTime;
-    const errorMsg = step3Error instanceof Error ? step3Error.message : String(step3Error);
-    log.error('All 3 steps FAILED', { totalDurationMs: duration, error: errorMsg });
+    const errorMsg = step2Error instanceof Error ? step2Error.message : String(step2Error);
+    log.error('Both steps FAILED', { totalDurationMs: duration, error: errorMsg });
 
     throw new (class extends Error { name = 'TranscriptionError'; })(
       `Deepgram transcription failed after all fallbacks: ${errorMsg}`

@@ -37,7 +37,7 @@ export async function generateWithFallback(
   prompt: string,
   models: readonly string[] = DEFAULT_MODELS,
   jsonMode = true,
-  timeoutMs = 120_000
+  timeoutMs = 60_000
 ): Promise<{ text: string; modelUsed: string }> {
   let lastError: Error | null = null;
 

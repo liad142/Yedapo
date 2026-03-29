@@ -130,7 +130,7 @@ export async function identifySpeakers(transcript: DiarizedTranscript): Promise<
     // Use Flash model for speaker identification (fast, cheap task)
     const speakerModel = getModel('gemini-3-flash-preview');
 
-    const result = await withTimeout(speakerModel.generateContent(fullPrompt), 30_000, 'identifySpeakers');
+    const result = await withTimeout(speakerModel.generateContent(fullPrompt), 15_000, 'identifySpeakers');
     const response = result.response;
     const text = response.text();
 
@@ -1128,6 +1128,15 @@ export async function requestSummary(
 ): Promise<{ status: SummaryStatus; content?: QuickSummaryContent | DeepSummaryContent }> {
   const supabase = createAdminClient();
   const startTime = Date.now();
+  // Pipeline budget: 240s max (300s function timeout - 60s buffer for cleanup/DB writes)
+  const PIPELINE_TIMEOUT_MS = 240_000;
+  const checkBudget = (label: string) => {
+    const elapsed = Date.now() - startTime;
+    if (elapsed > PIPELINE_TIMEOUT_MS) {
+      throw new Error(`Pipeline timeout: ${label} at ${Math.round(elapsed / 1000)}s (budget: ${PIPELINE_TIMEOUT_MS / 1000}s)`);
+    }
+    log.info(`Budget check: ${label}`, { elapsedMs: elapsed, remainingMs: PIPELINE_TIMEOUT_MS - elapsed });
+  };
   log.info('=== requestSummary STARTED ===', { episodeId, level, language, hasTranscriptUrl: !!transcriptUrl, hasMetadata: !!metadata });
 
   // Check existing summary
@@ -1217,6 +1226,7 @@ export async function requestSummary(
       }, { onConflict: 'episode_id,level,language' });
 
     // Ensure transcript exists (this is blocking for now, could be async)
+    checkBudget('before transcription');
     log.info('Calling ensureTranscript...', { hasTranscriptUrl: !!transcriptUrl, hasMetadata: !!metadata });
     const transcriptResult = await ensureTranscript(episodeId, audioUrl, language, transcriptUrl, metadata);
     log.info('ensureTranscript returned', { status: transcriptResult.status, hasText: !!transcriptResult.text, hasTranscript: !!transcriptResult.transcript, error: transcriptResult.error });
@@ -1262,6 +1272,7 @@ export async function requestSummary(
     }
 
     // Generate the summary (language is known from RSS feed)
+    checkBudget('before summary generation');
     // If speaker identification is pending (Apple multi-speaker), run it in parallel
     // with summary generation to save ~20s
     if (transcriptResult.pendingSpeakerIdentification && transcriptResult.transcript) {

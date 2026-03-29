@@ -78,25 +78,14 @@ export async function GET(request: NextRequest) {
   const userSummaries = userSummariesRes.data ?? [];
 
   const earliestBySummary = new Map<string, { user_id: string | null; created_at: string | null }>();
-  const userIds = new Set<string>();
   for (const row of userSummaries as Array<{ user_id: string | null; summary_id: string; created_at: string | null }>) {
     const prev = earliestBySummary.get(row.summary_id);
     if (!prev || ((row.created_at ?? '') < (prev.created_at ?? ''))) {
       earliestBySummary.set(row.summary_id, { user_id: row.user_id, created_at: row.created_at });
     }
-    if (row.user_id) userIds.add(row.user_id);
-  }
-
-  const { data: userProfiles, error: userProfilesError } = userIds.size > 0
-    ? await admin.from('user_profiles').select('id, email').in('id', [...userIds])
-    : { data: [], error: null as null | { message: string } };
-
-  if (userProfilesError) {
-    return NextResponse.json({ error: userProfilesError.message }, { status: 500 });
   }
 
   const userEmailById = new Map<string, string | null>();
-  (userProfiles ?? []).forEach((u: any) => userEmailById.set(u.id, u.email ?? null));
 
   const transcriptByEpisode = new Map<string, any>();
   for (const t of transcripts as any[]) {

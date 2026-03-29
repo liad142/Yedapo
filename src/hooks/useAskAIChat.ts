@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import posthog from "posthog-js";
 
 export interface Message {
   id: string;
@@ -79,6 +80,7 @@ export function useAskAIChat(episodeId: string | null, onMessageSent?: () => voi
       abortRef.current = controller;
 
       setError(null);
+      const sendStartTime = Date.now();
 
       const userMsg: Message = {
         id: crypto.randomUUID(),
@@ -169,11 +171,19 @@ export function useAskAIChat(episodeId: string | null, onMessageSent?: () => voi
         }
 
         // Mark streaming complete
-        setMessages((prev) =>
-          prev.map((m) =>
+        setMessages((prev) => {
+          const final = prev.find((m) => m.id === assistantMsg.id);
+          if (final?.text) {
+            posthog.capture('ask_ai_response', {
+              episode_id: episodeId,
+              response_length: final.text.length,
+              duration_ms: Date.now() - sendStartTime,
+            });
+          }
+          return prev.map((m) =>
             m.id === assistantMsg.id ? { ...m, isStreaming: false } : m
-          )
-        );
+          );
+        });
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") return;
 

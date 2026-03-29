@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import posthog from "posthog-js";
 import {
   Share2,
   Copy,
@@ -72,12 +73,14 @@ export function ShareMenu({
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(currentUrl);
+    posthog.capture('summary_shared', { method: 'copy_link', episode_id: episodeId });
     setCopied(true);
     showToast("Link copied to clipboard");
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleWhatsApp = () => {
+    posthog.capture('summary_shared', { method: 'whatsapp', episode_id: episodeId });
     // Build a client-side message (the server format-message uses DB queries, not suitable here)
     const lines = [
       `\u{1F399} ${episodeTitle} - ${podcastName}`,
@@ -93,6 +96,7 @@ export function ShareMenu({
   };
 
   const handleTelegram = () => {
+    posthog.capture('summary_shared', { method: 'telegram', episode_id: episodeId });
     const text = `\u{1F399} ${episodeTitle} - ${podcastName}`;
     const url = encodeURIComponent(currentUrl);
     const encodedText = encodeURIComponent(text);
@@ -140,6 +144,7 @@ export function ShareMenu({
         throw new Error(data?.error || "Failed to send");
       }
 
+      posthog.capture('summary_shared', { method: 'email', episode_id: episodeId });
       setEmailDialogOpen(false);
       showToast(
         isScheduled
@@ -237,6 +242,7 @@ export function ShareMenu({
                 <DropdownMenuItem
                   onClick={async () => {
                     await navigator.clipboard.writeText(markdownContent);
+                    posthog.capture('summary_shared', { method: 'copy_markdown', episode_id: episodeId });
                     showToast("Markdown copied to clipboard");
                   }}
                   className="gap-2"

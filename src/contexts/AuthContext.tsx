@@ -74,6 +74,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event: AuthChangeEvent, newSession: Session | null) => {
+        // Detect new Google sign-ups: user created within the last 60 seconds
+        if (event === 'SIGNED_IN' && newSession?.user) {
+          const createdAt = new Date(newSession.user.created_at).getTime();
+          const isNewUser = Date.now() - createdAt < 60_000;
+          const provider = newSession.user.app_metadata?.provider;
+          if (isNewUser && provider === 'google') {
+            posthog.capture('auth_signed_up', { provider: 'google' });
+          }
+        }
+
         // Only update session/user state if identity actually changed — avoids
         // unnecessary re-renders from TOKEN_REFRESHED events that create
         // new object references with the same data.

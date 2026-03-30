@@ -124,7 +124,7 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
             plan === 'free' && 'text-muted-foreground',
             plan === 'pro' && 'text-blue-500 dark:text-blue-400',
           )}>
-            {PLAN_META[plan].label} Plan
+            {(PLAN_META[plan] || PLAN_META.free).label} Plan
           </p>
         </div>
         <ChevronDown className={cn(

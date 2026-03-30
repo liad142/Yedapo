@@ -176,9 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
-        scopes: 'https://www.googleapis.com/auth/youtube.readonly',
         queryParams: {
-          access_type: 'offline',
           prompt: 'select_account',
         },
       },

@@ -18,11 +18,21 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
   const error = searchParams.get('error');
+  const state = searchParams.get('state');
 
   // User denied or cancelled
   if (error || !code) {
     log.info('YouTube connect cancelled', { error });
     return NextResponse.redirect(`${origin}/settings`);
+  }
+
+  // Validate OAuth state to prevent CSRF attacks
+  const expectedState = request.cookies.get('yt_oauth_state')?.value;
+  if (!state || !expectedState || state !== expectedState) {
+    log.error('YouTube connect CSRF state mismatch', { hasState: !!state, hasExpected: !!expectedState });
+    const response = NextResponse.redirect(`${origin}/settings?yt=error`);
+    response.cookies.delete('yt_oauth_state');
+    return response;
   }
 
   const user = await getAuthUser();
@@ -69,9 +79,13 @@ export async function GET(request: NextRequest) {
         { onConflict: 'user_id,provider' }
       );
 
-    return NextResponse.redirect(`${origin}/settings?yt=connected`);
+    const successResponse = NextResponse.redirect(`${origin}/settings?yt=connected`);
+    successResponse.cookies.delete('yt_oauth_state');
+    return successResponse;
   } catch (err) {
     log.error('YouTube connect error', err);
-    return NextResponse.redirect(`${origin}/settings`);
+    const errorResponse = NextResponse.redirect(`${origin}/settings`);
+    errorResponse.cookies.delete('yt_oauth_state');
+    return errorResponse;
   }
 }

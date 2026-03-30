@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { CookieSettingsButton } from '@/components/CookieSettingsButton';
 
 export function LegalFooter() {
   return (
@@ -16,6 +17,13 @@ export function LegalFooter() {
             <Link href="/dmca" className="hover:text-foreground transition-colors">
               DMCA
             </Link>
+            <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
+              YouTube ToS
+            </a>
+            <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
+              Google Privacy
+            </a>
+            <CookieSettingsButton />
           </nav>
         </div>
       </div>

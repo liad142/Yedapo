@@ -601,6 +601,10 @@ export default function DiscoverPage() {
             </motion.div>
           )}
 
+          {/* Attribution */}
+          <p className="text-xs text-muted-foreground text-center pt-4 pb-2">
+            Podcast data provided by Apple Podcasts
+          </p>
         </main>
       </div>
     </EpisodeLookupProvider>

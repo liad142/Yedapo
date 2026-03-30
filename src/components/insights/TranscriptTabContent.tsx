@@ -13,7 +13,8 @@ import {
   User,
   Mic,
   Filter,
-  Crown
+  Crown,
+  Info
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { TranscriptMessage } from "./TranscriptMessage";
@@ -464,9 +465,13 @@ export function TranscriptTabContent({
             <span>{transcript.split(/\s+/).length.toLocaleString()} words</span>
           </div>
         </div>
-        <div className="px-6 py-2 border-t border-border/40">
+        <div className="px-6 py-2 border-t border-border/40 space-y-1">
+          <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+            <Info size={11} className="shrink-0" />
+            <p>Transcripts are provided for personal reference only. Redistribution of transcripts may infringe on the original creator's copyright.</p>
+          </div>
           <p className="text-[11px] text-center text-muted-foreground">
-            Transcript provided for accessibility and personal reference. All content belongs to the original creators.
+            All content belongs to the original creators.
           </p>
         </div>
       </div>

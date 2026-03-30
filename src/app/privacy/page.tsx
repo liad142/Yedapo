@@ -12,7 +12,7 @@ export default function PrivacyPage() {
       <div className="max-w-2xl mx-auto px-4 pt-8 space-y-8">
         <div>
           <h1 className="text-3xl font-bold text-foreground tracking-tight">Privacy Policy</h1>
-          <p className="text-muted-foreground mt-1">Last updated: March 7, 2026</p>
+          <p className="text-muted-foreground mt-1">Last updated: March 28, 2026</p>
         </div>
 
         <section className="space-y-4">
@@ -65,7 +65,20 @@ export default function PrivacyPage() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-foreground">3. Third-Party Services</h2>
+          <h2 className="text-xl font-semibold text-foreground">3. Legal Basis for Processing (GDPR)</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            If you are located in the European Economic Area (EEA), we process your personal data under the
+            following legal bases:
+          </p>
+          <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground">
+            <li><strong className="text-foreground">Contract:</strong> Account creation and service delivery — processing is necessary to provide the Service you have requested.</li>
+            <li><strong className="text-foreground">Consent:</strong> Analytics cookies and newsletter — we process this data based on your explicit opt-in consent, which you can withdraw at any time.</li>
+            <li><strong className="text-foreground">Legitimate Interest:</strong> Security, fraud prevention, and service improvement — we have a legitimate interest in keeping the Service secure and improving user experience.</li>
+          </ul>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold text-foreground">4. Third-Party Services</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             We use the following third-party services that may process your data:
           </p>
@@ -98,11 +111,34 @@ export default function PrivacyPage() {
               <span className="font-medium text-foreground">Vercel</span>
               <span className="text-muted-foreground">Hosting and performance monitoring</span>
             </div>
+            <div className="grid grid-cols-[120px_1fr] gap-2 text-sm">
+              <span className="font-medium text-foreground">YouTube Data API</span>
+              <span className="text-muted-foreground">YouTube subscriptions and content metadata via Google API</span>
+            </div>
           </div>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            These third-party services are subject to their own privacy policies. Please review the{' '}
+            <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">YouTube Terms of Service</a>{' '}
+            and{' '}
+            <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Google Privacy Policy</a>{' '}
+            for information about how Google handles your data.
+          </p>
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-foreground">4. Cookies & Tracking</h2>
+          <h2 className="text-xl font-semibold text-foreground">5. YouTube API Data</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            When you connect your Google account, we access your YouTube subscriptions via the YouTube Data API.
+            We store your OAuth tokens securely to maintain the connection. You can disconnect YouTube at any time
+            from Settings, which will delete your stored tokens and YouTube data. Our use of YouTube API data
+            complies with the{' '}
+            <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Google API Services User Data Policy</a>,
+            including the Limited Use requirements.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold text-foreground">6. Cookies & Tracking</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             We use cookies and local storage for:
           </p>
@@ -117,7 +153,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-foreground">5. Data Retention</h2>
+          <h2 className="text-xl font-semibold text-foreground">7. Data Retention</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             We retain your account data for as long as your account is active. Generated summaries and
             transcripts are cached to improve performance for all users. You may request deletion of your
@@ -126,7 +162,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-foreground">6. Your Rights (GDPR & CCPA)</h2>
+          <h2 className="text-xl font-semibold text-foreground">8. Your Rights (GDPR & CCPA)</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             Depending on your location, you may have the following rights:
           </p>
@@ -145,7 +181,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-foreground">7. Data Security</h2>
+          <h2 className="text-xl font-semibold text-foreground">9. Data Security</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             We implement appropriate technical and organizational measures to protect your personal data,
             including encryption in transit (HTTPS), secure authentication, and access controls. However,
@@ -154,7 +190,7 @@ export default function PrivacyPage() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-foreground">8. Children&apos;s Privacy</h2>
+          <h2 className="text-xl font-semibold text-foreground">10. Children&apos;s Privacy</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             The Service is not intended for children under 13. We do not knowingly collect personal
             information from children under 13. If you believe a child has provided us with personal
@@ -162,12 +198,57 @@ export default function PrivacyPage() {
           </p>
         </section>
 
-        <section className="space-y-4 pb-8">
-          <h2 className="text-xl font-semibold text-foreground">9. Changes to This Policy</h2>
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold text-foreground">11. International Data Transfers</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Your data may be transferred to and processed in the United States and other countries where our
+            service providers operate (Supabase, Vercel, Google, PostHog). We rely on Standard Contractual
+            Clauses (SCCs) and other appropriate safeguards for these transfers.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold text-foreground">12. Data Breach Notification</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            In the event of a data breach affecting your personal data, we will notify affected users within
+            72 hours as required by GDPR, and notify the relevant supervisory authority.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold text-foreground">13. Right to Lodge Complaint</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            EU residents have the right to lodge a complaint with their local data protection supervisory authority
+            if you believe your personal data has been processed in violation of applicable data protection law.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold text-foreground">14. California Residents (CCPA)</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            We do not sell your personal information. Under the California Consumer Privacy Act (CCPA), you have
+            the right to know what personal data we collect, request deletion, and opt out of any future sale.
+            To exercise these rights, contact us at{' '}
+            <a href="mailto:privacy@yedapo.com" className="text-primary hover:underline">privacy@yedapo.com</a>.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold text-foreground">15. Changes to This Policy</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             We may update this Privacy Policy from time to time. We will notify you of significant changes
             by posting a notice on the Service. Your continued use after changes constitutes acceptance of
             the updated policy.
+          </p>
+        </section>
+
+        <section className="space-y-4 pb-8">
+          <h2 className="text-xl font-semibold text-foreground">16. Contact</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            For questions about this Privacy Policy, please contact us at{' '}
+            <a href="mailto:privacy@yedapo.com" className="text-primary hover:underline">privacy@yedapo.com</a>{' '}
+            or through the channels listed on our{' '}
+            <Link href="/dmca" className="text-primary hover:underline">contact page</Link>.
           </p>
         </section>
       </div>

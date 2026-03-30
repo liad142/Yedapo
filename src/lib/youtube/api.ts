@@ -1,9 +1,59 @@
 import { getYouTubeAccessToken } from './token-manager';
 import { createLogger } from '@/lib/logger';
+import { getCached, setCached } from '@/lib/cache';
 
 const log = createLogger('youtube');
 
 const YT_API_BASE = 'https://www.googleapis.com/youtube/v3';
+
+const YT_QUOTA_WARNING_THRESHOLD = 8000;
+const YT_QUOTA_DAILY_LIMIT = 10000;
+
+/** Estimated quota cost per YouTube Data API endpoint */
+const QUOTA_COSTS = {
+  'search.list': 100,
+  'videos.list': 1,
+  'channels.list': 1,
+  'subscriptions.list': 1,
+  'playlistItems.list': 1,
+} as const;
+
+type QuotaEndpoint = keyof typeof QUOTA_COSTS;
+
+/**
+ * Increment the daily YouTube API quota counter in Redis.
+ * Key pattern: yt-quota:{YYYY-MM-DD}
+ * TTL: 48 hours (covers timezone edge cases).
+ */
+async function trackQuota(endpoint: QuotaEndpoint): Promise<void> {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const key = `yt-quota:${today}`;
+    const cost = QUOTA_COSTS[endpoint];
+
+    const current = await getCached<number>(key);
+    const newTotal = (current || 0) + cost;
+    // 48h TTL to handle timezone edge cases
+    await setCached(key, newTotal, 172800);
+
+    if (newTotal >= YT_QUOTA_WARNING_THRESHOLD) {
+      log.warn(`YouTube API quota high: ${newTotal}/${YT_QUOTA_DAILY_LIMIT} units used today`, { endpoint, cost });
+    }
+  } catch (err) {
+    // Non-critical — never block API calls for tracking failures
+    log.error('Failed to track YouTube quota', err);
+  }
+}
+
+/**
+ * Get current daily YouTube API quota usage from Redis.
+ */
+export async function getYouTubeQuotaUsage(): Promise<{ used: number; limit: number; date: string }> {
+  const today = new Date().toISOString().slice(0, 10);
+  const key = `yt-quota:${today}`;
+  const used = await getCached<number>(key) || 0;
+  return { used, limit: YT_QUOTA_DAILY_LIMIT, date: today };
+}
 
 export interface YouTubeSubscription {
   channelId: string;
@@ -48,6 +98,8 @@ export async function fetchVideoDetails(videoId: string): Promise<YouTubeVideo |
     })}`
   );
 
+  await trackQuota('videos.list');
+
   if (!res.ok) {
     log.error('Failed to fetch video details', { status: res.status, videoId });
     return null;
@@ -91,6 +143,8 @@ export async function fetchUserSubscriptions(userId: string): Promise<YouTubeSub
     const res = await fetch(`${YT_API_BASE}/subscriptions?${params}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
+
+    await trackQuota('subscriptions.list');
 
     if (!res.ok) {
       log.error('Failed to fetch subscriptions', { status: res.status });
@@ -139,6 +193,8 @@ export async function fetchChannelVideos(
     })}`
   );
 
+  await trackQuota('channels.list');
+
   if (!channelRes.ok) {
     log.error('Failed to fetch channel', { status: channelRes.status });
     return { videos: [] };
@@ -160,6 +216,8 @@ export async function fetchChannelVideos(
   const playlistRes = await fetch(
     `${YT_API_BASE}/playlistItems?${new URLSearchParams(params)}`
   );
+
+  await trackQuota('playlistItems.list');
 
   if (!playlistRes.ok) {
     log.error('Failed to fetch playlist items', { status: playlistRes.status });
@@ -216,6 +274,8 @@ export async function fetchChannelTopics(
         })}`
       );
 
+      await trackQuota('channels.list');
+
       if (!res.ok) {
         log.error('Failed to fetch channel topics', { status: res.status });
         continue;
@@ -262,6 +322,8 @@ export async function searchYouTubeChannels(
     })}`
   );
 
+  await trackQuota('search.list');
+
   if (!res.ok) {
     log.error('Failed to search YouTube channels', { status: res.status });
     return [];
@@ -300,6 +362,8 @@ export async function searchYouTubeVideos(
       key: apiKey,
     })}`
   );
+
+  await trackQuota('search.list');
 
   if (!res.ok) {
     log.error('Failed to search YouTube videos', { status: res.status });

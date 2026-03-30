@@ -15,6 +15,7 @@ if (typeof window !== 'undefined' && POSTHOG_KEY) {
     capture_pageview: true,
     capture_pageleave: true,
     persistence: 'localStorage+cookie',
+    opt_out_capturing_by_default: true,
   });
 }
 

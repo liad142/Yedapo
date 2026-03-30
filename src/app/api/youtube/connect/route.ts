@@ -20,6 +20,9 @@ export async function GET(request: NextRequest) {
   const redirectUri = `${origin}/api/youtube/connect/callback`;
   const loginHint = request.nextUrl.searchParams.get('login_hint') || '';
 
+  // Generate a random state to prevent CSRF attacks
+  const state = crypto.randomUUID();
+
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
     redirect_uri: redirectUri,
@@ -27,13 +30,24 @@ export async function GET(request: NextRequest) {
     scope: 'https://www.googleapis.com/auth/youtube.readonly',
     access_type: 'offline',
     prompt: 'consent',
-    state: 'youtube-connect',
+    state,
     ...(loginHint && { login_hint: loginHint }),
   });
 
   log.info('YouTube connect URL generated', { userId: user.id.slice(0, 8) });
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     url: `https://accounts.google.com/o/oauth2/v2/auth?${params}`,
   });
+
+  // Store state in a short-lived httpOnly cookie for validation in the callback
+  response.cookies.set('yt_oauth_state', state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 600, // 10 minutes
+  });
+
+  return response;
 }

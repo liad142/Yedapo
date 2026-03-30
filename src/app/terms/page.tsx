@@ -12,7 +12,7 @@ export default function TermsPage() {
       <div className="max-w-2xl mx-auto px-4 pt-8 space-y-8">
         <div>
           <h1 className="text-3xl font-bold text-foreground tracking-tight">Terms of Service</h1>
-          <p className="text-muted-foreground mt-1">Last updated: March 7, 2026</p>
+          <p className="text-muted-foreground mt-1">Last updated: March 28, 2026</p>
         </div>
 
         <section className="space-y-4">
@@ -110,7 +110,62 @@ export default function TermsPage() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-foreground">10. Changes to Terms</h2>
+          <h2 className="text-xl font-semibold text-foreground">10. Age Requirement</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            You must be at least 13 years old (or 16 in the European Economic Area) to use Yedapo.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold text-foreground">11. Intellectual Property</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            AI-generated summaries are provided for personal, non-commercial use. You may not redistribute,
+            sell, or commercially exploit AI-generated content from Yedapo.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold text-foreground">12. Repeat Infringer Policy</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            In accordance with the DMCA, we will terminate accounts of users who are repeat copyright infringers.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold text-foreground">13. Termination</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            We reserve the right to suspend or terminate your account at any time for violation of these Terms,
+            with or without notice.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold text-foreground">14. Indemnification</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            You agree to indemnify and hold harmless Yedapo and its operators from any claims arising from
+            your use of the service or violation of these Terms.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold text-foreground">15. Dispute Resolution</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            We encourage you to contact us at{' '}
+            <a href="mailto:legal@yedapo.com" className="text-primary hover:underline">legal@yedapo.com</a>{' '}
+            before initiating any formal proceedings. We will attempt to resolve disputes informally within 30 days.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold text-foreground">16. Governing Law</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            These Terms are governed by the laws of the State of Israel. Any disputes shall be resolved in the
+            courts of Tel Aviv, Israel.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold text-foreground">17. Changes to Terms</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             We reserve the right to modify these terms at any time. Material changes will be communicated through
             the Service. Continued use after changes constitutes acceptance of the updated terms.
@@ -118,7 +173,7 @@ export default function TermsPage() {
         </section>
 
         <section className="space-y-4 pb-8">
-          <h2 className="text-xl font-semibold text-foreground">11. Contact</h2>
+          <h2 className="text-xl font-semibold text-foreground">18. Contact</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             For questions about these Terms, please contact us through the channels listed on our{' '}
             <Link href="/dmca" className="text-primary hover:underline">DMCA & Takedown Policy</Link> page.

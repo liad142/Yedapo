@@ -5,7 +5,7 @@ import {
   Moon, Sun, Monitor, LogIn, LogOut, Loader2, Pencil, Check, X, Shield, ChevronDown, Search,
   Palette, Briefcase, Smile, GraduationCap, BookOpen, Landmark, Clock, Heart,
   Users, Music, Newspaper, Church, FlaskConical, Globe, Trophy, Cpu, Film,
-  Youtube, RefreshCw, Mail, Send, Bell, BellOff,
+  Youtube, RefreshCw, Mail, Send, Bell, BellOff, Trash2, Unplug, AlertTriangle,
 } from 'lucide-react';
 import { Search as SearchIcon } from 'lucide-react';
 import Link from 'next/link';
@@ -129,6 +129,13 @@ export default function SettingsPage() {
   const [isLoadingNotifs, setIsLoadingNotifs] = useState(false);
   const [showTelegramDialog, setShowTelegramDialog] = useState(false);
   const [togglingNotif, setTogglingNotif] = useState<string | null>(null);
+
+  // Account deletion & YouTube disconnect state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [isDisconnectingYt, setIsDisconnectingYt] = useState(false);
+  const [showDisconnectYtDialog, setShowDisconnectYtDialog] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
@@ -404,6 +411,45 @@ export default function SettingsPage() {
 
   const handleAddMore = () => {
     fetchYouTubeChannels();
+  };
+
+  const handleDisconnectYouTube = async () => {
+    setIsDisconnectingYt(true);
+    try {
+      const res = await fetch('/api/youtube/disconnect', { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to disconnect YouTube');
+      posthog.capture('youtube_disconnected');
+      setFollowedChannels([]);
+      setYtChannels([]);
+      setYtFetched(false);
+      setYtImportDone(false);
+      setYtNeedsPermission(false);
+      setShowDisconnectYtDialog(false);
+    } catch {
+      setErrorToast('Failed to disconnect YouTube. Please try again.');
+    } finally {
+      setIsDisconnectingYt(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'DELETE') return;
+    setIsDeletingAccount(true);
+    try {
+      const res = await fetch('/api/user/account', { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to delete account');
+      }
+      posthog.capture('account_deleted');
+      await signOut();
+    } catch (err: any) {
+      setErrorToast(err.message || 'Failed to delete account. Please try again.');
+    } finally {
+      setIsDeletingAccount(false);
+      setShowDeleteDialog(false);
+      setDeleteConfirmText('');
+    }
   };
 
   const displayName = profile?.display_name
@@ -755,6 +801,40 @@ export default function SettingsPage() {
                   Sign Out
                 </Button>
               </div>
+
+              {/* ── Disconnect YouTube ── */}
+              {followedChannels.length > 0 && (
+                <div className="pt-2 border-t border-border">
+                  <FieldLabel>YouTube Connection</FieldLabel>
+                  <p className="text-sm text-muted-foreground mt-1 mb-3">
+                    Disconnect your Google account from Yedapo. This will remove all followed YouTube channels and revoke access.
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowDisconnectYtDialog(true)}
+                    className="gap-2 border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Unplug className="h-4 w-4" />
+                    Disconnect YouTube
+                  </Button>
+                </div>
+              )}
+
+              {/* ── Delete Account ── */}
+              <div className="pt-2 border-t border-border">
+                <FieldLabel>Danger Zone</FieldLabel>
+                <p className="text-sm text-muted-foreground mt-1 mb-3">
+                  Permanently delete your account and all associated data. This action cannot be undone.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDeleteDialog(true)}
+                  className="gap-2 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete My Account
+                </Button>
+              </div>
             </div>
           )}
         </section>
@@ -961,6 +1041,92 @@ export default function SettingsPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Disconnect YouTube Confirmation Dialog */}
+      <Dialog open={showDisconnectYtDialog} onOpenChange={setShowDisconnectYtDialog}>
+        <DialogContent className="max-w-sm p-6">
+          <DialogClose onClick={() => setShowDisconnectYtDialog(false)} />
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Unplug className="h-5 w-5 text-destructive" />
+              Disconnect YouTube
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-3 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This will remove your Google connection and unfollow all {followedChannels.length} YouTube channel{followedChannels.length !== 1 ? 's' : ''}. Your existing summaries will not be affected.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowDisconnectYtDialog(false)}
+                className="flex-1"
+                disabled={isDisconnectingYt}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDisconnectYouTube}
+                disabled={isDisconnectingYt}
+                className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-2"
+              >
+                {isDisconnectingYt ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unplug className="h-4 w-4" />}
+                Disconnect
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Account Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={(open) => { setShowDeleteDialog(open); if (!open) setDeleteConfirmText(''); }}>
+        <DialogContent className="max-w-sm p-6">
+          <DialogClose onClick={() => { setShowDeleteDialog(false); setDeleteConfirmText(''); }} />
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Delete Account
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-3 space-y-4">
+            <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20">
+              <p className="text-sm text-destructive font-medium">
+                This will permanently delete your account and all associated data including your profile, subscriptions, summaries, and listening history.
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground block mb-2">
+                Type <span className="font-mono font-bold bg-muted px-1.5 py-0.5 rounded text-destructive">DELETE</span> to confirm
+              </label>
+              <Input
+                value={deleteConfirmText}
+                onChange={e => setDeleteConfirmText(e.target.value)}
+                placeholder="Type DELETE"
+                className="font-mono"
+                autoComplete="off"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => { setShowDeleteDialog(false); setDeleteConfirmText(''); }}
+                className="flex-1"
+                disabled={isDeletingAccount}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirmText !== 'DELETE' || isDeletingAccount}
+                className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-2"
+              >
+                {isDeletingAccount ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                Delete Forever
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Error Toast */}
       <Toast open={!!errorToast} onOpenChange={() => setErrorToast(null)} position="top">

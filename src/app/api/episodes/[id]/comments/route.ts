@@ -107,6 +107,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Comment must be 1-2000 characters' }, { status: 400 });
     }
 
+    // Strip HTML tags to prevent stored XSS
+    const sanitized = trimmed.replace(/<[^>]*>/g, '');
+    if (!sanitized) {
+      return NextResponse.json({ error: 'Comment must be 1-2000 characters' }, { status: 400 });
+    }
+
     const admin = createAdminClient();
 
     // If replying, validate parent exists and is top-level
@@ -134,7 +140,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         episode_id: episodeId,
         user_id: user.id,
         parent_id: parentId || null,
-        body: trimmed,
+        body: sanitized,
       })
       .select(`
         id, episode_id, user_id, parent_id, body, edited_at, created_at, updated_at,

@@ -229,6 +229,13 @@ export function AuthModal() {
               ) : null}
               Continue
             </Button>
+
+            <p className="text-xs text-muted-foreground text-center mt-3">
+              By continuing, you agree to our{' '}
+              <a href="/terms" className="underline hover:text-primary">Terms of Service</a>{' '}
+              and{' '}
+              <a href="/privacy" className="underline hover:text-primary">Privacy Policy</a>.
+            </p>
           </form>
         </div>
       </DialogContent>

@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAuthUser } from '@/lib/auth-helpers';
-import { getCached, setCached, checkRateLimit } from '@/lib/cache';
+import { getCached, setCached, deleteCached, checkRateLimit } from '@/lib/cache';
 import { APPLE_PODCAST_GENRES } from '@/types/apple-podcasts';
 
 interface ApplePodcast {
@@ -54,11 +54,19 @@ export async function GET(request: NextRequest) {
   try {
     // Check cache first
     const cacheKey = `personalized:${user.id}:${country}`;
-    const cached = await getCached<{ personalized: boolean; sections: unknown[] }>(cacheKey);
-    if (cached) {
-      return NextResponse.json(cached, {
-        headers: { 'Cache-Control': 'private, s-maxage=3600, stale-while-revalidate=7200' },
-      });
+    const cached = await getCached<{ personalized: boolean; sections: any[] }>(cacheKey);
+    if (cached && cached.sections) {
+      // Validate cached sections have required fields (stale cache may have malformed data)
+      const validSections = cached.sections.filter(
+        (s: any) => s && typeof s.label === 'string' && s.genreId && Array.isArray(s.podcasts)
+      );
+      if (validSections.length > 0) {
+        return NextResponse.json({ ...cached, sections: validSections }, {
+          headers: { 'Cache-Control': 'private, s-maxage=3600, stale-while-revalidate=7200' },
+        });
+      }
+      // Cache has invalid data — delete and rebuild
+      await deleteCached(cacheKey);
     }
 
     // Get user's genre preferences

@@ -6,7 +6,8 @@ import { checkRateLimit } from '@/lib/cache';
 const log = createLogger('summary');
 
 interface CheckSummariesRequest {
-  audioUrls: string[];
+  audioUrls?: string[];
+  episodeIds?: string[];
   podcastAppleId?: string;
   episodes?: { audioUrl: string; title: string }[];
 }
@@ -14,6 +15,14 @@ interface CheckSummariesRequest {
 interface SummaryAvailability {
   audioUrl: string;
   episodeId: string | null;
+  hasQuickSummary: boolean;
+  hasDeepSummary: boolean;
+  quickStatus: string | null;
+  deepStatus: string | null;
+}
+
+interface EpisodeIdAvailability {
+  episodeId: string;
   hasQuickSummary: boolean;
   hasDeepSummary: boolean;
   quickStatus: string | null;
@@ -35,16 +44,68 @@ export async function POST(request: NextRequest) {
 
   try {
     const body: CheckSummariesRequest = await request.json();
-    const { audioUrls, podcastAppleId, episodes: episodesWithTitles } = body;
+    const { audioUrls, episodeIds, podcastAppleId, episodes: episodesWithTitles } = body;
 
     log.info('Check request received', {
       audioUrlCount: audioUrls?.length,
+      episodeIdCount: episodeIds?.length,
       podcastAppleId: podcastAppleId || null,
     });
 
+    // --- Fast path: check by episode IDs (for YouTube/VideoList) ---
+    if (episodeIds && Array.isArray(episodeIds) && episodeIds.length > 0) {
+      if (episodeIds.length > 100) {
+        return NextResponse.json(
+          { error: 'Maximum 100 episode IDs allowed per request' },
+          { status: 400 }
+        );
+      }
+
+      const supabase = createAdminClient();
+      const { SUMMARY_STATUS_PRIORITY: statusPriority } = await import('@/lib/status-utils');
+
+      const { data: summaries, error: summariesError } = await supabase
+        .from('summaries')
+        .select('episode_id, level, status')
+        .in('episode_id', episodeIds);
+
+      if (summariesError) {
+        log.error('Error fetching summaries by episodeIds', summariesError);
+        return NextResponse.json({ error: 'Database error' }, { status: 500 });
+      }
+
+      const episodeSummaries = new Map<string, { quick: string | null; deep: string | null }>();
+      for (const summary of summaries || []) {
+        const existing = episodeSummaries.get(summary.episode_id) || { quick: null, deep: null };
+        if (summary.level === 'quick') {
+          const currentPriority = statusPriority[existing.quick || ''] || 0;
+          const newPriority = statusPriority[summary.status] || 0;
+          if (newPriority > currentPriority) existing.quick = summary.status;
+        } else if (summary.level === 'deep') {
+          const currentPriority = statusPriority[existing.deep || ''] || 0;
+          const newPriority = statusPriority[summary.status] || 0;
+          if (newPriority > currentPriority) existing.deep = summary.status;
+        }
+        episodeSummaries.set(summary.episode_id, existing);
+      }
+
+      const availability: EpisodeIdAvailability[] = episodeIds.map(id => {
+        const info = episodeSummaries.get(id);
+        return {
+          episodeId: id,
+          hasQuickSummary: info?.quick === 'ready',
+          hasDeepSummary: info?.deep === 'ready',
+          quickStatus: info?.quick || null,
+          deepStatus: info?.deep || null,
+        };
+      });
+
+      return NextResponse.json({ availability });
+    }
+
     if (!audioUrls || !Array.isArray(audioUrls) || audioUrls.length === 0) {
       return NextResponse.json(
-        { error: 'audioUrls array is required' },
+        { error: 'audioUrls or episodeIds array is required' },
         { status: 400 }
       );
     }

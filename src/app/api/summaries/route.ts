@@ -23,46 +23,121 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch summaries' }, { status: 500 });
     }
 
-    if (!userSummaries || userSummaries.length === 0) {
-      return NextResponse.json({ episodes: [] });
+    const summaryIds = (userSummaries || []).map(us => us.summary_id);
+    const episodeIds = [...new Set((userSummaries || []).map(us => us.episode_id))];
+
+    // --- Also get summaries for subscribed podcasts and followed YouTube channels ---
+    // 1. Podcast subscriptions
+    const { data: podcastSubs } = await admin
+      .from('podcast_subscriptions')
+      .select('podcast_id')
+      .eq('user_id', user.id);
+
+    const subscribedPodcastIds = (podcastSubs || []).map((s: any) => s.podcast_id);
+
+    // 2. YouTube channel follows → get podcast_ids for those channels
+    const { data: channelFollows } = await admin
+      .from('youtube_channel_follows')
+      .select('channel_id')
+      .eq('user_id', user.id);
+
+    let channelPodcastIds: string[] = [];
+    if (channelFollows && channelFollows.length > 0) {
+      const channelDbIds = channelFollows.map((f: any) => f.channel_id);
+      // Get YouTube channel_id strings from youtube_channels table
+      const { data: ytChannels } = await admin
+        .from('youtube_channels')
+        .select('channel_id')
+        .in('id', channelDbIds);
+
+      if (ytChannels && ytChannels.length > 0) {
+        // YouTube channels stored as podcasts with rss_feed_url = 'youtube:channel:{channelId}'
+        const feedUrls = ytChannels.map((ch: any) => `youtube:channel:${ch.channel_id}`);
+        const { data: channelPodcasts } = await admin
+          .from('podcasts')
+          .select('id')
+          .in('rss_feed_url', feedUrls);
+        channelPodcastIds = (channelPodcasts || []).map((p: any) => p.id);
+      }
     }
 
-    const summaryIds = userSummaries.map(us => us.summary_id);
-    const episodeIds = [...new Set(userSummaries.map(us => us.episode_id))];
+    const allSubscribedPodcastIds = [...new Set([...subscribedPodcastIds, ...channelPodcastIds])];
 
-    // Query by both summary_id (direct match) and episode_id (catches cases where
-    // the summary row was recreated but the junction still points to the old ID)
-    const [{ data: byId }, { data: byEpisode }] = await Promise.all([
-      admin
-        .from('summaries')
-        .select(`
-          id, episode_id, status, updated_at,
-          episodes!inner (
-            id, title, description, published_at, duration_seconds, podcast_id,
-            podcasts ( id, title, image_url, author )
-          )
-        `)
-        .in('id', summaryIds)
-        .in('level', ['deep', 'quick'])
-        .order('updated_at', { ascending: false }),
-      admin
-        .from('summaries')
-        .select(`
-          id, episode_id, status, updated_at,
-          episodes!inner (
-            id, title, description, published_at, duration_seconds, podcast_id,
-            podcasts ( id, title, image_url, author )
-          )
-        `)
-        .in('episode_id', episodeIds)
-        .in('level', ['deep', 'quick'])
-        .in('status', ['queued', 'transcribing', 'summarizing'])
-        .order('updated_at', { ascending: false }),
-    ]);
+    // Build queries (Supabase query builders are PromiseLike, cast to Promise)
+    const queries: PromiseLike<any>[] = [];
+
+    // Query 1: User's directly triggered summaries by summary ID
+    if (summaryIds.length > 0) {
+      queries.push(
+        admin
+          .from('summaries')
+          .select(`
+            id, episode_id, status, updated_at,
+            episodes!inner (
+              id, title, description, published_at, duration_seconds, podcast_id,
+              podcasts ( id, title, image_url, author )
+            )
+          `)
+          .in('id', summaryIds)
+          .in('level', ['deep', 'quick'])
+          .order('updated_at', { ascending: false })
+      );
+    }
+
+    // Query 2: In-progress summaries for user's episodes
+    if (episodeIds.length > 0) {
+      queries.push(
+        admin
+          .from('summaries')
+          .select(`
+            id, episode_id, status, updated_at,
+            episodes!inner (
+              id, title, description, published_at, duration_seconds, podcast_id,
+              podcasts ( id, title, image_url, author )
+            )
+          `)
+          .in('episode_id', episodeIds)
+          .in('level', ['deep', 'quick'])
+          .in('status', ['queued', 'transcribing', 'summarizing'])
+          .order('updated_at', { ascending: false })
+      );
+    }
+
+    // Query 3: Ready summaries for episodes from subscribed podcasts/channels (cron-generated)
+    if (allSubscribedPodcastIds.length > 0) {
+      // First get episode IDs for subscribed podcasts
+      const { data: subEpisodes } = await admin
+        .from('episodes')
+        .select('id')
+        .in('podcast_id', allSubscribedPodcastIds);
+
+      const subEpisodeIds = (subEpisodes || []).map((e: any) => e.id);
+
+      if (subEpisodeIds.length > 0) {
+        queries.push(
+          admin
+            .from('summaries')
+            .select(`
+              id, episode_id, status, updated_at,
+              episodes!inner (
+                id, title, description, published_at, duration_seconds, podcast_id,
+                podcasts ( id, title, image_url, author )
+              )
+            `)
+            .in('episode_id', subEpisodeIds)
+            .in('level', ['deep', 'quick'])
+            .eq('status', 'ready')
+            .order('updated_at', { ascending: false })
+            .limit(200)
+        );
+      }
+    }
+
+    const results = await Promise.all(queries);
 
     // Merge and deduplicate by summary id
     const seenIds = new Set<string>();
-    const summaries = [...(byId ?? []), ...(byEpisode ?? [])].filter((s: any) => {
+    const summaries = results.flatMap(r => r.data ?? []).filter((s: any) => {
       if (seenIds.has(s.id)) return false;
       seenIds.add(s.id);
       return true;

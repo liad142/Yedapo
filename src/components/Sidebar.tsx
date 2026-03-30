@@ -21,6 +21,7 @@ import { useUnreadCount } from '@/hooks/useUnreadCount';
 import { NotificationBell } from '@/components/NotificationBell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSummarizeQueueOptional } from '@/contexts/SummarizeQueueContext';
+import { useNewSummaryCount } from '@/hooks/useNewSummaryCount';
 
 const ROOT_PATHS = ['/', '/discover', '/my-list', '/my-podcasts', '/summaries', '/settings', '/onboarding'];
 
@@ -142,12 +143,14 @@ function MobileThemeToggle() {
   );
 }
 
-function SidebarContent({ onNavigate, unreadCount = 0, newEpisodeCount = 0, showBell = false, markAllRead }: { onNavigate?: () => void; unreadCount?: number; newEpisodeCount?: number; showBell?: boolean; markAllRead?: () => Promise<void> }) {
+function SidebarContent({ onNavigate, unreadCount = 0, newEpisodeCount = 0, newSummaryCount = 0, showBell = false, markAllRead, onSummariesClick }: { onNavigate?: () => void; unreadCount?: number; newEpisodeCount?: number; newSummaryCount?: number; showBell?: boolean; markAllRead?: () => Promise<void>; onSummariesClick?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, setGuestGateTab, setShowAuthModal } = useAuth();
   const queueCtx = useSummarizeQueueOptional();
   const activeSummaryCount = queueCtx?.queue.filter(qi => qi.state !== 'ready' && qi.state !== 'idle' && qi.state !== 'failed').length ?? 0;
+  // Show new ready count if no active processing, otherwise show active count
+  const summaryBadge = activeSummaryCount > 0 ? activeSummaryCount : newSummaryCount;
 
   const isRoot = ROOT_PATHS.some(p => pathname === p);
 
@@ -195,9 +198,12 @@ function SidebarContent({ onNavigate, unreadCount = 0, newEpisodeCount = 0, show
                 setShowAuthModal(true, GATED_TAB_MESSAGES[item.href] || 'Sign up to access this feature.');
                 return;
               }
+              if (item.href === '/summaries') {
+                onSummariesClick?.();
+              }
               onNavigate?.();
             }}
-            badge={item.href === '/my-list' ? newEpisodeCount : item.href === '/summaries' ? activeSummaryCount : undefined}
+            badge={item.href === '/my-list' ? newEpisodeCount : item.href === '/summaries' ? summaryBadge : undefined}
           />
         ))}
       </nav>
@@ -223,15 +229,19 @@ function MobileDrawer({
   onClose,
   unreadCount = 0,
   newEpisodeCount = 0,
+  newSummaryCount = 0,
   showBell = false,
   markAllRead,
+  onSummariesClick,
 }: {
   isOpen: boolean;
   onClose: () => void;
   unreadCount?: number;
   newEpisodeCount?: number;
+  newSummaryCount?: number;
   showBell?: boolean;
   markAllRead?: () => Promise<void>;
+  onSummariesClick?: () => void;
 }) {
   // Handle escape key
   useEffect(() => {
@@ -297,7 +307,7 @@ function MobileDrawer({
           <X className="h-5 w-5" />
         </button>
 
-        <SidebarContent onNavigate={onClose} unreadCount={unreadCount} newEpisodeCount={newEpisodeCount} showBell={showBell} markAllRead={markAllRead} />
+        <SidebarContent onNavigate={onClose} unreadCount={unreadCount} newEpisodeCount={newEpisodeCount} newSummaryCount={newSummaryCount} showBell={showBell} markAllRead={markAllRead} onSummariesClick={onSummariesClick} />
       </div>
     </>
   );
@@ -309,11 +319,12 @@ const GATED_TAB_MESSAGES: Record<string, string> = {
   '/settings': 'Sign up to manage preferences, connect services, and personalize your experience.',
 };
 
-function MobileBottomNav({ newEpisodeCount = 0 }: { newEpisodeCount?: number }) {
+function MobileBottomNav({ newEpisodeCount = 0, newSummaryCount = 0, onSummariesClick }: { newEpisodeCount?: number; newSummaryCount?: number; onSummariesClick?: () => void }) {
   const pathname = usePathname();
   const { user, setGuestGateTab } = useAuth();
   const queueCtx = useSummarizeQueueOptional();
   const activeSummaryCount = queueCtx?.queue.filter(qi => qi.state !== 'ready' && qi.state !== 'idle' && qi.state !== 'failed').length ?? 0;
+  const summaryBadge = activeSummaryCount > 0 ? activeSummaryCount : newSummaryCount;
 
   return (
     <nav
@@ -324,7 +335,7 @@ function MobileBottomNav({ newEpisodeCount = 0 }: { newEpisodeCount?: number }) 
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = isNavActive(pathname, item.href);
-          const badge = item.href === '/my-list' ? newEpisodeCount : item.href === '/summaries' ? activeSummaryCount : 0;
+          const badge = item.href === '/my-list' ? newEpisodeCount : item.href === '/summaries' ? summaryBadge : 0;
           return (
             <Link
               key={item.href}
@@ -334,6 +345,10 @@ function MobileBottomNav({ newEpisodeCount = 0 }: { newEpisodeCount?: number }) 
                   e.preventDefault();
                   const tabKey = item.href.slice(1) as 'my-list' | 'summaries' | 'settings';
                   setGuestGateTab(tabKey);
+                  return;
+                }
+                if (item.href === '/summaries') {
+                  onSummariesClick?.();
                 }
               }}
               className={cn(
@@ -363,13 +378,22 @@ export function Sidebar() {
   const router = useRouter();
   const { unreadCount, newEpisodeCount, markAllRead } = useUnreadCount();
   const { user } = useAuth();
+  const { newCount: newSummaryCount, markSeen: markSummariesSeen } = useNewSummaryCount();
+
+  const pathname = usePathname();
+
+  // Auto-mark as seen when user is on /summaries page
+  useEffect(() => {
+    if (pathname === '/summaries') {
+      markSummariesSeen();
+    }
+  }, [pathname, markSummariesSeen]);
 
   const closeMobileMenu = useCallback(() => {
     setIsMobileMenuOpen(false);
   }, []);
 
   // Close mobile menu on route change
-  const pathname = usePathname();
   useEffect(() => {
     closeMobileMenu();
   }, [pathname, closeMobileMenu]);
@@ -410,17 +434,17 @@ export function Sidebar() {
       </header>
 
       {/* Mobile Drawer */}
-      <MobileDrawer isOpen={isMobileMenuOpen} onClose={closeMobileMenu} unreadCount={unreadCount} newEpisodeCount={newEpisodeCount} showBell={!!user} markAllRead={markAllRead} />
+      <MobileDrawer isOpen={isMobileMenuOpen} onClose={closeMobileMenu} unreadCount={unreadCount} newEpisodeCount={newEpisodeCount} newSummaryCount={newSummaryCount} showBell={!!user} markAllRead={markAllRead} onSummariesClick={markSummariesSeen} />
 
       {/* Mobile Bottom Navigation */}
-      <MobileBottomNav newEpisodeCount={newEpisodeCount} />
+      <MobileBottomNav newEpisodeCount={newEpisodeCount} newSummaryCount={newSummaryCount} onSummariesClick={markSummariesSeen} />
 
       {/* Desktop Sidebar */}
       <aside
         className="fixed top-0 left-0 bottom-0 w-64 hidden lg:flex flex-col z-30 bg-background border-r border-border"
         aria-label="Main navigation"
       >
-        <SidebarContent unreadCount={unreadCount} newEpisodeCount={newEpisodeCount} showBell={!!user} markAllRead={markAllRead} />
+        <SidebarContent unreadCount={unreadCount} newEpisodeCount={newEpisodeCount} newSummaryCount={newSummaryCount} showBell={!!user} markAllRead={markAllRead} onSummariesClick={markSummariesSeen} />
       </aside>
     </>
   );

@@ -16,6 +16,38 @@ interface VideoListProps {
 }
 
 export function VideoList({ videos }: VideoListProps) {
+  const [summaryStatuses, setSummaryStatuses] = useState<Map<string, string>>(new Map());
+
+  // Batch check which videos already have ready summaries
+  useEffect(() => {
+    const episodeIds = videos
+      .map(v => v.episodeId)
+      .filter((id): id is string => !!id);
+
+    if (episodeIds.length === 0) return;
+
+    fetch('/api/summaries/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ episodeIds }),
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (!data?.availability) return;
+        const statusMap = new Map<string, string>();
+        for (const item of data.availability) {
+          if (item.hasDeepSummary || item.hasQuickSummary) {
+            statusMap.set(item.episodeId, 'ready');
+          } else if (item.deepStatus || item.quickStatus) {
+            // Use whatever status exists (queued, transcribing, summarizing, failed)
+            statusMap.set(item.episodeId, item.deepStatus || item.quickStatus);
+          }
+        }
+        setSummaryStatuses(statusMap);
+      })
+      .catch(() => {});
+  }, [videos]);
+
   if (videos.length === 0) {
     return (
       <div className="text-center py-12 rounded-2xl bg-secondary/30 border border-border">
@@ -27,7 +59,11 @@ export function VideoList({ videos }: VideoListProps) {
   return (
     <div className="space-y-2">
       {videos.map((video) => (
-        <VideoListItem key={video.videoId} video={video} />
+        <VideoListItem
+          key={video.videoId}
+          video={video}
+          checkedSummaryStatus={video.episodeId ? summaryStatuses.get(video.episodeId) : undefined}
+        />
       ))}
     </div>
   );
@@ -35,7 +71,7 @@ export function VideoList({ videos }: VideoListProps) {
 
 type VideoStatus = 'unknown' | 'none' | 'processing' | 'ready';
 
-const VideoListItem = React.memo(function VideoListItem({ video }: { video: VideoItem }) {
+const VideoListItem = React.memo(function VideoListItem({ video, checkedSummaryStatus }: { video: VideoItem; checkedSummaryStatus?: string }) {
   const router = useRouter();
   const { user } = useAuth();
   const { addToQueue } = useSummarizeQueue();
@@ -95,8 +131,15 @@ const VideoListItem = React.memo(function VideoListItem({ video }: { video: Vide
     }
   };
 
-  const getInitialStatus = (): 'not_ready' | 'ready' => {
-    return video.summaryStatus === 'ready' ? 'ready' : 'not_ready';
+  const getInitialStatus = (): 'not_ready' | 'ready' | 'failed' | 'transcribing' | 'summarizing' | 'queued' => {
+    // Priority: checked status from batch API > video.summaryStatus
+    const status = checkedSummaryStatus || video.summaryStatus;
+    if (status === 'ready') return 'ready';
+    if (status === 'failed') return 'failed';
+    if (status === 'transcribing') return 'transcribing';
+    if (status === 'summarizing') return 'summarizing';
+    if (status === 'queued') return 'queued';
+    return 'not_ready';
   };
 
   return (

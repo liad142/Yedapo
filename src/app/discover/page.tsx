@@ -258,8 +258,12 @@ export default function DiscoverPage() {
             const data = await response.json();
             if (!cancelled) {
               if (data.personalized && data.sections) {
-                log.success('Personalized sections loaded', { count: data.sections.length });
-                setPersonalizedSections(data.sections);
+                // Filter out malformed sections (e.g. from stale cache)
+                const validSections = (data.sections as PersonalizedSection[]).filter(
+                  (s: PersonalizedSection) => s && s.label && s.genreId && Array.isArray(s.podcasts)
+                );
+                log.success('Personalized sections loaded', { count: validSections.length, raw: data.sections.length });
+                setPersonalizedSections(validSections);
               } else {
                 log.info('No personalized sections');
                 setPersonalizedSections([]);
@@ -430,7 +434,10 @@ export default function DiscoverPage() {
       if (!response.ok) throw new Error('Fetch failed: ' + response.status);
       const data = await response.json();
       if (data.personalized && data.sections) {
-        setPersonalizedSections(data.sections);
+        const validSections = (data.sections as PersonalizedSection[]).filter(
+          (s: PersonalizedSection) => s && s.label && s.genreId && Array.isArray(s.podcasts)
+        );
+        setPersonalizedSections(validSections);
       } else {
         setPersonalizedSections([]);
       }
@@ -496,7 +503,7 @@ export default function DiscoverPage() {
               title="Personalized Recommendations"
               onRetry={retryPersonalized}
             />
-          ) : personalizedSections.length > 0 && personalizedSections.map((section) => (
+          ) : personalizedSections.length > 0 && personalizedSections.filter(s => s?.label).map((section) => (
             <motion.div
               key={section.genreId}
               className="mb-12"

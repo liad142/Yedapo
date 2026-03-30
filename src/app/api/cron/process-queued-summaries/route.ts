@@ -6,7 +6,7 @@ import { createLogger } from '@/lib/logger';
 import { sendAdminAlert } from '@/lib/notifications/send-admin-alert';
 
 const log = createLogger('cron');
-const MAX_PER_RUN = 15;
+const MAX_PER_RUN = 5; // Keep low to respect YouTube transcript rate limits
 const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
 export const maxDuration = 300; // 5 min — needs time for HTTP retriggers
@@ -103,9 +103,11 @@ async function processStuckSummaries() {
       )
     );
 
-    // Trigger each via HTTP POST in parallel (separate function invocation per summary)
-    const triggerResults = await Promise.allSettled(
-      stuckSummaries.map(async (summary) => {
+    // Trigger each SEQUENTIALLY with delay to respect YouTube rate limits
+    // (parallel bursts cause IP bans on the transcript service)
+    let processed = 0;
+    for (const summary of stuckSummaries) {
+      try {
         const res = await fetch(`${appUrl}/api/episodes/${summary.episode_id}/summaries`, {
           method: 'POST',
           headers: {
@@ -117,16 +119,16 @@ async function processStuckSummaries() {
 
         if (!res.ok) {
           log.error('Failed to re-trigger summary', { summaryId: summary.id, status: res.status });
-          throw new Error(`HTTP ${res.status}`);
+        } else {
+          processed++;
         }
-      })
-    );
+      } catch (err) {
+        log.error('Error re-triggering summary', { summaryId: summary.id, error: String(err) });
+      }
 
-    const processed = triggerResults.filter((r) => r.status === 'fulfilled').length;
-    for (let i = 0; i < triggerResults.length; i++) {
-      const r = triggerResults[i];
-      if (r.status === 'rejected') {
-        log.error('Error re-triggering summary', { summaryId: stuckSummaries[i].id, error: String(r.reason) });
+      // Wait 5s between triggers to space out transcript requests
+      if (stuckSummaries.indexOf(summary) < stuckSummaries.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
       }
     }
 

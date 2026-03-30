@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchYouTubeMetadata } from './transcripts';
+import { fetchYouTubeMetadata } from './metadata-scraper';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('youtube');

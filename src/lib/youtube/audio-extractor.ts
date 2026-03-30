@@ -4,8 +4,8 @@
  * NOTE: All Node.js ytdl libraries (distube, ybd-project, youtubei.js) are currently
  * broken due to YouTube cipher changes. URLs they extract return 403.
  * 
- * The primary fix for YouTube videos without captions is in fetchYouTubeTranscript()
- * which now tries multiple language codes (including legacy codes like 'iw' for Hebrew).
+ * The primary fix for YouTube videos without captions is in the Supadata API integration
+ * (supadata.ts) which fetches captions when available.
  * 
  * This function returns null until a working audio extraction method is available.
  * When/if ytdl libraries are fixed, replace this with actual extraction.

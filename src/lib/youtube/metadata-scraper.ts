@@ -1,12 +1,6 @@
-import { YoutubeTranscript } from 'youtube-transcript-plus';
 import { createLogger } from '@/lib/logger';
 
-const log = createLogger('yt-transcript');
-
-export interface YouTubeTranscriptResult {
-  text: string;
-  language: string;
-}
+const log = createLogger('yt-metadata-scraper');
 
 export interface YouTubeMetadata {
   description: string;
@@ -58,9 +52,6 @@ function extractJsonFromHtml(html: string, varName: string): Record<string, unkn
  * Get player data by scraping the YouTube watch page HTML.
  * Used for metadata extraction (description, keywords, storyboards, chapters).
  * The page embeds `ytInitialPlayerResponse` as a JS variable.
- *
- * Note: Caption URLs from this response require POT tokens and return empty
- * content server-side. Use youtube-transcript-plus for transcript fetching.
  */
 async function fetchPlayerFromPage(videoId: string): Promise<Record<string, unknown> | null> {
   try {
@@ -91,155 +82,6 @@ async function fetchPlayerFromPage(videoId: string): Promise<Record<string, unkn
     log.error('Watch page scrape failed', { videoId, error: String(err) });
     return null;
   }
-}
-
-/**
- * Decode HTML entities commonly found in YouTube caption text.
- */
-function decodeEntities(text: string): string {
-  return text
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/\n/g, ' ');
-}
-
-/**
- * Map modern ISO 639-1 codes to legacy codes YouTube uses internally.
- * YouTube's caption system uses the old Java Locale codes for some languages.
- */
-const LANG_TO_YOUTUBE: Record<string, string> = {
-  he: 'iw', // Hebrew
-  id: 'in', // Indonesian
-  yi: 'ji', // Yiddish
-};
-
-/**
- * Fetch auto-generated or manual captions from a YouTube video.
- * 
- * PRIORITY 1: External transcript service (Railway microservice) — works from cloud IPs
- * PRIORITY 2: youtube-transcript-plus (local InnerTube) — fallback, may be blocked on cloud
- */
-const YOUTUBE_TRANSCRIPT_TIMEOUT_MS = 30_000; // 30s max for YouTube transcript attempts
-const YT_TRANSCRIPT_SERVICE_URL = process.env.YT_TRANSCRIPT_SERVICE_URL; // e.g. https://xxx.up.railway.app
-const YT_TRANSCRIPT_SERVICE_KEY = process.env.YT_TRANSCRIPT_SERVICE_KEY; // API key for the service
-
-async function fetchFromTranscriptService(videoId: string, language?: string): Promise<YouTubeTranscriptResult | null> {
-  if (!YT_TRANSCRIPT_SERVICE_URL) return null;
-
-  try {
-    const params = new URLSearchParams({ lang: language || 'en' });
-    if (YT_TRANSCRIPT_SERVICE_KEY) params.set('key', YT_TRANSCRIPT_SERVICE_KEY);
-
-    const res = await fetch(`${YT_TRANSCRIPT_SERVICE_URL}/transcript/${videoId}?${params}`, {
-      signal: AbortSignal.timeout(20_000),
-    });
-
-    if (!res.ok) {
-      log.warn('Transcript service returned error', { videoId, status: res.status });
-      return null;
-    }
-
-    const data = await res.json();
-    if (!data.text || data.text.length === 0) return null;
-
-    log.success('Got transcript from service', {
-      videoId,
-      lang: data.language,
-      chars: data.text.length,
-      segments: data.segments?.length ?? 0,
-    });
-
-    return {
-      text: data.text,
-      language: data.language || language || 'en',
-    };
-  } catch (err) {
-    log.warn('Transcript service failed', { videoId, error: err instanceof Error ? err.message : String(err) });
-    return null;
-  }
-}
-
-export async function fetchYouTubeTranscript(videoId: string, language?: string): Promise<YouTubeTranscriptResult | null> {
-  // PRIORITY 1: External transcript service (not blocked by YouTube)
-  const serviceResult = await fetchFromTranscriptService(videoId, language);
-  if (serviceResult) return serviceResult;
-
-  // Build ordered list of languages to try.
-  // Always include legacy variants since YouTube channels often have wrong language metadata.
-  const langsToTry: (string | undefined)[] = [];
-  if (language) {
-    langsToTry.push(language);
-    const legacy = LANG_TO_YOUTUBE[language];
-    if (legacy) langsToTry.push(legacy);
-  }
-  langsToTry.push('en');
-  // Always try common legacy codes — many YouTube channels have incorrect language metadata
-  for (const [modern, legacy] of Object.entries(LANG_TO_YOUTUBE)) {
-    langsToTry.push(modern);
-    langsToTry.push(legacy);
-  }
-  langsToTry.push(undefined); // auto-detect (no lang param)
-
-  // Deduplicate while preserving order
-  const seen = new Set<string>();
-  const uniqueLangs = langsToTry.filter(l => {
-    const key = l ?? '__auto__';
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-
-  log.info('Fetching transcript', { videoId, langsToTry: uniqueLangs.map(l => l ?? 'auto') });
-
-  const startTime = Date.now();
-
-  for (const lang of uniqueLangs) {
-    // Enforce overall timeout across all language attempts
-    const elapsed = Date.now() - startTime;
-    if (elapsed > YOUTUBE_TRANSCRIPT_TIMEOUT_MS) {
-      log.warn('YouTube transcript timeout reached, aborting', { videoId, elapsedMs: elapsed });
-      return null;
-    }
-
-    try {
-      const opts = lang ? { lang } : {};
-      const remaining = YOUTUBE_TRANSCRIPT_TIMEOUT_MS - (Date.now() - startTime);
-      const segments = await Promise.race([
-        YoutubeTranscript.fetchTranscript(videoId, opts),
-        new Promise<null>((_, reject) =>
-          setTimeout(() => reject(new Error('YouTube transcript attempt timed out')), Math.max(remaining, 1000))
-        ),
-      ]);
-
-      if (!segments || segments.length === 0) continue;
-
-      const detectedLang = segments[0]?.lang || lang || 'en';
-      const fullText = segments
-        .map(s => decodeEntities(s.text))
-        .join(' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-      if (!fullText) continue;
-
-      log.success('Got transcript', {
-        videoId,
-        lang: lang ?? 'auto',
-        detectedLang,
-        segments: segments.length,
-        chars: fullText.length,
-      });
-      return { text: fullText, language: detectedLang };
-    } catch {
-      log.info('No transcript for lang', { videoId, lang: lang ?? 'auto' });
-    }
-  }
-
-  log.warn('No transcript available in any language', { videoId });
-  return null;
 }
 
 /**
@@ -299,8 +141,7 @@ function parseLinksFromDescription(description: string): { url: string; text: st
 }
 
 /**
- * Fetch rich metadata from a YouTube video using the InnerTube /player API.
- * Reuses the same client fallback strategy as transcript fetching.
+ * Fetch rich metadata from a YouTube video using the watch page scraper.
  * Extracts: description, links, chapters, keywords, storyboard spec, duration.
  */
 export async function fetchYouTubeMetadata(videoId: string): Promise<YouTubeMetadata | null> {

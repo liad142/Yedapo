@@ -134,9 +134,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     const handleTimeUpdate = () => {
       setCurrentTime(audio.currentTime);
-      // Debounced save every 30 seconds
+      // Debounced save every 10 seconds
       const now = Date.now();
-      if (now - lastSaveRef.current >= 30000 && currentTrackRef.current?.id) {
+      if (now - lastSaveRef.current >= 10000 && currentTrackRef.current?.id) {
         lastSaveRef.current = now;
         saveListeningProgress(
           currentTrackRef.current.id,
@@ -214,20 +214,28 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     };
   }, []);
 
-  // Save progress on page unload
+  // Save progress on page unload AND when tab/app becomes hidden (critical for mobile)
   useEffect(() => {
-    const handleUnload = () => {
-      if (currentTrackRef.current?.id && audioRef.current) {
+    const saveNow = () => {
+      if (currentTrackRef.current?.id && audioRef.current && audioRef.current.currentTime > 0) {
         saveListeningProgress(
           currentTrackRef.current.id,
           audioRef.current.currentTime,
           audioRef.current.duration || 0,
           userRef.current?.id
         );
+        lastSaveRef.current = Date.now();
       }
     };
-    window.addEventListener('beforeunload', handleUnload);
-    return () => window.removeEventListener('beforeunload', handleUnload);
+    const handleVisibilityChange = () => {
+      if (document.hidden) saveNow();
+    };
+    window.addEventListener('beforeunload', saveNow);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('beforeunload', saveNow);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const loadTrack = useCallback((track: Track) => {

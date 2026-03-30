@@ -116,6 +116,11 @@ function MyListContent() {
       if (!res.ok) throw new Error('Failed to fetch subscriptions');
       const data = await res.json();
       setPodcasts(data.podcasts || []);
+
+      // Mark all subscriptions as viewed so badge + green dots clear
+      if ((data.podcasts || []).some((p: any) => p.has_new_episodes)) {
+        fetch('/api/subscriptions', { method: 'PATCH' }).catch(() => {});
+      }
     } catch (err) {
       log.error('Error fetching subscriptions', err);
       setPodcastsError('Failed to load your podcasts');

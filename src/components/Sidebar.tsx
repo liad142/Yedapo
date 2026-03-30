@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -376,7 +376,7 @@ function MobileBottomNav({ newEpisodeCount = 0, newSummaryCount = 0, onSummaries
 export function Sidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
-  const { unreadCount, newEpisodeCount, markAllRead } = useUnreadCount();
+  const { unreadCount, newEpisodeCount, refetchCount, markAllRead } = useUnreadCount();
   const { user } = useAuth();
   const { newCount: newSummaryCount, markSeen: markSummariesSeen } = useNewSummaryCount();
 
@@ -388,6 +388,15 @@ export function Sidebar() {
       markSummariesSeen();
     }
   }, [pathname, markSummariesSeen]);
+
+  // Refetch badge counts when leaving My List (PATCH has cleared last_viewed_at)
+  const prevPathRef = useRef(pathname);
+  useEffect(() => {
+    if (prevPathRef.current === '/my-list' && pathname !== '/my-list') {
+      refetchCount();
+    }
+    prevPathRef.current = pathname;
+  }, [pathname, refetchCount]);
 
   const closeMobileMenu = useCallback(() => {
     setIsMobileMenuOpen(false);

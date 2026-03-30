@@ -109,6 +109,26 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// PATCH: Mark all subscriptions as viewed (clears "new episode" badges)
+export async function PATCH() {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    await createAdminClient()
+      .from('podcast_subscriptions')
+      .update({ last_viewed_at: new Date().toISOString() })
+      .eq('user_id', user.id);
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error('Error marking subscriptions as viewed:', error);
+    return NextResponse.json({ error: 'Failed to update' }, { status: 500 });
+  }
+}
+
 // POST: Subscribe to a podcast
 export async function POST(request: NextRequest) {
   const user = await getAuthUser();

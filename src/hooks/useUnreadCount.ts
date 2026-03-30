@@ -76,7 +76,17 @@ export function useUnreadCount() {
 
     fetchCount();
     const interval = setInterval(fetchCount, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
+
+    // Refetch when tab becomes visible (catches badge changes from My List page)
+    const handleVisibility = () => {
+      if (!document.hidden) fetchCount();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [userId, fetchCount]);
 
   const markAllRead = useCallback(async () => {

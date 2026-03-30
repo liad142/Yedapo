@@ -273,6 +273,30 @@ export async function GET(request: NextRequest) {
       .select('id, title, podcast_id, audio_url, podcasts(id, title, image_url, rss_feed_url)')
       .in('id', episodeIds);
 
+    // Backfill YouTube channel thumbnails for episodes missing image_url
+    const ytEps = (episodes || []).filter((ep: any) => {
+      const p = Array.isArray(ep.podcasts) ? ep.podcasts[0] : ep.podcasts;
+      return !p?.image_url && p?.rss_feed_url?.startsWith('youtube:channel:');
+    });
+    if (ytEps.length > 0) {
+      const chIds = ytEps.map((ep: any) => {
+        const p = Array.isArray(ep.podcasts) ? ep.podcasts[0] : ep.podcasts;
+        return p.rss_feed_url.replace('youtube:channel:', '');
+      });
+      const { data: ytChannels } = await admin
+        .from('youtube_channels')
+        .select('channel_id, thumbnail_url')
+        .in('channel_id', chIds);
+      if (ytChannels?.length) {
+        const thumbMap = new Map(ytChannels.map((ch: any) => [ch.channel_id, ch.thumbnail_url]));
+        for (const ep of ytEps) {
+          const p = Array.isArray(ep.podcasts) ? ep.podcasts[0] : ep.podcasts;
+          const chId = p.rss_feed_url.replace('youtube:channel:', '');
+          if (thumbMap.has(chId)) p.image_url = thumbMap.get(chId);
+        }
+      }
+    }
+
     const episodeMap = new Map(
       (episodes || []).map((ep: any) => [ep.id, ep])
     );

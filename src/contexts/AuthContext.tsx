@@ -179,7 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         scopes: 'https://www.googleapis.com/auth/youtube.readonly',
         queryParams: {
           access_type: 'offline',
-          prompt: 'consent',
+          prompt: 'select_account',
         },
       },
     });

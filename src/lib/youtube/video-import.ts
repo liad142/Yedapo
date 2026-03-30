@@ -26,9 +26,20 @@ export async function importYouTubeVideo(video: VideoImportData): Promise<{
   // Upsert the YouTube channel as a "podcast"
   const channelFeedUrl = `youtube:channel:${video.channelId}`;
 
+  // Look up channel thumbnail from youtube_channels (authoritative source)
+  let channelThumbnail = video.thumbnailUrl || null;
+  const { data: ytChannel } = await supabase
+    .from('youtube_channels')
+    .select('thumbnail_url')
+    .eq('channel_id', video.channelId)
+    .single();
+  if (ytChannel?.thumbnail_url) {
+    channelThumbnail = ytChannel.thumbnail_url;
+  }
+
   const { data: existingPodcast } = await supabase
     .from('podcasts')
-    .select('id')
+    .select('id, image_url')
     .eq('rss_feed_url', channelFeedUrl)
     .single();
 
@@ -36,13 +47,21 @@ export async function importYouTubeVideo(video: VideoImportData): Promise<{
 
   if (existingPodcast) {
     podcastId = existingPodcast.id;
+
+    // Sync channel thumbnail to podcast image_url if missing
+    if (channelThumbnail && !existingPodcast.image_url) {
+      await supabase
+        .from('podcasts')
+        .update({ image_url: channelThumbnail })
+        .eq('id', podcastId);
+    }
   } else {
     const { data: newPodcast, error: podcastError } = await supabase
       .from('podcasts')
       .insert({
         title: video.channelTitle,
         rss_feed_url: channelFeedUrl,
-        image_url: video.thumbnailUrl || null,
+        image_url: channelThumbnail,
         language: 'en',
       })
       .select('id')

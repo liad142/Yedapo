@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
             id, episode_id, status, updated_at,
             episodes!inner (
               id, title, description, published_at, duration_seconds, podcast_id,
-              podcasts ( id, title, image_url, author )
+              podcasts ( id, title, image_url, author, rss_feed_url )
             )
           `)
           .in('id', summaryIds)
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
             id, episode_id, status, updated_at,
             episodes!inner (
               id, title, description, published_at, duration_seconds, podcast_id,
-              podcasts ( id, title, image_url, author )
+              podcasts ( id, title, image_url, author, rss_feed_url )
             )
           `)
           .in('episode_id', episodeIds)
@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
               id, episode_id, status, updated_at,
               episodes!inner (
                 id, title, description, published_at, duration_seconds, podcast_id,
-                podcasts ( id, title, image_url, author )
+                podcasts ( id, title, image_url, author, rss_feed_url )
               )
             `)
             .in('episode_id', subEpisodeIds)
@@ -207,6 +207,34 @@ export async function GET(request: NextRequest) {
         if (aOrder !== bOrder) return aOrder - bOrder;
         return new Date(b.summary_updated_at || 0).getTime() - new Date(a.summary_updated_at || 0).getTime();
       });
+
+    // Backfill YouTube channel thumbnails for episodes missing image_url
+    const ytChannelIds = result
+      .filter(r => !r.podcast?.image_url && r.podcast?.rss_feed_url?.startsWith('youtube:channel:'))
+      .map(r => r.podcast!.rss_feed_url!.replace('youtube:channel:', ''));
+
+    if (ytChannelIds.length > 0) {
+      const { data: ytChannels } = await admin
+        .from('youtube_channels')
+        .select('channel_id, thumbnail_url')
+        .in('channel_id', ytChannelIds);
+
+      if (ytChannels?.length) {
+        const thumbMap = new Map(ytChannels.map((ch: any) => [ch.channel_id, ch.thumbnail_url]));
+        for (const ep of result) {
+          if (!ep.podcast?.image_url && ep.podcast?.rss_feed_url?.startsWith('youtube:channel:')) {
+            const chId = ep.podcast.rss_feed_url.replace('youtube:channel:', '');
+            const thumb = thumbMap.get(chId);
+            if (thumb) ep.podcast.image_url = thumb;
+          }
+        }
+      }
+    }
+
+    // Strip rss_feed_url from response (not needed by client)
+    for (const ep of result) {
+      if (ep.podcast) delete (ep.podcast as any).rss_feed_url;
+    }
 
     const hasNonTerminal = result.some(r => NON_TERMINAL.includes(r.status));
     const activeCount = result.filter(r => NON_TERMINAL.includes(r.status)).length;

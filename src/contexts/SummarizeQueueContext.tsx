@@ -224,9 +224,10 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
         setQueue(currentQueue => {
           const item = currentQueue.find(i => i.episodeId === episodeId);
           if (item && item.retryCount < MAX_RETRIES) {
-            log.warn('Retrying', { episodeId, retryCount: item.retryCount + 1 });
-            updateQueueItem(episodeId, { retryCount: item.retryCount + 1, state: 'transcribing' });
-            setTimeout(() => startProcessingRef.current?.(episodeId), RETRY_DELAY);
+            log.warn('Retrying — re-queuing', { episodeId, retryCount: item.retryCount + 1 });
+            updateQueueItem(episodeId, { retryCount: item.retryCount + 1, state: 'queued' });
+            finishProcessing(episodeId);
+            // processNext() will be called by the useEffect when processingId becomes null
           } else {
             log.error('Max retries reached', { episodeId });
             posthog.capture('summary_failed', { episode_id: episodeId, error: 'Processing failed after retries', duration_ms: elapsedMs });
@@ -304,8 +305,10 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
       setQueue(currentQueue => {
         const item = currentQueue.find(i => i.episodeId === episodeId);
         if (item && item.retryCount < MAX_RETRIES) {
-          updateQueueItem(episodeId, { retryCount: item.retryCount + 1 });
-          setTimeout(() => startProcessingRef.current?.(episodeId), RETRY_DELAY);
+          log.warn('POST failed — re-queuing for retry', { episodeId, retryCount: item.retryCount + 1 });
+          updateQueueItem(episodeId, { retryCount: item.retryCount + 1, state: 'queued' });
+          finishProcessing(episodeId);
+          // processNext() will be called by the useEffect when processingId becomes null
         } else {
           updateQueueItem(episodeId, { state: 'failed', error: 'Failed to start processing' });
           setStats(prev => ({ ...prev, failed: prev.failed + 1 }));

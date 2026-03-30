@@ -187,6 +187,30 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ episodes: [], nextCursor: null });
   }
 
+  // Backfill YouTube channel thumbnails for episodes missing image_url
+  const ytMissing = episodes.filter((ep: any) => {
+    const p = Array.isArray(ep.podcasts) ? ep.podcasts[0] : ep.podcasts;
+    return !p?.image_url && p?.rss_feed_url?.startsWith('youtube:channel:');
+  });
+  if (ytMissing.length > 0) {
+    const chIds = ytMissing.map((ep: any) => {
+      const p = Array.isArray(ep.podcasts) ? ep.podcasts[0] : ep.podcasts;
+      return p.rss_feed_url.replace('youtube:channel:', '');
+    });
+    const { data: ytChs } = await admin
+      .from('youtube_channels')
+      .select('channel_id, thumbnail_url')
+      .in('channel_id', [...new Set(chIds)]);
+    if (ytChs?.length) {
+      const thumbMap = new Map(ytChs.map((ch: any) => [ch.channel_id, ch.thumbnail_url]));
+      for (const ep of ytMissing) {
+        const p = Array.isArray(ep.podcasts) ? ep.podcasts[0] : ep.podcasts;
+        const chId = p.rss_feed_url.replace('youtube:channel:', '');
+        if (thumbMap.has(chId)) p.image_url = thumbMap.get(chId);
+      }
+    }
+  }
+
   // 4. Get user's preferred genres for filtering
   let genreKeywords: string[] = [];
   let hasPreferences = false;

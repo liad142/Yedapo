@@ -63,10 +63,18 @@ function UpgradeModalBridge() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const isLanding = pathname === '/';
+  const isMarketing = isLanding || pathname === '/pricing';
   const isAdmin = pathname.startsWith('/admin');
 
-  if (isAdmin) {
-    return <main id="main-content" className="min-h-screen">{children}</main>;
+  if (isMarketing || isAdmin) {
+    return (
+      <>
+        <main id="main-content" className="min-h-screen">{children}</main>
+        {isMarketing && <AuthModal />}
+        {isMarketing && <CookieConsent />}
+      </>
+    );
   }
 
   return (

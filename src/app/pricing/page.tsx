@@ -3,6 +3,7 @@ import { Sparkles } from 'lucide-react';
 import { PLAN_LIMITS } from '@/lib/plans';
 import { PricingCard } from './PricingCard';
 import type { Tier } from './PricingCard';
+import { LandingNav, LandingFooter } from '@/components/landing';
 
 export const metadata: Metadata = {
   title: 'Pricing — Yedapo',
@@ -95,17 +96,28 @@ const FAQS = [
 ];
 
 /* ────────────────────────────────────────────────── */
-/*  Page (Server Component)                           */
+/*  Page                                              */
 /* ────────────────────────────────────────────────── */
 
 export default function PricingPage() {
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <div className="max-w-5xl mx-auto px-4 pt-8 sm:pt-12 space-y-12">
+    <div className="min-h-screen bg-background text-foreground">
+      <LandingNav />
+
+      <div className="max-w-5xl mx-auto px-4 pt-28 sm:pt-32 pb-20 space-y-12 relative overflow-hidden">
+        {/* Gradient orbs background */}
+        <div
+          className="landing-orb -top-20 left-[20%] w-[400px] h-[400px] bg-primary/[0.08] dark:bg-primary/[0.04]"
+          style={{ filter: 'blur(120px)', animation: 'landing-float 8s ease-in-out infinite' }}
+        />
+        <div
+          className="landing-orb top-10 right-[15%] w-[350px] h-[350px] bg-[#8b5cf6]/[0.06] dark:bg-[#8b5cf6]/[0.03]"
+          style={{ filter: 'blur(100px)', animation: 'landing-float-reverse 10s ease-in-out infinite' }}
+        />
 
         {/* Header */}
-        <div className="text-center max-w-2xl mx-auto">
-          <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-semibold text-primary mb-4">
+        <div className="relative text-center max-w-2xl mx-auto">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-sm font-semibold text-primary mb-4">
             <Sparkles className="h-3.5 w-3.5" />
             Pricing
           </div>
@@ -118,7 +130,7 @@ export default function PricingPage() {
           </p>
         </div>
 
-        {/* Cards (interactive — client component) */}
+        {/* Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-5 items-start max-w-3xl mx-auto">
           {TIERS.map((tier, i) => (
             <PricingCard key={tier.name} tier={tier} index={i} />
@@ -141,7 +153,7 @@ export default function PricingPage() {
             {FAQS.map((faq) => (
               <div
                 key={faq.q}
-                className="rounded-2xl border border-border bg-card p-5"
+                className="rounded-2xl border border-border bg-card p-5 transition-all duration-300 hover:border-primary/20 hover:shadow-md hover:shadow-primary/5"
               >
                 <p className="font-semibold text-foreground text-sm">{faq.q}</p>
                 <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
@@ -151,8 +163,9 @@ export default function PricingPage() {
             ))}
           </div>
         </div>
-
       </div>
+
+      <LandingFooter />
     </div>
   );
 }

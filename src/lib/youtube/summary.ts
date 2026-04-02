@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchYouTubeTranscript } from './transcripts';
+import { fetchSupadataTranscript } from './supadata';
 import { generateSummaryForLevel } from '@/lib/summary-service';
 import { generateInsights } from '@/lib/insights-service';
 import { ensureYouTubeMetadata } from './metadata';
@@ -53,8 +53,8 @@ export async function requestYouTubeSummary(
   if (existingTranscript?.status === 'ready' && existingTranscript.full_text) {
     transcriptText = existingTranscript.full_text;
   } else {
-    // Fetch YouTube captions
-    const ytTranscript = await fetchYouTubeTranscript(videoId, language);
+    // Fetch YouTube captions via Supadata
+    const ytTranscript = await fetchSupadataTranscript(videoId, language);
 
     if (!ytTranscript) {
       // Update summary status to failed

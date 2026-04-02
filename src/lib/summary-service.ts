@@ -3,8 +3,7 @@ import { transcribeFromUrl, formatTranscriptWithTimestamps, formatTranscriptWith
 import { isVoxtralSupported, transcribeWithVoxtral } from "./voxtral";
 import { getAppleTranscript } from "./apple-transcripts";
 import { extractYouTubeVideoId } from "@/lib/youtube/utils";
-import { fetchYouTubeTranscript } from "@/lib/youtube/transcripts";
-import type { YouTubeMetadata } from "@/lib/youtube/transcripts";
+import { fetchSupadataTranscript } from "@/lib/youtube/supadata";
 import { ensureYouTubeMetadata } from "@/lib/youtube/metadata";
 import { extractYouTubeAudioUrl } from "@/lib/youtube/audio-extractor";
 import { acquireLock, releaseLock } from '@/lib/cache';
@@ -606,23 +605,16 @@ export async function ensureTranscript(
     let pendingSpeakerIdentification = false;
 
     // ============================================
-    // PRIORITY 0: YouTube captions (FREE, fast)
+    // PRIORITY 0: YouTube captions via Supadata API (fast, cheap)
     // YouTube watch URLs are HTML pages, not audio — audio transcription will always fail.
-    // Instead, fetch captions directly via youtube-transcript-plus package.
+    // Fetch captions via Supadata; if unavailable, fall through to audio extraction.
     // ============================================
     const youtubeVideoId = extractYouTubeVideoId(audioUrl);
     if (!transcriptText && youtubeVideoId) {
-      log.info('PRIORITY 0: YouTube URL detected, fetching captions...', { youtubeVideoId });
+      log.info('PRIORITY 0: YouTube URL detected, fetching captions via Supadata...', { youtubeVideoId });
       const ytStart = Date.now();
       try {
-        // 30s hard timeout for YouTube transcript attempts
-        const ytResult = await Promise.race([
-          fetchYouTubeTranscript(youtubeVideoId, language),
-          new Promise<null>((resolve) => setTimeout(() => {
-            log.warn('YouTube transcript hard timeout (30s)', { youtubeVideoId });
-            resolve(null);
-          }, 30_000)),
-        ]);
+        const ytResult = await fetchSupadataTranscript(youtubeVideoId, language);
         if (ytResult) {
           transcriptText = ytResult.text;
           provider = 'youtube-captions';
@@ -633,13 +625,13 @@ export async function ensureTranscript(
             speakerCount: 1,
             detectedLanguage: language,
           };
-          log.info('SUCCESS: Got YouTube captions!', { textLength: transcriptText.length, durationMs: Date.now() - ytStart });
+          log.info('SUCCESS: Got YouTube captions via Supadata!', { textLength: transcriptText.length, durationMs: Date.now() - ytStart });
         } else {
-          log.warn('PRIORITY 0 FAILED: No YouTube captions available', { durationMs: Date.now() - ytStart });
+          log.warn('PRIORITY 0 FAILED: No YouTube captions available via Supadata', { durationMs: Date.now() - ytStart });
         }
       } catch (ytError) {
         const errorMsg = ytError instanceof Error ? ytError.message : String(ytError);
-        log.error('PRIORITY 0 ERROR: YouTube caption fetch failed', { error: errorMsg, durationMs: Date.now() - ytStart });
+        log.error('PRIORITY 0 ERROR: Supadata caption fetch failed', { error: errorMsg, durationMs: Date.now() - ytStart });
       }
     }
 

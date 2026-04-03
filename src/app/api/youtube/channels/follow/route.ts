@@ -92,7 +92,32 @@ export async function POST(request: NextRequest) {
     // Fetch channel videos via YouTube Data API and upsert
     let dbChannel: YouTubeChannel;
     let videosAdded = 0;
-    const channelId = parsed.type === 'channel' ? parsed.value : parsed.value;
+
+    // Resolve handle to actual UC-channel ID via YouTube Data API
+    let channelId = parsed.value;
+    if (parsed.type === 'handle') {
+      const apiKey = process.env.YOUTUBE_API_KEY;
+      if (apiKey) {
+        const handleName = parsed.value.replace(/^@/, '');
+        const res = await fetch(`https://www.googleapis.com/youtube/v3/channels?${new URLSearchParams({
+          part: 'snippet',
+          forHandle: handleName,
+          key: apiKey,
+        })}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.items?.[0]?.id) {
+            channelId = data.items[0].id;
+          }
+        }
+      }
+      if (channelId === parsed.value) {
+        return NextResponse.json(
+          { error: 'Could not resolve YouTube handle to channel ID' },
+          { status: 400 }
+        );
+      }
+    }
 
     try {
       const { videos } = await fetchChannelVideos(channelId, 15);

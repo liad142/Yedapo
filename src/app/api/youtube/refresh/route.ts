@@ -11,6 +11,9 @@ import {
 import { fetchChannelVideos } from '@/lib/youtube/api';
 import { checkRateLimit } from '@/lib/cache';
 import { getAuthUser } from '@/lib/auth-helpers';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('yt-refresh');
 
 export async function POST(request: NextRequest) {
   const user = await getAuthUser();
@@ -72,7 +75,7 @@ export async function POST(request: NextRequest) {
         totalVideosAdded += result.value.videosCount;
       } else {
         const channel = channels[i];
-        console.error(`Failed to refresh channel ${channel.channelName}:`, result.reason);
+        log.error(`Failed to refresh channel ${channel.channelName}`, result.reason);
         errors.push(`${channel.channelName}: ${result.reason instanceof Error ? result.reason.message : 'Unknown error'}`);
       }
     }
@@ -84,7 +87,7 @@ export async function POST(request: NextRequest) {
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {
-    console.error('Refresh channels error:', error);
+    log.error('Refresh channels error', error);
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : 'Failed to refresh channels',

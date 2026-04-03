@@ -74,8 +74,13 @@ export async function POST(
 
     const { id: episodeId } = await context.params;
 
-    // Invalidate stale insights cache so polling picks up the new state
-    await deleteCached(CacheKeys.insightsStatus(episodeId, 'en')).catch(() => {});
+    // Invalidate stale insights cache for both 'en' and detected language
+    await Promise.all([
+      deleteCached(CacheKeys.insightsStatus(episodeId, 'en')).catch(() => {}),
+      language && language !== 'en'
+        ? deleteCached(CacheKeys.insightsStatus(episodeId, language)).catch(() => {})
+        : Promise.resolve(),
+    ]);
 
     const supabase = createAdminClient();
 
@@ -138,7 +143,8 @@ export async function POST(
           .from('summaries')
           .update({ status: 'failed', error_message: String(err) })
           .eq('episode_id', episodeId)
-          .eq('level', 'insights');
+          .eq('level', 'insights')
+          .eq('language', resolvedLanguage || 'en');
       }
     });
 

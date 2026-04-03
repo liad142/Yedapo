@@ -12,34 +12,27 @@ export async function GET(request: NextRequest) {
 
     const admin = createAdminClient();
 
-    // Get this user's summary IDs and episode IDs from the junction table
-    const { data: userSummaries, error: userSummariesError } = await admin
-      .from('user_summaries')
-      .select('summary_id, episode_id')
-      .eq('user_id', user.id);
+    // Run initial queries in parallel instead of sequentially
+    const [userSummariesResult, podcastSubsResult, channelFollowsResult] = await Promise.all([
+      admin.from('user_summaries').select('summary_id, episode_id').eq('user_id', user.id),
+      admin.from('podcast_subscriptions').select('podcast_id').eq('user_id', user.id),
+      admin.from('youtube_channel_follows').select('channel_id').eq('user_id', user.id),
+    ]);
+
+    const { data: userSummaries, error: userSummariesError } = userSummariesResult;
 
     if (userSummariesError) {
       console.error('Error fetching user_summaries:', userSummariesError);
       return NextResponse.json({ error: 'Failed to fetch summaries' }, { status: 500 });
     }
 
-    const summaryIds = (userSummaries || []).map(us => us.summary_id);
-    const episodeIds = [...new Set((userSummaries || []).map(us => us.episode_id))];
+    const summaryIds = (userSummaries || []).map((us: any) => us.summary_id);
+    const episodeIds = [...new Set((userSummaries || []).map((us: any) => us.episode_id))];
 
     // --- Also get summaries for subscribed podcasts and followed YouTube channels ---
-    // 1. Podcast subscriptions
-    const { data: podcastSubs } = await admin
-      .from('podcast_subscriptions')
-      .select('podcast_id')
-      .eq('user_id', user.id);
+    const subscribedPodcastIds = (podcastSubsResult.data || []).map((s: any) => s.podcast_id);
 
-    const subscribedPodcastIds = (podcastSubs || []).map((s: any) => s.podcast_id);
-
-    // 2. YouTube channel follows → get podcast_ids for those channels
-    const { data: channelFollows } = await admin
-      .from('youtube_channel_follows')
-      .select('channel_id')
-      .eq('user_id', user.id);
+    const channelFollows = channelFollowsResult.data;
 
     let channelPodcastIds: string[] = [];
     if (channelFollows && channelFollows.length > 0) {

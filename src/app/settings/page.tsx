@@ -21,6 +21,8 @@ import { APPLE_PODCAST_GENRES, APPLE_PODCAST_COUNTRIES } from '@/types/apple-pod
 import { Toast } from '@/components/ui/toast';
 import { useUsage } from '@/contexts/UsageContext';
 import { UsageMeter } from '@/components/UsageMeter';
+import { PLAN_META } from '@/lib/plans';
+import type { UserPlan } from '@/lib/plans';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { YouTubeChannelCard } from '@/components/onboarding/YouTubeChannelCard';
 import { YouTubeImportModal } from '@/components/YouTubeImportModal';
@@ -578,7 +580,7 @@ export default function SettingsPage() {
                   <FieldLabel>Your Plan</FieldLabel>
                   <div className="mt-2 p-4 rounded-2xl bg-card border border-border space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-foreground capitalize">{usage.plan} Plan</span>
+                      <span className="text-sm font-semibold text-foreground">{(PLAN_META[usage.plan as UserPlan] || PLAN_META.free).label} Plan</span>
                       {usage.resetsAt && (
                         <span className="text-[11px] text-muted-foreground">
                           Resets {new Date(usage.resetsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

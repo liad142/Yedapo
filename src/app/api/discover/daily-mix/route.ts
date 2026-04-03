@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
   // Resolve auth early so the cache key includes the user ID when personalized
   let authUser: { id: string; email?: string | null } | null = null;
   try {
-    authUser = await getAuthUser();
+    authUser = await getAuthUser({ silent: true });
   } catch {
     // Not authenticated — use guest cache key
   }

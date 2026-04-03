@@ -290,6 +290,9 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
       if (lookupResult.summaryStatus === 'ready' && localSummaryStatus !== 'ready') {
         setLocalSummaryStatus('ready');
       }
+      if (lookupResult.summaryStatus === 'failed' && localSummaryStatus !== 'ready' && localSummaryStatus !== 'failed') {
+        setLocalSummaryStatus('failed');
+      }
       // Resume polling for in-progress YouTube summaries (survives navigation)
       const inProgressStatuses = ['transcribing', 'summarizing', 'queued'];
       if (
@@ -401,7 +404,33 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
 
     // Retry from failed state
     if (localSummaryStatus === 'failed') {
-      // Fall through to re-attempt
+      if (type === 'podcast' && localEpisodeId) {
+        setLocalSummaryStatus('loading');
+        setLocalError(null);
+        try {
+          const res = await fetch(`/api/episodes/${localEpisodeId}/summaries`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ level: 'deep' }),
+          });
+          if (res.ok) {
+            if (summarizeQueue) {
+              summarizeQueue.addToQueue(localEpisodeId);
+              incrementSummary();
+            }
+            setLocalSummaryStatus('transcribing');
+            return;
+          }
+          const errBody = await res.json().catch(() => ({}));
+          setLocalSummaryStatus('failed');
+          setLocalError(errBody.message || 'Retry failed. Please try again later.');
+        } catch {
+          setLocalSummaryStatus('failed');
+          setLocalError('Network error. Please check your connection.');
+        }
+        return;
+      }
+      // For YouTube or episodes without an ID, fall through to re-attempt
     }
 
     if (onSummarize) {
@@ -706,9 +735,8 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
             onClick={handleSummarize}
             className="rounded-full px-5 transition-all hover:scale-105 active:scale-95"
           >
-            <AlertCircle className="mr-2 h-4 w-4" />
-            Failed
-            <RefreshCw className="ml-2 h-3 w-3" />
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Retry
           </Button>
         ) : lookupUrl && isLookupLoading(lookupUrl) ? (
           <Button size="sm" disabled variant="outline" className="rounded-full px-5 transition-all">
@@ -742,10 +770,12 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
       </div>
 
       {/* Error message */}
-      {localError && localSummaryStatus === 'failed' && (
+      {localSummaryStatus === 'failed' && (
         <div className="mt-3 mx-4 mb-3 p-2.5 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-2">
           <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-destructive leading-relaxed">{localError}</p>
+          <p className="text-xs text-destructive leading-relaxed">
+            {localError || 'Summary generation failed. Tap Retry to try again.'}
+          </p>
         </div>
       )}
     </motion.article>

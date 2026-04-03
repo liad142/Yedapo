@@ -30,6 +30,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Comment must be 1-2000 characters' }, { status: 400 });
     }
 
+    // Strip HTML tags to prevent stored XSS (same as comment creation)
+    const sanitized = trimmed.replace(/<[^>]*>/g, '');
+    if (!sanitized) {
+      return NextResponse.json({ error: 'Comment must be 1-2000 characters' }, { status: 400 });
+    }
+
     const admin = createAdminClient();
 
     // Verify ownership
@@ -51,7 +57,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const { data: updated, error } = await admin
       .from('episode_comments')
-      .update({ body: trimmed, edited_at: new Date().toISOString() })
+      .update({ body: sanitized, edited_at: new Date().toISOString() })
       .eq('id', commentId)
       .select(`
         id, episode_id, user_id, parent_id, body, edited_at, created_at, updated_at,

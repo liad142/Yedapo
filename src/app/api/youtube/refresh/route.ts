@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // Rate limiting
-    if (!(await checkRateLimit(user.id, 5, 60))) {
+    if (!(await checkRateLimit(`yt-refresh:${user.id}`, 5, 60))) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please try again in a minute.' },
         { status: 429 }

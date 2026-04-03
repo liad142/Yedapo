@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { SummaryPanel } from '@/components/SummaryPanel';
 import { Button } from '@/components/ui/button';
@@ -53,14 +53,14 @@ export default function EpisodePageClient({
     ? extractYouTubeVideoId(episode?.audio_url)
     : null;
 
-  // Track episode view
-  if (typeof window !== 'undefined') {
+  // Track episode view (once per episode)
+  useEffect(() => {
     posthog.capture('episode_viewed', {
       episode_id: episodeId,
       podcast_name: podcast?.title,
       is_youtube: podcast?.rss_feed_url?.startsWith('youtube:') || false,
     });
-  }
+  }, [episodeId, podcast?.title, podcast?.rss_feed_url]);
 
   const getBackLink = () => {
     const rssUrl = podcast?.rss_feed_url;

@@ -213,7 +213,7 @@ export function CommentsSection({ episodeId, sectionLabel, isRTL }: CommentsSect
       if (!res.ok) throw new Error("Failed");
     } catch {
       setComments(prev);
-      setTotal(prev.length);
+      setTotal((t) => t + (prev.some((c) => c.id === commentId) ? 1 : 0));
     }
   };
 

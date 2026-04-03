@@ -42,7 +42,7 @@ export function useListeningProgressBatch(episodeIds: string[]) {
   const fetchedRef = useRef<string>('');
 
   useEffect(() => {
-    const key = episodeIds.sort().join(',');
+    const key = [...episodeIds].sort().join(',');
     if (!key || key === fetchedRef.current) return;
     fetchedRef.current = key;
 

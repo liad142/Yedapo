@@ -10,8 +10,6 @@ import { Input } from '@/components/ui/input';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
-import { useUsage } from '@/contexts/UsageContext';
 import { SummarizeButton } from '@/components/SummarizeButton';
 
 interface SearchPodcast {
@@ -42,8 +40,6 @@ interface SearchVideo {
 export function SemanticSearchBar() {
   const router = useRouter();
   const { user, setShowCompactPrompt } = useAuth();
-  const { addToQueue } = useSummarizeQueue();
-  const { incrementSummary } = useUsage();
   // Read initial query from URL without useSearchParams() to avoid dynamic rendering / RSC refetches
   const [query, setQuery] = useState(() => {
     if (typeof window === 'undefined') return '';
@@ -256,10 +252,9 @@ export function SemanticSearchBar() {
       });
       if (res.ok) {
         const data = await res.json();
-        // Now we have an episodeId — add to queue and swap to real SummarizeButton
+        // Now we have an episodeId — swap to real SummarizeButton which handles
+        // its own summarization trigger and quota tracking on completion
         setImportedVideos((prev) => ({ ...prev, [video.videoId]: data.episodeId }));
-        addToQueue(data.episodeId);
-        incrementSummary();
       }
     } catch {
       // Silently fail

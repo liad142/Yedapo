@@ -32,6 +32,7 @@ const GENRE_KEYWORDS: Record<string, string[]> = {
 
 export async function GET(request: NextRequest) {
   const genreId = request.nextUrl.searchParams.get('genreId');
+  const country = request.nextUrl.searchParams.get('country')?.toLowerCase() || 'us';
   const limit = Math.min(parseInt(request.nextUrl.searchParams.get('limit') || '5', 10), 10);
 
   if (!genreId) {
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ episodes: [] });
   }
 
-  const cacheKey = `discover:genre:${genreId}`;
+  const cacheKey = `discover:genre:${genreId}:${country}`;
   const cached = await getCached<{ episodes: any[] }>(cacheKey);
   if (cached) {
     return NextResponse.json(cached, {

@@ -24,7 +24,7 @@ interface CuriosityFeedProps {
   episodes: FeedEpisode[];
   isLoading?: boolean;
   hasMore?: boolean;
-  onLoadMore?: () => void;
+  onLoadMore?: () => Promise<void> | void;
 }
 
 export function CuriosityFeed({
@@ -35,12 +35,14 @@ export function CuriosityFeed({
 }: CuriosityFeedProps) {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const handleLoadMore = () => {
+  const handleLoadMore = async () => {
     if (isLoadingMore || !onLoadMore || isLoading) return;
     setIsLoadingMore(true);
-    onLoadMore();
-    // Reset after a short delay (parent controls actual loading state)
-    setTimeout(() => setIsLoadingMore(false), 1500);
+    try {
+      await onLoadMore();
+    } finally {
+      setIsLoadingMore(false);
+    }
   };
 
   return (

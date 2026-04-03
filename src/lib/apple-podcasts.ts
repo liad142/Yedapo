@@ -6,6 +6,7 @@
 import Parser from 'rss-parser';
 import { Agent } from 'undici';
 import { getCached, setCached, CacheKeys, CacheTTL, checkRateLimit as redisRateLimit } from '@/lib/cache';
+import { assertSafeUrl } from '@/lib/url-validation';
 import {
   isPodcastIndexConfigured,
   getPodcastByItunesId,
@@ -333,6 +334,9 @@ export async function getPodcastEpisodes(
         if (!resolvedFeedUrl) {
           throw new Error('No feed URL available');
         }
+
+        // SSRF protection: validate scheme and block private IPs before fetching
+        await assertSafeUrl(resolvedFeedUrl);
 
         const response = await fetch(resolvedFeedUrl, {
           headers: { 'User-Agent': 'Yedapo/1.0' },

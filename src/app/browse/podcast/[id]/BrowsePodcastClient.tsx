@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { SafeImage } from '@/components/SafeImage';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, Heart, Globe, Calendar, Mic2 } from 'lucide-react';
@@ -191,12 +191,14 @@ export default function BrowsePodcastClient({
   }, [country, initialCountry, isPodcastIndex, fetchPodcast, fetchEpisodes]);
 
   // Fetch if no initial data was provided (e.g., server fetch failed)
+  const hasFetchedOnMount = useRef(false);
   useEffect(() => {
-    if (!initialPodcast) {
+    if (!initialPodcast && !hasFetchedOnMount.current) {
+      hasFetchedOnMount.current = true;
       fetchPodcast();
       fetchEpisodes();
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialPodcast, fetchPodcast, fetchEpisodes]);
 
   // Update summaryAvailability when queue items complete
   useEffect(() => {

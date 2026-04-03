@@ -20,16 +20,16 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     // Verify admin status via API
     fetch('/api/admin/overview')
       .then(res => {
-        if (res.status === 403 || res.status === 401) {
+        if (res.ok) {
+          setIsAdmin(true);
+        } else {
           router.replace('/discover');
-          return;
         }
-        setIsAdmin(true);
       })
       .catch(() => {
         router.replace('/discover');
       });
-  }, [user, isLoading, router]);
+  }, [isLoading, router]);
 
   if (isLoading || isAdmin === null) {
     return (

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getAuthUser } from '@/lib/auth-helpers';
-import { isAdminEmail } from '@/lib/admin';
+import { requireAdmin } from '@/lib/admin';
 import { refreshSinglePodcastFeed } from '@/lib/rsshub-db';
 
 /**
@@ -15,17 +14,8 @@ import { refreshSinglePodcastFeed } from '@/lib/rsshub-db';
  * Returns detailed step-by-step trace of what the cron would do.
  */
 export async function GET(request: NextRequest) {
-  // Allow admin user OR cron secret header for testing
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = request.headers.get('x-cron-secret');
-  const user = await getAuthUser();
-
-  const isAdmin = isAdminEmail(user?.email || '');
-  const isCronAuth = cronSecret && authHeader === cronSecret;
-
-  if (!isAdmin && !isCronAuth) {
-    return NextResponse.json({ error: 'Admin only' }, { status: 403 });
-  }
+  const { user, error } = await requireAdmin();
+  if (error) return error;
 
   const { searchParams } = new URL(request.url);
   const podcastIdParam = searchParams.get('podcastId');
@@ -195,11 +185,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Step 7: Environment check
+    // Step 7: Environment check (no sensitive values exposed)
     trace.push({
       step: '7_env_check',
-      CRON_SECRET_set: !!process.env.CRON_SECRET,
-      NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || '(not set)',
     });
 
     return NextResponse.json({

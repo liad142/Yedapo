@@ -1,25 +1,13 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
 import { updateSession } from '@/lib/supabase/middleware';
 
 const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
 
 export async function middleware(request: NextRequest) {
-  const response = await updateSession(request);
+  const { response, user } = await updateSession(request);
 
-  // Server-side admin guard
+  // Server-side admin guard — reuses user from updateSession (no double getUser call)
   if (request.nextUrl.pathname.startsWith('/admin')) {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() { return request.cookies.getAll(); },
-          setAll() {},
-        },
-      }
-    );
-    const { data: { user } } = await supabase.auth.getUser();
     if (!user || !user.email || !adminEmails.includes(user.email.toLowerCase())) {
       return NextResponse.redirect(new URL('/discover', request.url));
     }

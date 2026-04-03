@@ -2,13 +2,13 @@
  * Supabase client barrel exports.
  *
  * Usage:
- *   import { supabase } from '@/lib/supabase'        -> browser singleton
- *   import { createAdminClient } from '@/lib/supabase' -> admin client (service role)
+ *   import { createClient } from '@/lib/supabase'           -> browser singleton
+ *   import { createAdminClient } from '@/lib/supabase/admin' -> admin client (service role, server-only)
  *
- * NOTE: Do NOT re-export from './server' or './middleware' here.
- * Those use `next/headers` and cannot be imported in client components.
- * Import them directly: '@/lib/supabase/server' or '@/lib/supabase/middleware'.
+ * NOTE: Do NOT re-export server-only modules here.
+ * - './admin' has `import 'server-only'` — importing in client components would fail at build.
+ * - './server' and './middleware' use `next/headers` — same restriction.
+ * Import them directly: '@/lib/supabase/admin', '@/lib/supabase/server', '@/lib/supabase/middleware'.
  */
 
 export { createClient } from './client';
-export { createAdminClient } from './admin';

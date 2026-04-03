@@ -49,17 +49,7 @@ export const GUEST_CUTOFFS: ContentCutoffs = {
 
 // Registered users (even free plan) can VIEW all summary content.
 // Gating for free plan is only on generation quotas (3 summaries/day, 5 asks/day).
-export const FREE_CUTOFFS: ContentCutoffs = {
-  deepSummaryParagraphs: Infinity,
-  coreConcepts: Infinity,
-  chapters: Infinity,
-  takeaways: Infinity,
-  transcriptSegments: Infinity,
-  highlights: Infinity,
-  counterpoints: Infinity,
-  shownotes: Infinity,
-};
-
+// If free-plan content restrictions are added later, split into separate objects.
 const FULL_ACCESS: ContentCutoffs = {
   deepSummaryParagraphs: Infinity,
   coreConcepts: Infinity,
@@ -72,7 +62,7 @@ const FULL_ACCESS: ContentCutoffs = {
 };
 
 export const PLAN_CUTOFFS: Record<UserPlan, ContentCutoffs> = {
-  free: FREE_CUTOFFS,
+  free: FULL_ACCESS,
   pro: FULL_ACCESS,
 };
 

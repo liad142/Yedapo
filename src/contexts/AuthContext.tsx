@@ -144,11 +144,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     });
 
-    // User already exists — Supabase may return an error or a fake success with empty identities
+    // User already exists — Supabase returns a fake success with empty identities (reliable),
+    // or an error with "already registered" message (fragile, may change across versions).
     const alreadyExists =
+      (!error && data.user && data.user.identities?.length === 0) ||
       error?.message.toLowerCase().includes('already registered') ||
-      error?.message.toLowerCase().includes('already been registered') ||
-      (!error && data.user && data.user.identities?.length === 0);
+      error?.message.toLowerCase().includes('already been registered');
 
     if (alreadyExists) {
       const signInResult = await supabase.auth.signInWithPassword({ email, password });

@@ -84,23 +84,19 @@ export function UsageProvider({ children }: { children: React.ReactNode }) {
     fetchUsage();
   }, [authLoading, fetchUsage]);
 
-  // Auto-refresh when resetsAt time passes
+  // Auto-refresh when resetsAt time passes (single timeout instead of polling)
   useEffect(() => {
-    if (resetTimerRef.current) clearInterval(resetTimerRef.current);
-
     if (!usage?.resetsAt) return;
 
-    resetTimerRef.current = setInterval(() => {
-      const now = Date.now();
-      const resetAt = new Date(usage.resetsAt!).getTime();
-      if (now >= resetAt) {
-        fetchUsage();
-      }
-    }, 60_000);
+    const resetAt = new Date(usage.resetsAt).getTime();
+    const delay = resetAt - Date.now();
+    if (delay <= 0) {
+      fetchUsage();
+      return;
+    }
 
-    return () => {
-      if (resetTimerRef.current) clearInterval(resetTimerRef.current);
-    };
+    const timer = setTimeout(fetchUsage, delay);
+    return () => clearTimeout(timer);
   }, [usage?.resetsAt, fetchUsage]);
 
   const incrementSummary = useCallback(() => {

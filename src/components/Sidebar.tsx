@@ -26,7 +26,7 @@ import { useNewSummaryCount } from '@/hooks/useNewSummaryCount';
 const ROOT_PATHS = ['/', '/discover', '/my-list', '/my-podcasts', '/summaries', '/settings', '/onboarding'];
 
 function isNavActive(pathname: string, href: string): boolean {
-  if (href === '/discover') return pathname === '/discover' || pathname === '/';
+  if (href === '/discover') return pathname === '/discover';
   if (href === '/my-list') return pathname === '/my-list' || pathname === '/my-podcasts';
   return pathname.startsWith(href);
 }

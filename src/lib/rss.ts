@@ -1,5 +1,6 @@
 import Parser from "rss-parser";
 import { createLogger } from "@/lib/logger";
+import { assertSafeUrl } from "@/lib/url-validation";
 
 const log = createLogger('rss');
 
@@ -169,6 +170,9 @@ export async function fetchPodcastFeed(rssUrl: string): Promise<{
   podcast: ParsedPodcast;
   episodes: ParsedEpisode[];
 }> {
+  // SSRF protection: validate scheme and block private IPs before fetching
+  await assertSafeUrl(rssUrl);
+
   const feed = await parser.parseURL(rssUrl);
 
   // Extract channel language (e.g., 'en', 'en-us', 'he')

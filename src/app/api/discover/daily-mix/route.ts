@@ -317,18 +317,29 @@ export async function GET(request: NextRequest) {
     return true;
   });
 
-  // 8. Apply cursor-based pagination
+  // 8. Apply cursor-based pagination (cursor format: "ISO_DATE|EPISODE_ID" for tiebreaking)
   let startIndex = 0;
   if (cursor) {
-    const cursorTime = new Date(cursor).getTime();
-    startIndex = diversified.findIndex(ep => ep._publishedAt <= cursorTime);
+    const [cursorDateStr, cursorEpisodeId] = cursor.split('|');
+    const cursorTime = new Date(cursorDateStr).getTime();
+    if (cursorEpisodeId) {
+      // Find the exact episode after the cursor (handles duplicate timestamps)
+      const cursorIdx = diversified.findIndex(
+        ep => ep._publishedAt === cursorTime && ep.id === cursorEpisodeId
+      );
+      startIndex = cursorIdx !== -1 ? cursorIdx + 1 : diversified.findIndex(ep => ep._publishedAt < cursorTime);
+    } else {
+      // Legacy cursor format (date only) — find first episode at or below cursor time
+      startIndex = diversified.findIndex(ep => ep._publishedAt <= cursorTime);
+    }
     if (startIndex === -1) startIndex = diversified.length;
   }
 
   const page = diversified.slice(startIndex, startIndex + limit);
   const hasMore = startIndex + limit < diversified.length;
-  const nextCursor = hasMore && page.length > 0
-    ? new Date(page[page.length - 1]._publishedAt).toISOString()
+  const lastItem = page[page.length - 1];
+  const nextCursor = hasMore && lastItem
+    ? `${new Date(lastItem._publishedAt).toISOString()}|${lastItem.id}`
     : null;
 
   // 9. Strip internal fields and return

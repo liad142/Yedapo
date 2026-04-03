@@ -1,56 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import dns from 'dns/promises';
-import net from 'net';
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchPodcastFeed } from "@/lib/rss";
 import { getPodcastById } from "@/lib/apple-podcasts";
 import { getAuthUser } from "@/lib/auth-helpers";
 import { createLogger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/cache";
+import { isValidFetchUrl, validateResolvedIP } from "@/lib/url-validation";
 
 const log = createLogger('add-podcast');
-
-// Block SSRF: reject private/reserved IP ranges
-const PRIVATE_IP_PATTERNS = [
-  /^https?:\/\/127\./,
-  /^https?:\/\/10\./,
-  /^https?:\/\/172\.(1[6-9]|2\d|3[01])\./,
-  /^https?:\/\/192\.168\./,
-  /^https?:\/\/169\.254\./,
-  /^https?:\/\/0\./,
-  /^https?:\/\/localhost/i,
-  /^https?:\/\/\[::1\]/,
-];
-
-function isPrivateIP(ip: string): boolean {
-  if (net.isIPv4(ip)) {
-    return /^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|0\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(ip);
-  }
-  const normalized = ip.toLowerCase().replace(/^\[|\]$/g, '');
-  return normalized === '::1' || normalized.startsWith('fc') || normalized.startsWith('fd') || normalized.startsWith('fe80') || /^::ffff:/.test(normalized);
-}
-
-async function validateResolvedIP(url: string): Promise<boolean> {
-  try {
-    const parsed = new URL(url);
-    if (parsed.username || parsed.password) return false;
-    const hostname = parsed.hostname.replace(/^\[|\]$/g, '');
-    if (net.isIPv4(hostname) || net.isIPv6(hostname)) return !isPrivateIP(hostname);
-    const { address } = await dns.lookup(hostname);
-    return !isPrivateIP(address);
-  } catch { return false; }
-}
-
-function isValidPodcastUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
-    if (PRIVATE_IP_PATTERNS.some(p => p.test(url))) return false;
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -74,8 +31,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate URL for non-Apple references
-    if (!rss_url.startsWith("apple:") && !isValidPodcastUrl(rss_url)) {
+    // Validate URL for non-Apple references (SSRF protection)
+    if (!rss_url.startsWith("apple:") && !isValidFetchUrl(rss_url)) {
       return NextResponse.json(
         { error: "Invalid URL. Must be a valid HTTP/HTTPS URL." },
         { status: 400 }

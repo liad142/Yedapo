@@ -415,22 +415,28 @@ async function populatePodcastFeedItems(
   const { episodes } = await fetchPodcastFeed(rssUrl);
   const recentEpisodes = episodes.slice(0, 10);
 
-  const feedItems = [];
-  for (const ep of recentEpisodes) {
-    if (!ep.audio_url) continue;
+  // Filter episodes with audio URLs
+  const episodesWithAudio = recentEpisodes.filter(ep => ep.audio_url);
+  if (episodesWithAudio.length === 0) return 0;
 
-    // Check if episode already exists
-    let { data: existing } = await supabase
+  // Batch lookup: single SELECT for all audio URLs instead of N+1 per-episode queries
+  const audioUrls = episodesWithAudio.map(ep => ep.audio_url);
+  const { data: existingEpisodes } = await supabase
+    .from('episodes')
+    .select('id, audio_url')
+    .eq('podcast_id', podcast.id)
+    .in('audio_url', audioUrls);
+
+  const existingByUrl = new Set((existingEpisodes || []).map(e => e.audio_url));
+  const existingIdByUrl = new Map((existingEpisodes || []).map(e => [e.audio_url, e.id]));
+
+  // Bulk insert new episodes that don't exist yet
+  const newEpisodes = episodesWithAudio.filter(ep => !existingByUrl.has(ep.audio_url));
+  if (newEpisodes.length > 0) {
+    const { data: created } = await supabase
       .from('episodes')
-      .select('id')
-      .eq('podcast_id', podcast.id)
-      .eq('audio_url', ep.audio_url)
-      .single();
-
-    if (!existing) {
-      const { data: created } = await supabase
-        .from('episodes')
-        .insert({
+      .insert(
+        newEpisodes.map(ep => ({
           podcast_id: podcast.id,
           title: ep.title,
           description: ep.description || null,
@@ -438,13 +444,21 @@ async function populatePodcastFeedItems(
           duration_seconds: ep.duration_seconds,
           published_at: ep.published_at ? new Date(ep.published_at).toISOString() : new Date().toISOString(),
           transcript_url: ep.transcript_url || null,
-        })
-        .select('id')
-        .single();
-      existing = created;
-    }
+        }))
+      )
+      .select('id, audio_url');
 
-    if (existing) {
+    // Add newly created episodes to the lookup map
+    for (const row of created || []) {
+      existingIdByUrl.set(row.audio_url, row.id);
+    }
+  }
+
+  // Build feed items from all episodes (existing + newly created)
+  const feedItems = [];
+  for (const ep of episodesWithAudio) {
+    const episodeId = existingIdByUrl.get(ep.audio_url);
+    if (episodeId) {
       feedItems.push({
         sourceType: 'podcast' as const,
         sourceId: podcast.id,
@@ -454,7 +468,7 @@ async function populatePodcastFeedItems(
         publishedAt: ep.published_at ? new Date(ep.published_at) : new Date(),
         duration: ep.duration_seconds,
         url: ep.audio_url,
-        episodeId: existing.id,
+        episodeId,
         userId,
       });
     }

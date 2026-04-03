@@ -17,9 +17,9 @@ const { FPS } = { FPS: VIDEO.FPS };
 
 const sec = (s: number) => Math.round(s * FPS);
 
-// V2 transition constants — shorter, snappier, consistent
-const FADE_FAST = 12;  // 0.4s — default between scenes
-const FADE_LONG = 20;  // 0.67s — used for the brand reveal moment
+// V3 transition constants — slower, smoother breathing room
+const FADE_FAST = 20;  // 0.67s — default between scenes
+const FADE_LONG = 30;  // 1.0s  — used for brand reveal and CTA
 
 /**
  * Yedapo Promo Video — V2 Composition

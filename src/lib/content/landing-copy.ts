@@ -21,7 +21,7 @@ export const LANDING_COPY = {
   // 2. TRUST SIGNALS (replaces fabricated metrics)
   // ---------------------------------------------------------------------------
   trustSignals: [
-    { label: "Apple Podcasts", sublabel: "Full catalog" },
+    { label: "Podcasts", sublabel: "Full catalog" },
     { label: "YouTube", sublabel: "Channels & videos" },
     { label: "GPT-4o", sublabel: "AI engine" },
     { label: "Free forever", sublabel: "No credit card" },
@@ -53,7 +53,7 @@ export const LANDING_COPY = {
       overline: "PODCASTS + YOUTUBE",
       title: "One app for everything you follow",
       description:
-        "Apple Podcasts and YouTube channels live side by side. Follow, summarize, and explore across both — no switching apps, no fragmented experience.",
+        "Podcasts and YouTube channels live side by side. Follow, summarize, and explore across both — no switching apps, no fragmented experience.",
     },
   ],
 

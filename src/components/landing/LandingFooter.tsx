@@ -106,26 +106,8 @@ export function LandingFooter() {
 
         {/* Bottom bar */}
         <div className="mt-16 pt-8 border-t border-border">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
+          <div className="text-xs text-muted-foreground text-center sm:text-left">
             <p>&copy; {year} Yedapo. All rights reserved.</p>
-            <nav className="flex items-center gap-4">
-              <a
-                href="https://www.youtube.com/t/terms"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-foreground transition-colors"
-              >
-                YouTube ToS
-              </a>
-              <a
-                href="https://policies.google.com/privacy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-foreground transition-colors"
-              >
-                Google Privacy
-              </a>
-            </nav>
           </div>
         </div>
       </div>

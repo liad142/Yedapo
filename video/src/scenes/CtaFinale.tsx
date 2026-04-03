@@ -6,12 +6,11 @@ import {
   interpolate,
   spring,
   Sequence,
-  Easing,
 } from 'remotion';
+import { YedapoLogoMark } from '../components/UIElements';
 import { loadFont } from '@remotion/google-fonts/Inter';
-import { COLORS } from '../design';
-import { GlowOrb } from '../components/UIElements';
-import { GlowText, FadeUpWords } from '../components/AnimatedText';
+import { LIGHT } from '../design';
+import { FadeUpWords } from '../components/AnimatedText';
 
 const { fontFamily } = loadFont('normal', {
   weights: ['400', '600', '700', '800'],
@@ -19,69 +18,47 @@ const { fontFamily } = loadFont('normal', {
 });
 
 /**
- * Scene 7: Closing CTA — "Know what matters." V2
+ * Scene 7: CTA Finale — light mode, homepage-appropriate.
  *
- * V2 changes:
- * - CTA button appears at 1s (was 2.5s) — lands harder, more screen time
- * - Subtitle + URL hint at 1.8s (was 3s)
- * - Button has subtle pulse after settling
- * - Logo is larger and more prominent
- * - Rotating ring is more visible
- * - Second tagline line is bigger / bolder
+ * "Know more. Listen less."
+ * Teal CTA button: "Try Free"
+ * Subtitle: "Free forever · No credit card needed"
+ * URL: yedapo.app
+ * Yedapo wordmark at the bottom
  */
 export const CtaFinale: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Spinning gradient ring entrance
-  const ringProgress = spring({
-    frame,
-    fps,
-    config: { damping: 200 },
-    durationInFrames: 45,
-  });
-  const ringScale = interpolate(ringProgress, [0, 1], [0.4, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-  const ringOpacity = interpolate(ringProgress, [0, 1], [0, 0.55], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-
-  // CTA button — earlier than V1 (1s vs 2.5s)
-  const ctaDelay = Math.round(1 * fps);
+  // CTA button appears at 1.2s with a satisfying bounce
+  const ctaDelay = Math.round(1.2 * fps);
   const ctaProgress = spring({
     frame: frame - ctaDelay,
     fps,
-    config: { damping: 18, stiffness: 250 },
+    config: { damping: 16, stiffness: 260 },
   });
 
-  // Pulse animation on button after it settles (~1.5s after ctaDelay)
-  const pulseStart = ctaDelay + Math.round(1.2 * fps);
+  // Subtle pulse after button settles
+  const pulseStart = ctaDelay + Math.round(1.0 * fps);
   const pulseOffset = Math.max(0, frame - pulseStart);
-  const buttonPulse = 1 + 0.018 * Math.sin(pulseOffset * 0.07);
+  const buttonPulse = 1 + 0.014 * Math.sin(pulseOffset * 0.08);
 
-  // Subtitle + URL — earlier (1.8s vs 3s)
-  const subDelay = Math.round(1.8 * fps);
-  const subProgress = spring({
-    frame: frame - subDelay,
-    fps,
-    config: { damping: 200 },
-  });
+  // Subtitle + URL
+  const subDelay = Math.round(2.0 * fps);
+  const subProgress = spring({ frame: frame - subDelay, fps, config: { damping: 200 } });
 
-  // Logo entrance
-  const logoDelay = Math.round(2.5 * fps);
-  const logoProgress = spring({
-    frame: frame - logoDelay,
-    fps,
-    config: { damping: 200 },
-  });
+  // Logo mark
+  const logoDelay = Math.round(3.2 * fps);
+  const logoProgress = spring({ frame: frame - logoDelay, fps, config: { damping: 200 } });
+
+  // Teal accent line under headline
+  const lineDelay = Math.round(0.8 * fps);
+  const lineProgress = spring({ frame: frame - lineDelay, fps, config: { damping: 200 }, durationInFrames: 24 });
 
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: COLORS.bgDark,
+        backgroundColor: LIGHT.bg,
         fontFamily,
         display: 'flex',
         alignItems: 'center',
@@ -89,24 +66,18 @@ export const CtaFinale: React.FC = () => {
         overflow: 'hidden',
       }}
     >
-      {/* Background glow — stronger than V1 */}
-      <GlowOrb x={960} y={540} size={1000} color="rgba(33, 150, 184, 0.15)" delay={0} pulse />
-      <GlowOrb x={960} y={540} size={650} color="rgba(139, 92, 246, 0.10)" delay={5} pulse />
-
-      {/* Decorative spinning gradient ring — more visible */}
+      {/* Very subtle teal ambient */}
       <div
         style={{
           position: 'absolute',
-          width: 560,
-          height: 560,
+          left: '50%',
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 1000,
+          height: 800,
           borderRadius: '50%',
-          border: '2px solid transparent',
-          background: `conic-gradient(from ${frame * 1.8}deg, ${COLORS.primary}00, ${COLORS.primary}, ${COLORS.purple}, ${COLORS.primary}00) border-box`,
-          WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)',
-          WebkitMaskComposite: 'xor',
-          maskComposite: 'exclude',
-          opacity: ringOpacity,
-          transform: `scale(${ringScale})`,
+          background: 'radial-gradient(ellipse, rgba(33, 150, 184, 0.06) 0%, transparent 65%)',
+          pointerEvents: 'none',
         }}
       />
 
@@ -119,41 +90,55 @@ export const CtaFinale: React.FC = () => {
           zIndex: 1,
         }}
       >
-        {/* First line — secondary weight */}
-        <Sequence from={5} layout="none">
-          <div style={{ marginBottom: 12 }}>
+        {/* Line 1: secondary */}
+        <Sequence from={4} layout="none">
+          <div style={{ marginBottom: 8 }}>
             <FadeUpWords
-              text="Stop listening to everything."
-              fontSize={44}
-              fontWeight={600}
-              color={COLORS.textSecondary}
+              text="Know more."
+              fontSize={72}
+              fontWeight={700}
+              color={LIGHT.textPrimary}
               delay={0}
-              stagger={4}
+              stagger={5}
             />
           </div>
         </Sequence>
 
-        {/* Second line — the hero statement */}
-        <Sequence from={Math.round(0.7 * fps)} layout="none">
-          <GlowText
-            text="Start knowing what matters."
-            fontSize={62}
+        {/* Line 2: hero statement in teal */}
+        <Sequence from={Math.round(0.5 * fps)} layout="none">
+          <FadeUpWords
+            text="Listen less."
+            fontSize={72}
             fontWeight={800}
-            color={COLORS.textPrimary}
-            glowColor="rgba(33, 150, 184, 0.55)"
+            color={LIGHT.accent}
             delay={0}
+            stagger={5}
           />
         </Sequence>
 
-        {/* CTA Button — appears at 1s with bounce + pulse */}
+        {/* Teal accent underline */}
         <div
           style={{
-            marginTop: 52,
+            width: interpolate(lineProgress, [0, 1], [0, 180], {
+              extrapolateLeft: 'clamp',
+              extrapolateRight: 'clamp',
+            }),
+            height: 5,
+            background: LIGHT.accent,
+            borderRadius: 3,
+            marginTop: 18,
+            marginBottom: 52,
+          }}
+        />
+
+        {/* CTA Button — bounces in + pulses */}
+        <div
+          style={{
             opacity: interpolate(ctaProgress, [0, 1], [0, 1], {
               extrapolateLeft: 'clamp',
               extrapolateRight: 'clamp',
             }),
-            transform: `translateY(${interpolate(ctaProgress, [0, 1], [24, 0], {
+            transform: `translateY(${interpolate(ctaProgress, [0, 1], [28, 0], {
               extrapolateLeft: 'clamp',
               extrapolateRight: 'clamp',
             })}px) scale(${
@@ -166,28 +151,32 @@ export const CtaFinale: React.FC = () => {
         >
           <div
             style={{
-              padding: '18px 56px',
-              borderRadius: 16,
-              background: `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.purple})`,
-              fontSize: 22,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '20px 60px',
+              borderRadius: 18,
+              background: LIGHT.accent,
+              fontSize: 24,
               fontWeight: 700,
               color: '#ffffff',
-              boxShadow: `0 10px 40px ${COLORS.primaryGlow}, 0 0 80px rgba(139, 92, 246, 0.25)`,
-              letterSpacing: '0.02em',
+              boxShadow: `0 8px 32px rgba(33, 150, 184, 0.35), 0 2px 8px rgba(33, 150, 184, 0.2)`,
+              letterSpacing: '-0.01em',
             }}
           >
-            Get Started Free
+            Try Free
+            <span style={{ fontSize: 20 }}>→</span>
           </div>
         </div>
 
-        {/* Subtitle + URL */}
+        {/* Subtitle row */}
         <div
           style={{
-            marginTop: 22,
+            marginTop: 24,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: 8,
+            gap: 10,
             opacity: interpolate(subProgress, [0, 1], [0, 1], {
               extrapolateLeft: 'clamp',
               extrapolateRight: 'clamp',
@@ -198,45 +187,58 @@ export const CtaFinale: React.FC = () => {
             })}px)`,
           }}
         >
-          <div style={{ fontSize: 16, color: COLORS.textTertiary }}>
-            Free forever · No credit card needed
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 20,
+              fontSize: 22,
+              color: LIGHT.textTertiary,
+            }}
+          >
+            <span>Free forever</span>
+            <span style={{ opacity: 0.4 }}>·</span>
+            <span>No credit card needed</span>
+            <span style={{ opacity: 0.4 }}>·</span>
+            <span>Podcasts & YouTube</span>
           </div>
           <div
             style={{
-              fontSize: 15,
-              fontWeight: 600,
-              color: COLORS.primaryLight,
-              letterSpacing: '0.05em',
+              fontSize: 24,
+              fontWeight: 700,
+              color: LIGHT.accent,
+              letterSpacing: '0.02em',
+              opacity: 0.85,
             }}
           >
             yedapo.app
           </div>
         </div>
 
-        {/* Logo mark — appears at 2.5s, more prominent than V1 */}
+        {/* Yedapo premium logo + wordmark — appears at the end */}
         <div
           style={{
-            marginTop: 52,
-            opacity: interpolate(logoProgress, [0, 1], [0, 0.85], {
+            marginTop: 56,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
+            opacity: interpolate(logoProgress, [0, 1], [0, 1], {
               extrapolateLeft: 'clamp',
               extrapolateRight: 'clamp',
             }),
-            transform: `scale(${interpolate(logoProgress, [0, 1], [0.9, 1], {
+            transform: `scale(${interpolate(logoProgress, [0, 1], [0.88, 1], {
               extrapolateLeft: 'clamp',
               extrapolateRight: 'clamp',
             })})`,
           }}
         >
+          <YedapoLogoMark size={52} />
           <div
             style={{
-              fontSize: 36,
+              fontSize: 34,
               fontWeight: 800,
-              background: 'linear-gradient(135deg, #ffffff 30%, #4abbe6 70%, #8b5cf6)',
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              color: 'transparent',
-              letterSpacing: '-0.02em',
-              textShadow: 'none',
+              color: LIGHT.textPrimary,
+              letterSpacing: '-0.03em',
             }}
           >
             Yedapo

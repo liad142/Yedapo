@@ -5,11 +5,13 @@ import {
   interpolate,
   spring,
   Easing,
+  Img,
+  staticFile,
 } from 'remotion';
-import { COLORS } from '../design';
+import { COLORS, LIGHT } from '../design';
 
 // ---------------------------------------------------------------------------
-// Animated card that slides in and scales up
+// Dark mode: animated card that slides in and scales up (legacy)
 // ---------------------------------------------------------------------------
 type FloatingCardProps = {
   children: React.ReactNode;
@@ -70,7 +72,68 @@ export const FloatingCard: React.FC<FloatingCardProps> = ({
 };
 
 // ---------------------------------------------------------------------------
-// Pill badge
+// Light mode card — Notion-style, white with drop shadow
+// ---------------------------------------------------------------------------
+type LightCardProps = {
+  children: React.ReactNode;
+  delay?: number;
+  width?: number;
+  height?: number;
+  style?: React.CSSProperties;
+};
+
+export const LightCard: React.FC<LightCardProps> = ({
+  children,
+  delay = 0,
+  width = 500,
+  height = 340,
+  style,
+}) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+
+  const progress = spring({
+    frame: frame - delay,
+    fps,
+    config: { damping: 22, stiffness: 220 },
+  });
+
+  const opacity = interpolate(progress, [0, 1], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+  const y = interpolate(progress, [0, 1], [40, 0], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+  const scale = interpolate(progress, [0, 1], [0.94, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+
+  return (
+    <div
+      style={{
+        width,
+        height,
+        background: LIGHT.bgCard,
+        borderRadius: 20,
+        border: `1px solid ${LIGHT.border}`,
+        boxShadow: LIGHT.shadowLg,
+        opacity,
+        transform: `translateY(${y}px) scale(${scale})`,
+        overflow: 'hidden',
+        position: 'relative',
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Pill badge (dark mode legacy)
 // ---------------------------------------------------------------------------
 type PillProps = {
   label: string;
@@ -110,10 +173,63 @@ export const Pill: React.FC<PillProps> = ({
     >
       <span
         style={{
-          fontSize: 14,
+          fontSize: 20,
           fontWeight: 600,
           color,
           letterSpacing: '0.05em',
+          textTransform: 'uppercase',
+        }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Light mode pill badge
+// ---------------------------------------------------------------------------
+type LightPillProps = {
+  label: string;
+  delay?: number;
+  color?: string;
+  bgColor?: string;
+};
+
+export const LightPill: React.FC<LightPillProps> = ({
+  label,
+  delay = 0,
+  color = LIGHT.accent,
+  bgColor = LIGHT.accentBg,
+}) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+
+  const progress = spring({
+    frame: frame - delay,
+    fps,
+    config: { damping: 200 },
+  });
+
+  return (
+    <div
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: '6px 16px',
+        borderRadius: 100,
+        background: bgColor,
+        border: `1px solid ${color}33`,
+        opacity: interpolate(progress, [0, 1], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }),
+        transform: `translateY(${interpolate(progress, [0, 1], [8, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })}px)`,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 20,
+          fontWeight: 600,
+          color,
+          letterSpacing: '0.04em',
           textTransform: 'uppercase',
         }}
       >
@@ -133,6 +249,7 @@ type ProgressBarProps = {
   height?: number;
   width?: number;
   targetPercent?: number;
+  trackColor?: string;
 };
 
 export const ProgressBar: React.FC<ProgressBarProps> = ({
@@ -142,6 +259,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   height = 6,
   width = 400,
   targetPercent = 100,
+  trackColor,
 }) => {
   const frame = useCurrentFrame();
   const adjustedFrame = Math.max(0, frame - delay);
@@ -158,7 +276,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
         width,
         height,
         borderRadius: height,
-        background: COLORS.surface3,
+        background: trackColor ?? COLORS.surface3,
         overflow: 'hidden',
       }}
     >
@@ -167,8 +285,8 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
           width: `${percent}%`,
           height: '100%',
           borderRadius: height,
-          background: `linear-gradient(90deg, ${color}, ${COLORS.primaryLight})`,
-          boxShadow: `0 0 10px ${color}66`,
+          background: `linear-gradient(90deg, ${color}, ${color}cc)`,
+          boxShadow: `0 0 8px ${color}55`,
         }}
       />
     </div>
@@ -176,7 +294,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
 };
 
 // ---------------------------------------------------------------------------
-// Glowing orb (ambient background effect)
+// Glowing orb (ambient background effect — dark mode)
 // ---------------------------------------------------------------------------
 type GlowOrbProps = {
   x: number;
@@ -231,7 +349,7 @@ export const GlowOrb: React.FC<GlowOrbProps> = ({
 };
 
 // ---------------------------------------------------------------------------
-// Mock UI skeleton line (for simulating content)
+// Mock UI skeleton line
 // ---------------------------------------------------------------------------
 type SkeletonLineProps = {
   width: number | string;
@@ -279,10 +397,10 @@ export const SkeletonLine: React.FC<SkeletonLineProps> = ({
 };
 
 // ---------------------------------------------------------------------------
-// Feature icon circle
+// Feature icon circle (dark mode)
 // ---------------------------------------------------------------------------
 type FeatureIconProps = {
-  icon: string;   // emoji or text
+  icon: string;
   delay?: number;
   size?: number;
 };
@@ -324,6 +442,104 @@ export const FeatureIcon: React.FC<FeatureIconProps> = ({
       }}
     >
       {icon}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Yedapo Premium Logo Mark — SVG soundwave, dark container, crisp at any size
+// ---------------------------------------------------------------------------
+type YedapoLogoMarkProps = {
+  /** Size of the square container in pixels */
+  size?: number;
+  /** Renders continuously expanding teal ripple rings — for hero moments */
+  showGlowRings?: boolean;
+  /** Overall opacity of the entire mark */
+  opacity?: number;
+};
+
+export const YedapoLogoMark: React.FC<YedapoLogoMarkProps> = ({
+  size = 96,
+  showGlowRings = false,
+  opacity = 1,
+}) => {
+  const frame = useCurrentFrame();
+  const r = Math.round(size * 0.24);
+
+  return (
+    <div style={{ position: 'relative', width: size, height: size, opacity, flexShrink: 0 }}>
+      {/* Expanding ripple rings — 3 rings cycling every 90 frames */}
+      {showGlowRings && [0, 30, 60].map((phaseOffset, i) => {
+        const cycle = ((frame + phaseOffset) % 90 + 90) % 90;
+        const ro = interpolate(cycle, [0, 45, 89], [0.55, 0.18, 0], {
+          extrapolateLeft: 'clamp',
+          extrapolateRight: 'clamp',
+        });
+        const rs = interpolate(cycle, [0, 89], [1.0, 2.4], {
+          extrapolateLeft: 'clamp',
+          extrapolateRight: 'clamp',
+        });
+        return (
+          <div
+            key={i}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: r,
+              border: `1.5px solid rgba(33, 150, 184, ${ro})`,
+              transform: `scale(${rs})`,
+              pointerEvents: 'none',
+            }}
+          />
+        );
+      })}
+
+      {/* Dark gradient container */}
+      <div
+        style={{
+          width: size,
+          height: size,
+          borderRadius: r,
+          background: 'linear-gradient(148deg, #0e1e35 0%, #0c2540 55%, #091a2c 100%)',
+          boxShadow: [
+            `0 ${Math.round(size * 0.06)}px ${Math.round(size * 0.22)}px rgba(33, 150, 184, 0.30)`,
+            `0 ${Math.round(size * 0.14)}px ${Math.round(size * 0.45)}px rgba(10, 22, 40, 0.45)`,
+          ].join(', '),
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Inner teal glow bloom */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: -(size * 0.2),
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: size * 1.5,
+            height: size * 0.85,
+            borderRadius: '50%',
+            background: 'radial-gradient(ellipse, rgba(33, 150, 184, 0.22) 0%, transparent 65%)',
+            pointerEvents: 'none',
+          }}
+        />
+
+        {/* Original Yedapo logo */}
+        <Img
+          src={staticFile('logo-icon.png')}
+          style={{
+            width: size * 0.82,
+            height: size * 0.82,
+            objectFit: 'contain',
+            position: 'relative',
+            zIndex: 1,
+            filter: 'drop-shadow(0 4px 12px rgba(33, 150, 184, 0.5))',
+          }}
+        />
+      </div>
     </div>
   );
 };

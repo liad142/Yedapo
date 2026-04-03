@@ -7,101 +7,89 @@ import {
   spring,
   Easing,
   Sequence,
+  Img,
+  staticFile,
 } from 'remotion';
 import { loadFont } from '@remotion/google-fonts/Inter';
-import { COLORS } from '../design';
+import { LIGHT } from '../design';
 import { FadeUpWords } from '../components/AnimatedText';
 
 const { fontFamily } = loadFont('normal', {
-  weights: ['400', '600', '700', '800'],
+  weights: ['400', '500', '600', '700', '800'],
   subsets: ['latin'],
 });
 
 const PODCAST_ITEMS = [
-  { title: 'The Tim Ferriss Show', duration: '2h 14m', color: '#e74c3c' },
-  { title: 'Huberman Lab', duration: '3h 08m', color: '#3498db' },
-  { title: 'Lex Fridman Podcast', duration: '4h 22m', color: '#9b59b6' },
-  { title: 'All-In Podcast', duration: '1h 47m', color: '#2ecc71' },
-  { title: 'My First Million', duration: '1h 12m', color: '#f39c12' },
-  { title: 'The Diary of a CEO', duration: '1h 55m', color: '#e67e22' },
-  { title: 'Joe Rogan Experience', duration: '3h 41m', color: '#1abc9c' },
+  { show: 'Huberman Lab', episode: 'Protocols for Perfect Sleep', duration: '3h 08m', artwork: 'podcast-huberman.jpg' },
+  { show: 'The Tim Ferriss Show', episode: '#742 — Optimize Your Morning', duration: '2h 14m', artwork: 'podcast-ferriss.jpg' },
+  { show: 'Lex Fridman Podcast', episode: 'Sam Altman: AI & the Future', duration: '4h 22m', artwork: 'podcast-lex.jpg' },
+  { show: 'All-In Podcast', episode: 'E180 — AI, Markets & Geopolitics', duration: '1h 47m', artwork: 'podcast-allin.jpg' },
+  { show: 'My First Million', episode: 'The 5 Best Business Models', duration: '1h 12m', artwork: 'podcast-mfm.jpg' },
+  { show: 'Diary of a CEO', episode: 'What Elite Athletes Know About Focus', duration: '1h 55m', artwork: 'podcast-doac.jpg' },
+  { show: 'Joe Rogan Experience', episode: '#2200 — AI & Human Potential', duration: '3h 41m', artwork: 'podcast-rogan.jpg' },
 ];
 
 /**
- * Scene 1: The pain — too much content, not enough time. V2.
+ * Scene 1: The Hook — emotional storytelling.
  *
- * V2 changes:
- * - Frame 0 is NOT black: counter visible immediately via fast linear reveal
- * - Items cascade 2x faster (3-frame stagger vs 6)
- * - Blur + overwhelm kicks in earlier (1.5s vs 2.5s)
- * - Tagline appears at 2.5s to leave reading time before scene ends at 4.5s
+ * Phase 1 (0–1.5s): "Your queue is growing..." alone on screen, atmospheric
+ * Phase 2 (1.6s+):  Overlay fades, podcast cards cascade in, hours counter ticks up
+ * Phase 3 (4.5s):   Cards blur — the overwhelm peaks
+ * Phase 4 (5.2s):   "You're 47 hours behind." → "What if you never fell behind again?"
  */
 export const PainPoint: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Phase 1: items cascade in (0–1.5s) — faster than V1
-  // Phase 2: overwhelm blur (1.5–2.0s)
-  // Phase 3: tagline fades in (2.5–4.5s)
-
-  const blurStart = Math.round(1.5 * fps);
-  const blurProgress = interpolate(frame, [blurStart, blurStart + Math.round(0.5 * fps)], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-    easing: Easing.inOut(Easing.quad),
-  });
-
-  // Counter counts up over 1.2s then holds
-  const totalHours = interpolate(frame, [0, Math.round(1.2 * fps)], [0, 18], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-    easing: Easing.out(Easing.quad),
-  });
-
-  // Fast linear reveal for the counter — visible from frame 0 (fixes black opening)
-  const counterOpacity = interpolate(frame, [0, 4], [0.5, 1], {
+  // --- Phase 1: Hook overlay "Your queue is growing..." ---
+  const hookTextOpacity = interpolate(frame, [0, 18], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
+  const hookOverlayOpacity = interpolate(
+    frame,
+    [Math.round(1.5 * fps), Math.round(2.2 * fps)],
+    [1, 0],
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' },
+  );
+  // Animated dots: appear one by one after text is visible
+  const dotCount = Math.min(3, Math.max(0, Math.floor((frame - 20) / 12)));
 
-  // Ambient glow fades in fast
-  const glowOpacity = interpolate(frame, [0, 8], [0, 1], {
+  // --- Phase 2: Cards cascade from 1.6s ---
+  const cardsStart = Math.round(1.6 * fps);
+
+  // Hours counter: 0 → 47 over 2.4s
+  const totalHours = interpolate(
+    frame,
+    [cardsStart, cardsStart + Math.round(2.4 * fps)],
+    [0, 47],
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.out(Easing.quad) },
+  );
+  const counterOpacity = interpolate(frame, [cardsStart, cardsStart + 10], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
+
+  // --- Phase 3: Overwhelm blur at 4.5s ---
+  const overwhelmStart = Math.round(4.5 * fps);
+  const overwhelmProgress = interpolate(
+    frame,
+    [overwhelmStart, overwhelmStart + Math.round(0.6 * fps)],
+    [0, 1],
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.inOut(Easing.quad) },
+  );
 
   return (
-    <AbsoluteFill
-      style={{
-        backgroundColor: COLORS.bgDark,
-        fontFamily,
-        overflow: 'hidden',
-      }}
-    >
-      {/* Ambient glow — fast entry */}
+    <AbsoluteFill style={{ backgroundColor: LIGHT.bgAlt, fontFamily, overflow: 'hidden' }}>
+      {/* Hours counter — top right */}
       <div
         style={{
           position: 'absolute',
-          left: 960 - 400,
-          top: 540 - 400,
-          width: 800,
-          height: 800,
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(239,68,68,0.10), transparent 70%)',
-          opacity: glowOpacity,
-          pointerEvents: 'none',
-        }}
-      />
-
-      {/* Hours counter — visible from frame 0, no Sequence delay */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 40,
-          right: 80,
+          top: 52,
+          right: 100,
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
+          alignItems: 'flex-end',
           opacity: counterOpacity,
         }}
       >
@@ -109,44 +97,52 @@ export const PainPoint: React.FC = () => {
           style={{
             fontSize: 80,
             fontWeight: 800,
-            color: COLORS.red,
+            color: LIGHT.red,
             fontVariantNumeric: 'tabular-nums',
-            textShadow: `0 0 40px rgba(239, 68, 68, 0.5)`,
             lineHeight: 1,
+            letterSpacing: '-0.03em',
           }}
         >
-          {Math.round(totalHours)}h+
+          {Math.round(totalHours)}h
         </div>
-        <div style={{ fontSize: 15, color: COLORS.textTertiary, fontWeight: 700, letterSpacing: '0.1em', marginTop: 6 }}>
-          THIS WEEK
+        <div
+          style={{
+            fontSize: 20,
+            fontWeight: 700,
+            color: LIGHT.textTertiary,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            marginTop: 5,
+          }}
+        >
+          Unwatched
         </div>
       </div>
 
-      {/* Podcast list — cascades in fast (3-frame stagger) */}
+      {/* Podcast episode list — cascades in behind the hook overlay */}
       <div
         style={{
           position: 'absolute',
-          top: 80,
+          top: 50,
           left: '50%',
           transform: 'translateX(-50%)',
-          width: 680,
+          width: 740,
           display: 'flex',
           flexDirection: 'column',
-          gap: 10,
-          filter: `blur(${blurProgress * 8}px)`,
-          opacity: interpolate(blurProgress, [0, 1], [1, 0.25], {
+          gap: 9,
+          filter: `blur(${overwhelmProgress * 7}px)`,
+          opacity: interpolate(overwhelmProgress, [0, 1], [1, 0.15], {
             extrapolateLeft: 'clamp',
             extrapolateRight: 'clamp',
           }),
         }}
       >
         {PODCAST_ITEMS.map((item, i) => {
-          // 3-frame stagger: all 7 items visible by frame 18 (0.6s)
-          const itemDelay = i * 3;
+          const itemDelay = cardsStart + i * 5;
           const itemProgress = spring({
             frame: frame - itemDelay,
             fps,
-            config: { damping: 18, stiffness: 280 },
+            config: { damping: 22, stiffness: 260 },
           });
 
           return (
@@ -155,37 +151,71 @@ export const PainPoint: React.FC = () => {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 14,
-                padding: '13px 20px',
-                background: COLORS.bgCard,
-                borderRadius: 12,
-                border: `1px solid ${COLORS.surface3}`,
+                gap: 16,
+                padding: '14px 22px',
+                background: LIGHT.bgCard,
+                borderRadius: 14,
+                border: `1px solid ${LIGHT.border}`,
+                boxShadow: LIGHT.shadow,
                 opacity: interpolate(itemProgress, [0, 1], [0, 1], {
                   extrapolateLeft: 'clamp',
                   extrapolateRight: 'clamp',
                 }),
-                transform: `translateX(${interpolate(itemProgress, [0, 1], [60, 0], {
+                transform: `translateY(${interpolate(itemProgress, [0, 1], [-28, 0], {
                   extrapolateLeft: 'clamp',
                   extrapolateRight: 'clamp',
                 })}px)`,
               }}
             >
-              <div
+              <Img
+                src={staticFile(item.artwork)}
                 style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 9,
-                  background: item.color,
+                  width: 46,
+                  height: 46,
+                  borderRadius: 11,
+                  objectFit: 'cover',
                   flexShrink: 0,
                 }}
               />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 16, fontWeight: 600, color: COLORS.textPrimary, marginBottom: 1 }}>
-                  {item.title}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 600,
+                    color: LIGHT.textPrimary,
+                    marginBottom: 3,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {item.show}
                 </div>
-                <div style={{ fontSize: 12, color: COLORS.textTertiary }}>New episode</div>
+                <div
+                  style={{
+                    fontSize: 20,
+                    color: LIGHT.textTertiary,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {item.episode}
+                </div>
               </div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.textSecondary, fontVariantNumeric: 'tabular-nums' }}>
+              <div
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: 8,
+                  background: LIGHT.surface1,
+                  border: `1px solid ${LIGHT.border}`,
+                  fontSize: 20,
+                  fontWeight: 600,
+                  color: LIGHT.textSecondary,
+                  fontVariantNumeric: 'tabular-nums',
+                  flexShrink: 0,
+                }}
+              >
                 {item.duration}
               </div>
             </div>
@@ -193,8 +223,35 @@ export const PainPoint: React.FC = () => {
         })}
       </div>
 
-      {/* Overwhelm overlay — tagline at 2.5s */}
-      <Sequence from={Math.round(2.5 * fps)} layout="none">
+      {/* Phase 1 overlay: "Your queue is growing..." — covers cards, fades to reveal them */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundColor: LIGHT.bgAlt,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: hookOverlayOpacity,
+          zIndex: 10,
+          pointerEvents: 'none',
+        }}
+      >
+        <div
+          style={{
+            fontSize: 48,
+            fontWeight: 500,
+            color: LIGHT.textSecondary,
+            letterSpacing: '-0.01em',
+            opacity: hookTextOpacity,
+          }}
+        >
+          Your queue is growing{'.'.repeat(dotCount)}
+        </div>
+      </div>
+
+      {/* Phase 4: Emotional tagline — fades in at 5.2s */}
+      <Sequence from={Math.round(5.2 * fps)} layout="none">
         <AbsoluteFill
           style={{
             display: 'flex',
@@ -202,23 +259,24 @@ export const PainPoint: React.FC = () => {
             alignItems: 'center',
             justifyContent: 'center',
             gap: 16,
+            background: 'rgba(248, 250, 252, 0.90)',
           }}
         >
           <FadeUpWords
-            text="Too much to listen to."
-            fontSize={60}
+            text="You're 47 hours behind."
+            fontSize={56}
             fontWeight={700}
-            color={COLORS.textPrimary}
+            color={LIGHT.textPrimary}
             delay={0}
             stagger={4}
           />
           <FadeUpWords
-            text="Not enough time."
-            fontSize={60}
-            fontWeight={700}
-            color={COLORS.textSecondary}
-            delay={18}
-            stagger={4}
+            text="What if you never fell behind again?"
+            fontSize={36}
+            fontWeight={400}
+            color={LIGHT.textSecondary}
+            delay={16}
+            stagger={2}
           />
         </AbsoluteFill>
       </Sequence>

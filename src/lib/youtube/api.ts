@@ -98,13 +98,12 @@ export async function fetchVideoDetails(videoId: string): Promise<YouTubeVideo |
     })}`
   );
 
-  await trackQuota('videos.list');
-
   if (!res.ok) {
     log.error('Failed to fetch video details', { status: res.status, videoId });
     return null;
   }
 
+  await trackQuota('videos.list');
   const data = await res.json();
   const item = data.items?.[0];
   if (!item) return null;
@@ -144,13 +143,12 @@ export async function fetchUserSubscriptions(userId: string): Promise<YouTubeSub
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
-    await trackQuota('subscriptions.list');
-
     if (!res.ok) {
       log.error('Failed to fetch subscriptions', { status: res.status });
       break;
     }
 
+    await trackQuota('subscriptions.list');
     const data = await res.json();
 
     for (const item of data.items || []) {
@@ -193,13 +191,12 @@ export async function fetchChannelVideos(
     })}`
   );
 
-  await trackQuota('channels.list');
-
   if (!channelRes.ok) {
     log.error('Failed to fetch channel', { status: channelRes.status });
     return { videos: [] };
   }
 
+  await trackQuota('channels.list');
   const channelData = await channelRes.json();
   const uploadsPlaylistId = channelData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
   if (!uploadsPlaylistId) return { videos: [] };
@@ -217,13 +214,12 @@ export async function fetchChannelVideos(
     `${YT_API_BASE}/playlistItems?${new URLSearchParams(params)}`
   );
 
-  await trackQuota('playlistItems.list');
-
   if (!playlistRes.ok) {
     log.error('Failed to fetch playlist items', { status: playlistRes.status });
     return { videos: [] };
   }
 
+  await trackQuota('playlistItems.list');
   const playlistData = await playlistRes.json();
 
   const videos = (playlistData.items || []).map((item: any) => {

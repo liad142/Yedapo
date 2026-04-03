@@ -3,6 +3,7 @@ import { fetchSupadataTranscript } from './supadata';
 import { generateSummaryForLevel } from '@/lib/summary-service';
 import { generateInsights } from '@/lib/insights-service';
 import { ensureYouTubeMetadata } from './metadata';
+import { acquireLock, releaseLock } from '@/lib/cache';
 import { createLogger } from '@/lib/logger';
 import type { SummaryLevel, SummaryStatus } from '@/types/database';
 
@@ -23,6 +24,14 @@ export async function requestYouTubeSummary(
 ): Promise<{ status: SummaryStatus; error?: string }> {
   const supabase = createAdminClient();
 
+  // Distributed lock to prevent duplicate Gemini calls from concurrent requests
+  const lockKey = `lock:yt-summary:${episodeId}:${level}`;
+  const locked = await acquireLock(lockKey, 300); // 5 min TTL
+  if (!locked) {
+    return { status: 'summarizing' as SummaryStatus };
+  }
+
+  try {
   // Check for existing summary
   const { data: existingSummary } = await supabase
     .from('summaries')
@@ -178,4 +187,7 @@ export async function requestYouTubeSummary(
   }
 
   return { status: result.status, error: result.error };
+  } finally {
+    await releaseLock(lockKey);
+  }
 }

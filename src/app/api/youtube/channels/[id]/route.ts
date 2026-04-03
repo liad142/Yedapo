@@ -101,7 +101,7 @@ export async function GET(
     const followStatus = user ? await checkIsFollowing(user.id, channelId) : { following: false, dbId: null };
 
     return NextResponse.json({ ...result, isFollowing: followStatus.following, channelDbId: followStatus.dbId }, {
-      headers: { 'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=1800' },
+      headers: { 'Cache-Control': 'private, no-store' },
     });
   } catch (error) {
     console.error('YouTube channel API error:', error);

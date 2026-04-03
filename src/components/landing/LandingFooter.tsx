@@ -12,11 +12,6 @@ const legalLinks = [
   { label: 'DMCA', href: '/dmca' },
 ];
 
-const connectLinks = [
-  { label: 'Twitter', href: '#' },
-  { label: 'GitHub', href: '#' },
-];
-
 export function LandingFooter() {
   const year = new Date().getFullYear();
 
@@ -24,7 +19,7 @@ export function LandingFooter() {
     <footer className="border-t border-border">
       <div className="max-w-6xl mx-auto px-6 py-16">
         {/* Column grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-10">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2.5 mb-4">
@@ -82,26 +77,6 @@ export function LandingFooter() {
             </ul>
           </div>
 
-          {/* Connect */}
-          <div>
-            <h3 className="text-sm font-semibold text-foreground mb-4">
-              Connect
-            </h3>
-            <ul className="space-y-3">
-              {connectLinks.map((link) => (
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
 
         {/* Bottom bar */}

@@ -1,6 +1,5 @@
 export { LandingNav } from './LandingNav';
 export { Hero } from './Hero';
-export { HeroVideoShowcase } from './HeroVideoShowcase';
 export { SocialProof } from './SocialProof';
 export { Features } from './Features';
 export { HowItWorks } from './HowItWorks';

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Check, X, Sparkles, ArrowRight, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -83,6 +84,7 @@ const ICONS = {
 export function PricingCard({ tier, index }: { tier: Tier; index: number }) {
   const Icon = ICONS[tier.iconName];
   const { user, setShowAuthModal } = useAuth();
+  const router = useRouter();
   const [waitlistEmail, setWaitlistEmail] = useState('');
   const [waitlistLoading, setWaitlistLoading] = useState(false);
   const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
@@ -194,14 +196,26 @@ export function PricingCard({ tier, index }: { tier: Tier; index: number }) {
 
       {/* CTA */}
       {tier.price === 0 ? (
-        <Button
-          variant="outline"
-          size="lg"
-          className="w-full rounded-full font-semibold"
-          disabled
-        >
-          {tier.cta}
-        </Button>
+        user ? (
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full rounded-full font-semibold"
+            disabled
+          >
+            {tier.cta}
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full rounded-full font-semibold gap-2"
+            onClick={() => router.push('/discover')}
+          >
+            Get Started Free
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        )
       ) : tier.highlighted && tier.ctaDisabled ? (
         waitlistSubmitted ? (
           <p className="text-center text-sm font-medium text-primary py-2">

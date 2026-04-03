@@ -1,7 +1,6 @@
 import {
   LandingNav,
   Hero,
-  HeroVideoShowcase,
   SocialProof,
   Features,
   HowItWorks,
@@ -16,7 +15,6 @@ export function LandingPage() {
     <div className="min-h-screen bg-background text-foreground">
       <LandingNav />
       <Hero />
-      <HeroVideoShowcase />
       <SocialProof />
       <Features />
       <HowItWorks />

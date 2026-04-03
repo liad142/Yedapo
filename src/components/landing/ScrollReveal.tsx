@@ -102,6 +102,12 @@ export function StaggerItem({
   direction?: 'up' | 'left';
   distance?: number;
 }) {
+  const prefersReduced = useReducedMotion();
+
+  if (prefersReduced) {
+    return <div className={className}>{children}</div>;
+  }
+
   const offset = direction === 'up' ? { y: distance } : { x: distance };
   const reset = direction === 'up' ? { y: 0 } : { x: 0 };
 

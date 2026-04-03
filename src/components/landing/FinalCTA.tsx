@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useReducedMotion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ScrollReveal } from '@/components/landing/ScrollReveal';
 import { cn } from '@/lib/utils';
@@ -20,6 +21,8 @@ const PARTICLES = [
 ];
 
 export function FinalCTA() {
+  const prefersReduced = useReducedMotion();
+
   return (
     <section className="py-20 lg:py-28 landing-dark-section relative overflow-hidden">
       {/* Animated dramatic gradient glow */}
@@ -28,12 +31,12 @@ export function FinalCTA() {
         style={{
           background: 'radial-gradient(ellipse, #8b5cf6 0%, hsl(200 75% 45%) 35%, #14b8a6 60%, transparent 75%)',
           filter: 'blur(120px)',
-          animation: 'landing-pulse-glow 4s ease-in-out infinite',
+          animation: prefersReduced ? 'none' : 'landing-pulse-glow 4s ease-in-out infinite',
         }}
       />
 
-      {/* Floating particles */}
-      {PARTICLES.map((p, i) => (
+      {/* Floating particles (skip for reduced-motion) */}
+      {!prefersReduced && PARTICLES.map((p, i) => (
         <div
           key={i}
           className="absolute rounded-full bg-white/30"

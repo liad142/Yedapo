@@ -14,8 +14,8 @@ import { VIDEO, SCENE_DURATIONS, TOTAL_FRAMES } from './design';
 const { WIDTH, HEIGHT, FPS } = VIDEO;
 const sec = (s: number) => Math.round(s * FPS);
 
-// Transition overlap: 6 transitions (V2): 2×20 + 4×12 = 88 frames
-const TRANSITION_OVERLAP = 88;
+// Transition overlap: 6 transitions (V3): 2×FADE_LONG(30) + 4×FADE_FAST(20) = 140 frames
+const TRANSITION_OVERLAP = 140;
 
 export const RemotionRoot = () => {
   return (

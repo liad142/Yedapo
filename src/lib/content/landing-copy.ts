@@ -117,7 +117,7 @@ export const LANDING_COPY = {
   pricingCta: {
     headline: "Start free. Upgrade when you need more.",
     description:
-      "5 AI summaries per day, forever free. No credit card required.",
+      "3 AI summaries per day, forever free. No credit card required.",
   },
 
   // ---------------------------------------------------------------------------

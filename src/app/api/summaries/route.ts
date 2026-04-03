@@ -105,11 +105,14 @@ export async function GET(request: NextRequest) {
 
     // Query 3: Ready summaries for episodes from subscribed podcasts/channels (cron-generated)
     if (allSubscribedPodcastIds.length > 0) {
-      // First get episode IDs for subscribed podcasts
+      // Get episode IDs for subscribed podcasts (limit to recent 90 days to avoid unbounded queries)
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
       const { data: subEpisodes } = await admin
         .from('episodes')
         .select('id')
-        .in('podcast_id', allSubscribedPodcastIds);
+        .in('podcast_id', allSubscribedPodcastIds)
+        .gte('published_at', ninetyDaysAgo)
+        .limit(500);
 
       const subEpisodeIds = (subEpisodes || []).map((e: any) => e.id);
 

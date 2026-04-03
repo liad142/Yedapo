@@ -105,8 +105,16 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Math.max(limitParam, 1), 50); // clamp 1-50
   const cursor = request.nextUrl.searchParams.get('cursor'); // ISO date string for pagination
 
-  // Check Redis cache for first page (no cursor)
-  const cacheKey = `daily-mix:${country}:${limit}`;
+  // Resolve auth early so the cache key includes the user ID when personalized
+  let authUser: { id: string; email?: string | null } | null = null;
+  try {
+    authUser = await getAuthUser();
+  } catch {
+    // Not authenticated — use guest cache key
+  }
+
+  // Include userId in cache key to prevent one user's personalized feed from being served to another
+  const cacheKey = `daily-mix:${authUser?.id || 'guest'}:${country}:${limit}`;
   if (!cursor) {
     const cached = await getCached<{ episodes: any[]; nextCursor: string | null }>(cacheKey);
     if (cached) {
@@ -211,16 +219,15 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 4. Get user's preferred genres for filtering
+  // 4. Get user's preferred genres for filtering (reuse authUser resolved above)
   let genreKeywords: string[] = [];
   let hasPreferences = false;
-  try {
-    const user = await getAuthUser();
-    if (user) {
+  if (authUser) {
+    try {
       const { data: profile } = await admin
         .from('user_profiles')
         .select('preferred_genres')
-        .eq('id', user.id)
+        .eq('id', authUser.id)
         .single();
 
       const preferredGenres: string[] = profile?.preferred_genres || [];
@@ -228,9 +235,9 @@ export async function GET(request: NextRequest) {
         hasPreferences = true;
         genreKeywords = preferredGenres.flatMap(id => GENRE_KEYWORDS[id] || []);
       }
+    } catch {
+      // Profile fetch failed — no filtering
     }
-  } catch {
-    // Not authenticated — no filtering
   }
 
   // 4b. Filter by country/language if provided

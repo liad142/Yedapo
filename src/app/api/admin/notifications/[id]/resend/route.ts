@@ -30,8 +30,13 @@ export async function POST(
     return NextResponse.json({ error: 'Only failed notifications can be resent' }, { status: 400 });
   }
 
-  // Build content and resend
-  const content = await buildShareContent(notification.episode_id);
+  // Build content and resend (wrapped in try/catch like the force-send sibling)
+  let content;
+  try {
+    content = await buildShareContent(notification.episode_id);
+  } catch (err) {
+    return NextResponse.json({ error: `Failed to build content: ${err instanceof Error ? err.message : String(err)}` }, { status: 500 });
+  }
 
   let result: { success: boolean; error?: string };
   if (notification.channel === 'email') {

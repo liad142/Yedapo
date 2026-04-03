@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPodcastEpisodes } from '@/lib/apple-podcasts';
-import { getCached, setCached, CacheKeys, CacheTTL } from '@/lib/cache';
+import { getCached, setCached, CacheKeys, CacheTTL, checkRateLimit } from '@/lib/cache';
 import crypto from 'crypto';
 
 interface PodcastEpisodesRequest {
@@ -17,6 +17,11 @@ function createCacheKey(podcasts: PodcastEpisodesRequest[], country: string): st
 }
 
 export async function POST(request: NextRequest) {
+  // IP-based rate limit since this endpoint has no auth guard
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rlAllowed = await checkRateLimit(`batch-episodes:${ip}`, 10, 60);
+  if (!rlAllowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+
   try {
     const body = await request.json();
     const { podcasts, country = 'us' } = body as {

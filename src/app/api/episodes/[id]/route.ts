@@ -24,7 +24,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const cached = await getCached<{ episode: any; transcript: any; summary: any }>(cacheKey);
     if (cached) {
       return NextResponse.json(cached, {
-        headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },
+        headers: { 'Cache-Control': 'private, s-maxage=3600, stale-while-revalidate=7200' },
       });
     }
 
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const cacheTtl = hasSummaryReady ? 3600 : 300;
     return NextResponse.json(responseData, {
-      headers: { 'Cache-Control': `public, s-maxage=${cacheTtl}, stale-while-revalidate=${cacheTtl * 2}` },
+      headers: { 'Cache-Control': `private, s-maxage=${cacheTtl}, stale-while-revalidate=${cacheTtl * 2}` },
     });
   } catch (error) {
     console.error("Error in episode GET:", error);

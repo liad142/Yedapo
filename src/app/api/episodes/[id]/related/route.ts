@@ -58,7 +58,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       .in("level", ["quick", "deep"])
       .neq("episode_id", episodeId)
       .order("updated_at", { ascending: false })
-      .limit(200);
+      .limit(100);
 
     if (!candidateSummaries || candidateSummaries.length === 0) {
       return NextResponse.json({ related: [] });

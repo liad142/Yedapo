@@ -71,11 +71,14 @@ export async function GET(request: NextRequest) {
     const queries: PromiseLike<any>[] = [];
 
     if (allPodcastIds.length > 0) {
-      // First get episode IDs for subscribed podcasts
+      // Get episode IDs for subscribed podcasts (limit to recent 90 days)
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
       const { data: subEpisodes } = await admin
         .from('episodes')
         .select('id')
-        .in('podcast_id', allPodcastIds);
+        .in('podcast_id', allPodcastIds)
+        .gte('published_at', ninetyDaysAgo)
+        .limit(500);
 
       const subEpisodeIds = (subEpisodes || []).map((e: any) => e.id);
 

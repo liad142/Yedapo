@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { checkRateLimit } from '@/lib/cache';
 
 /**
  * GET /api/youtube/{videoId}/status
  * Check if a YouTube video already has an episode and summary in the DB.
  */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ videoId: string }> }
 ) {
+  // IP-based rate limit since this endpoint has no auth
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rlAllowed = await checkRateLimit(`yt-status:${ip}`, 30, 60);
+  if (!rlAllowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+
   const { videoId } = await params;
   const supabase = createAdminClient();
 

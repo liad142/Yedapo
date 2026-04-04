@@ -1,0 +1,15 @@
+# Code ownership — auto-requests review on PRs.
+# Order matters: later matches take precedence.
+
+# Default owner for everything
+* @liad142
+
+# Infrastructure & deployment
+/.github/              @liad142
+/vercel.json           @liad142
+/next.config.*         @liad142
+/package.json          @liad142
+/package-lock.json     @liad142
+
+# Database & migrations (extra care)
+/supabase/             @liad142

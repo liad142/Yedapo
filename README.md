@@ -1,49 +1,49 @@
-# PodCatch
+# Yedapo
 
-**Your AI-powered podcast and YouTube companion.**
+**Know what matters. AI-powered insights from podcasts and YouTube.**
 
-PodCatch helps you stay on top of the content you care about — without spending hours listening. Get instant AI summaries, deep insights, and a personalised discovery feed across podcasts and YouTube channels.
+Yedapo turns any podcast episode or YouTube video into a structured briefing in minutes: deep summary, chapter breakdown, key concepts, actionable takeaways, and a searchable transcript you can chat with.
 
----
-
-## What PodCatch Does
-
-- **AI Summaries** — Get a quick TLDR or a comprehensive deep-dive for any podcast episode in seconds.
-- **Episode Insights** — Key concepts, chapter breakdowns, contrarian takes, and actionable takeaways, all AI-generated.
-- **Personalised Discovery** — A daily mix of summarised episodes curated to your interests and listening history.
-- **Podcast + YouTube in One Place** — Follow podcasts from Apple Podcasts and YouTube channels side by side in a unified feed.
-- **Ask AI** — Chat with any episode. Ask follow-up questions, go deeper on a topic, or get a custom brief.
-- **Global Summary Cache** — When someone summarises an episode, everyone benefits. No duplicate work.
+🌐 **[yedapo.com](https://www.yedapo.com)**
 
 ---
 
-## Screenshots
+## What Yedapo Does
 
-> Coming soon.
+- **AI Summaries** — Quick TLDR or comprehensive deep-dive for any podcast or YouTube episode.
+- **Episode Insights** — Chapter breakdowns, core concepts, contrarian views, and action items, AI-generated.
+- **Personalised Discovery** — A daily mix of summaries curated to your interests.
+- **Podcasts + YouTube, unified** — Follow Apple Podcasts and YouTube channels side by side.
+- **Ask AI** — Chat with any episode. Go deeper, fact-check, get a custom brief.
+- **Global Summary Cache** — When one user summarises, everyone benefits.
 
 ---
 
 ## Getting Started
 
-PodCatch is a hosted web application. Visit **[podcatch.app](https://podcatch.app)** to create a free account.
+Yedapo is a hosted web app — no install needed.
 
-No installation required. Works on any modern browser, desktop and mobile.
+👉 **[Sign up free at yedapo.com](https://www.yedapo.com)**
+
+Works on any modern browser, desktop and mobile.
 
 ---
 
-## For Developers
-
-If you're contributing or running a local instance:
+## For Contributors
 
 ### Prerequisites
-- Node.js 18+
+
+- Node.js 22 (see `.nvmrc`)
 - A Supabase project
 - Upstash Redis instance
-- API keys: Anthropic, Groq, PostHog (analytics)
+- API keys: Google Gemini, Deepgram, PostHog
 
 ### Local Setup
 
 ```bash
+# Use the right Node version
+nvm use
+
 # Install dependencies
 npm install
 
@@ -51,29 +51,47 @@ npm install
 cp .env.local.example .env.local
 # Fill in your API keys and Supabase credentials
 
-# Run development server
+# Run the dev server
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### Build
+### Commands
 
-```bash
-npm run build
-npm start
-```
+| Command | What it does |
+|---|---|
+| `npm run dev` | Start the Turbopack dev server |
+| `npm run build` | Production build |
+| `npm run lint` | ESLint check |
+| `npm run typecheck` | TypeScript check (`tsc --noEmit`) |
+| `npm run test` | Run Vitest test suite |
+
+### Deployment
+
+Yedapo deploys to Vercel automatically on push to `main`. Every PR gets a Preview deployment.
 
 ---
 
 ## Tech Stack
 
-Built with Next.js, Supabase, and Tailwind CSS. AI powered by Anthropic Claude and Groq.
+Next.js 16 (App Router · Turbopack) · Supabase (Postgres + Auth + RLS) · Upstash Redis · Tailwind CSS · Google Gemini · Deepgram · PostHog · Vercel · Remotion (promo video)
+
+---
+
+## Contributing
+
+1. Fork + branch from `main`
+2. Open a PR back to `main`
+3. CI runs lint + typecheck + tests; Vercel builds a Preview
+4. Once green, merge
+
+See [`.github/pull_request_template.md`](./.github/pull_request_template.md) for the PR checklist.
 
 ---
 
 ## License
 
-Copyright © 2026 PodCatch. All rights reserved.
+Copyright © 2026 Yedapo. All rights reserved.
 
-This repository is currently public for transparency. The source code is **not licensed for reuse, redistribution, or commercial use** without explicit written permission from the authors.
+This repository is public for transparency. The source code is **not licensed for reuse, redistribution, or commercial use** without explicit written permission from the authors.

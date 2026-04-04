@@ -17,7 +17,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@deepgram/sdk": "^4.11.3",
+    "@deepgram/sdk": "^5.0.0",
     "@google/generative-ai": "^0.24.1",
     "@mistralai/mistralai": "^1.14.0",
     "@react-email/components": "^1.0.7",

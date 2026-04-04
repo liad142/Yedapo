@@ -21,7 +21,11 @@ export function SummaryHighlightCard({
 
   const headline = quickSummary?.hook_headline;
   const takeaways = deepSummary?.actionable_takeaways?.slice(0, 3) ?? [];
-  const chapterCount = deepSummary?.chronological_breakdown?.length ?? 0;
+  const rawChapters = deepSummary?.chronological_breakdown;
+  const chapterCount = !rawChapters?.length ? 0
+    : (rawChapters[0]?.timestamp_seconds ?? 0) > 0
+      ? rawChapters.length + 1
+      : rawChapters.length;
   const conceptCount = deepSummary?.core_concepts?.length ?? 0;
   const hasTakeaways = takeaways.length > 0;
   const totalTakeaways = deepSummary?.actionable_takeaways?.length ?? 0;

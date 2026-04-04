@@ -170,7 +170,10 @@ export async function GET(request: NextRequest) {
         }),
         // Always add counts from deep summary
         takeawayCount: d.actionable_takeaways?.length ?? 0,
-        chapterCount: d.chronological_breakdown?.length ?? 0,
+        chapterCount: !d.chronological_breakdown?.length ? 0
+          : (d.chronological_breakdown[0]?.timestamp_seconds ?? 0) > 0
+            ? d.chronological_breakdown.length + 1
+            : d.chronological_breakdown.length,
       });
     } else if (!displaySummaryMap.has(s.episode_id)) {
       // Fallback to deep summary display fields if no quick exists

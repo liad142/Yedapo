@@ -103,7 +103,10 @@ export async function GET(request: NextRequest) {
             executiveBrief: d.comprehensive_overview?.slice(0, 300),
           }),
           takeawayCount: d.actionable_takeaways?.length ?? 0,
-          chapterCount: d.chronological_breakdown?.length ?? 0,
+          chapterCount: !d.chronological_breakdown?.length ? 0
+            : (d.chronological_breakdown[0]?.timestamp_seconds ?? 0) > 0
+              ? d.chronological_breakdown.length + 1
+              : d.chronological_breakdown.length,
         });
       }
     }

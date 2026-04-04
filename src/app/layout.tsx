@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   },
 };
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://yedapo.com';
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.yedapo.com';
 
 const organizationSchema = {
   '@context': 'https://schema.org',

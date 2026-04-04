@@ -74,14 +74,6 @@ export async function POST(
 
     const { id: episodeId } = await context.params;
 
-    // Invalidate stale insights cache for both 'en' and detected language
-    await Promise.all([
-      deleteCached(CacheKeys.insightsStatus(episodeId, 'en')).catch(() => {}),
-      language && language !== 'en'
-        ? deleteCached(CacheKeys.insightsStatus(episodeId, language)).catch(() => {})
-        : Promise.resolve(),
-    ]);
-
     const supabase = createAdminClient();
 
     // Fetch episode with podcast info - language comes from RSS feed
@@ -106,6 +98,14 @@ export async function POST(
     // Self-healing language detection via shared utility
     const podcastData = episode.podcasts as unknown as { id: string; title: string; language: string | null; rss_feed_url: string } | null;
     const language = await resolvePodcastLanguage(podcastData, supabase);
+
+    // Invalidate stale insights cache for both 'en' and detected language
+    await Promise.all([
+      deleteCached(CacheKeys.insightsStatus(episodeId, 'en')).catch(() => {}),
+      language && language !== 'en'
+        ? deleteCached(CacheKeys.insightsStatus(episodeId, language)).catch(() => {})
+        : Promise.resolve(),
+    ]);
 
     // Build metadata for Apple Podcasts transcript lookup
     const metadata = podcastData?.title && episode.title

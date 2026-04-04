@@ -38,6 +38,8 @@
   ],
   "exclude": [
     "node_modules",
-    "video"
+    "video",
+    "skills",
+    ".claude"
   ]
 }

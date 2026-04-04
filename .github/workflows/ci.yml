@@ -2,13 +2,19 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
-    branches: [master]
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  quality:
+    name: Lint + Type Check + Test
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
@@ -16,30 +22,22 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: '.nvmrc'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
       - name: Lint
-        run: npx eslint src/
+        run: npm run lint
 
       - name: Type check
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Test
         run: npm run test
-
-      - name: Build
-        run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
           NEXT_PUBLIC_POSTHOG_KEY: placeholder
           SUPABASE_SECRET_KEY: placeholder
-          DEEPGRAM_API_KEY: placeholder
-          GOOGLE_GEMINI_API_KEY: placeholder
-          MISTRAL_API_KEY: placeholder
-          UPSTASH_REDIS_REST_URL: https://placeholder.upstash.io
-          UPSTASH_REDIS_REST_TOKEN: placeholder

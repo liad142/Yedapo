@@ -517,7 +517,7 @@ export function SummaryModal({
                           <p className="text-sm font-semibold text-foreground">Explore Full Insights</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {[
-                              chapters.length > 0 && `${chapters.length} chapters`,
+                              chapters.length > 0 && `${(chapters[0]?.timestamp_seconds ?? 0) > 0 ? chapters.length + 1 : chapters.length} chapters`,
                               deepSummary?.core_concepts?.length && `${deepSummary.core_concepts.length} key concepts`,
                               deepSummary?.actionable_takeaways?.length && 'action items',
                               'transcript',

@@ -6,6 +6,7 @@ import { MessageCircle, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/format-relative-time";
+import { sanitizeImageUrl } from "@/lib/sanitize-image-url";
 import { CommentComposer } from "./CommentComposer";
 import type { EpisodeCommentWithAuthor } from "@/types/database";
 
@@ -76,6 +77,7 @@ function CommentCard({
   const isOwner = currentUserId === comment.user_id;
   const displayName = comment.author?.display_name || "Anonymous";
   const initial = displayName.charAt(0).toUpperCase();
+  const sanitizedAvatarUrl = sanitizeImageUrl(comment.author?.avatar_url ?? undefined);
   const replyTargetId = comment.parent_id || comment.id;
 
   const handleReply = async (body: string) => {
@@ -112,18 +114,18 @@ function CommentCard({
     <div className={cn("rounded-xl p-4", isTopLevel ? "bg-card border border-border shadow-[var(--shadow-1)]" : "hover:bg-secondary/50")}>
       {/* Author row */}
       <div className="flex items-center gap-2 mb-2">
-        {comment.author?.avatar_url ? (
+        {sanitizedAvatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={comment.author.avatar_url}
+            src={sanitizedAvatarUrl}
             alt={displayName}
             className="w-7 h-7 rounded-full object-cover"
+            onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }}
           />
-        ) : (
-          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
-            <span className="text-xs font-bold text-primary">{initial}</span>
-          </div>
-        )}
+        ) : null}
+        <div className={cn("w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center", sanitizedAvatarUrl && "hidden")}>
+          <span className="text-xs font-bold text-primary">{initial}</span>
+        </div>
         <span className="text-sm font-semibold text-foreground">{displayName}</span>
         <span className="text-caption text-muted-foreground">
           {formatRelativeTime(comment.created_at)}

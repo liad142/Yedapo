@@ -17,6 +17,12 @@ export async function DELETE(
     return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
   }
 
+  // Validate UUID format before sequential deletes
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(userId)) {
+    return NextResponse.json({ error: 'Invalid user ID format' }, { status: 400 });
+  }
+
   const admin = createAdminClient();
 
   // Delete from all user-owned tables in dependency order.

@@ -64,8 +64,8 @@ export async function getYouTubeAccessToken(userId: string): Promise<string | nu
     const newAccessToken = data.access_token as string;
     const expiresIn = (data.expires_in as number) || 3600;
 
-    // Update stored token
-    await supabase
+    // Update stored token — check for errors to avoid silent DB desync
+    const { error: updateError } = await supabase
       .from('user_provider_tokens')
       .update({
         access_token: newAccessToken,
@@ -74,6 +74,10 @@ export async function getYouTubeAccessToken(userId: string): Promise<string | nu
       })
       .eq('user_id', userId)
       .eq('provider', 'google');
+
+    if (updateError) {
+      log.error('Failed to persist refreshed token', { userId: userId.slice(0, 8), error: updateError.message });
+    }
 
     return newAccessToken;
   } catch (err) {

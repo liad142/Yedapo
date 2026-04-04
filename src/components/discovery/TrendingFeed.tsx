@@ -33,7 +33,7 @@ export interface TrendingFeedProps {
   episodes: FeedEpisode[];
   isLoading: boolean;
   hasMore: boolean;
-  onLoadMore: () => void;
+  onLoadMore: () => Promise<void> | void;
 }
 
 // --- Format break sub-component ---
@@ -99,11 +99,14 @@ export function TrendingFeed({
     [episodes, countryInfo?.name]
   );
 
-  const handleLoadMore = () => {
+  const handleLoadMore = async () => {
     if (isLoadingMore) return;
     setIsLoadingMore(true);
-    onLoadMore();
-    setTimeout(() => setIsLoadingMore(false), 1500);
+    try {
+      await onLoadMore();
+    } finally {
+      setIsLoadingMore(false);
+    }
   };
 
   return (

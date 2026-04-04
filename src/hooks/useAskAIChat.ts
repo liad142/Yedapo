@@ -127,17 +127,22 @@ export function useAskAIChat(episodeId: string | null, onMessageSent?: () => voi
           throw new Error(errData.error || `HTTP ${res.status}`);
         }
 
-        onMessageSent?.();
-
         const reader = res.body?.getReader();
         if (!reader) throw new Error("No response stream");
 
         const decoder = new TextDecoder();
         let buffer = "";
+        let streamStarted = false;
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
+
+          // Increment usage counter after first chunk arrives (not just HTTP headers)
+          if (!streamStarted) {
+            streamStarted = true;
+            onMessageSent?.();
+          }
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");

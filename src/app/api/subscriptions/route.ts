@@ -49,10 +49,13 @@ export async function GET(request: NextRequest) {
     const totalEpisodeCounts = new Map<string, number>();
 
     if (podcastIds.length > 0) {
+      // Limit to recent 90 days to avoid unbounded queries for podcasts with thousands of episodes
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
       const { data: episodeRows } = await admin
         .from('episodes')
         .select('podcast_id, published_at')
-        .in('podcast_id', podcastIds);
+        .in('podcast_id', podcastIds)
+        .gte('published_at', ninetyDaysAgo);
 
       if (episodeRows) {
         // Build a last_viewed_at lookup per podcast

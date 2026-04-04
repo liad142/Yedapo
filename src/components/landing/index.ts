@@ -1,0 +1,9 @@
+export { LandingNav } from './LandingNav';
+export { Hero } from './Hero';
+export { SocialProof } from './SocialProof';
+export { Features } from './Features';
+export { HowItWorks } from './HowItWorks';
+export { UseCases } from './UseCases';
+export { PricingCTA } from './PricingCTA';
+export { FinalCTA } from './FinalCTA';
+export { LandingFooter } from './LandingFooter';

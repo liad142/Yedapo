@@ -25,7 +25,7 @@ export async function GET(
     const status = await getInsightsStatus(id);
 
     return NextResponse.json(status, {
-      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
+      headers: { 'Cache-Control': 'private, s-maxage=60, stale-while-revalidate=120' },
     });
   } catch (error) {
     console.error("Error fetching insights:", error);
@@ -74,9 +74,6 @@ export async function POST(
 
     const { id: episodeId } = await context.params;
 
-    // Invalidate stale insights cache so polling picks up the new state
-    await deleteCached(CacheKeys.insightsStatus(episodeId, 'en')).catch(() => {});
-
     const supabase = createAdminClient();
 
     // Fetch episode with podcast info - language comes from RSS feed
@@ -101,6 +98,14 @@ export async function POST(
     // Self-healing language detection via shared utility
     const podcastData = episode.podcasts as unknown as { id: string; title: string; language: string | null; rss_feed_url: string } | null;
     const language = await resolvePodcastLanguage(podcastData, supabase);
+
+    // Invalidate stale insights cache for both 'en' and detected language
+    await Promise.all([
+      deleteCached(CacheKeys.insightsStatus(episodeId, 'en')).catch(() => {}),
+      language && language !== 'en'
+        ? deleteCached(CacheKeys.insightsStatus(episodeId, language)).catch(() => {})
+        : Promise.resolve(),
+    ]);
 
     // Build metadata for Apple Podcasts transcript lookup
     const metadata = podcastData?.title && episode.title
@@ -138,7 +143,8 @@ export async function POST(
           .from('summaries')
           .update({ status: 'failed', error_message: String(err) })
           .eq('episode_id', episodeId)
-          .eq('level', 'insights');
+          .eq('level', 'insights')
+          .eq('language', resolvedLanguage || 'en');
       }
     });
 

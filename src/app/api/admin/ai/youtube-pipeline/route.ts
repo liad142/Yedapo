@@ -87,6 +87,23 @@ export async function GET(request: NextRequest) {
 
   const userEmailById = new Map<string, string | null>();
 
+  // Populate userEmailById from auth users (pattern from users/route.ts)
+  const uniqueUserIds = [...new Set(
+    (userSummaries as Array<{ user_id: string | null }>)
+      .map(r => r.user_id)
+      .filter((id): id is string => !!id)
+  )];
+  if (uniqueUserIds.length > 0) {
+    const { data: authUsers } = await admin.auth.admin.listUsers({ perPage: 200 });
+    if (authUsers?.users) {
+      for (const au of authUsers.users) {
+        if (uniqueUserIds.includes(au.id)) {
+          userEmailById.set(au.id, au.email ?? null);
+        }
+      }
+    }
+  }
+
   const transcriptByEpisode = new Map<string, any>();
   for (const t of transcripts as any[]) {
     const prev = transcriptByEpisode.get(t.episode_id);

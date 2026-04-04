@@ -35,7 +35,8 @@ export const fetchPodcastEpisodes = cache(async function fetchPodcastEpisodes(
       'id, podcast_id, title, description, audio_url, duration_seconds, published_at, created_at'
     )
     .eq('podcast_id', podcastId)
-    .order('published_at', { ascending: false });
+    .order('published_at', { ascending: false })
+    .limit(100);
 
   if (error || !data) return [];
 

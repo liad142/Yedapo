@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-const supabase = createAdminClient();
 import { ensureTranscript } from "./summary-service";
+import { acquireLock, releaseLock } from "@/lib/cache";
 import type {
   InsightStatus,
   InsightsContent,
@@ -82,6 +82,7 @@ export async function generateInsights(
   transcriptText: string,
   language = 'en'
 ): Promise<{ status: InsightStatus; content?: InsightsContent; error?: string }> {
+  const supabase = createAdminClient();
 
   // Update status to summarizing (generating)
   await supabase
@@ -219,7 +220,16 @@ export async function requestInsights(
   transcriptUrl?: string,
   metadata?: { podcastTitle: string; episodeTitle: string }
 ): Promise<{ status: InsightStatus; content?: InsightsContent }> {
+  const supabase = createAdminClient();
 
+  // Distributed lock to prevent duplicate Gemini calls from concurrent requests
+  const lockKey = `lock:insights:${episodeId}`;
+  const locked = await acquireLock(lockKey, 300); // 5 min TTL
+  if (!locked) {
+    return { status: 'summarizing' as InsightStatus };
+  }
+
+  try {
   // Check existing insights (look in any language first)
   const { data: existingList } = await supabase
     .from('summaries')
@@ -271,9 +281,13 @@ export async function requestInsights(
 
   // Generate insights (language is known from RSS feed)
   return generateInsights(episodeId, transcriptResult.text, language);
+  } finally {
+    await releaseLock(lockKey);
+  }
 }
 
 export async function getInsightsStatus(episodeId: string, language = 'en') {
+  const supabase = createAdminClient();
   // Check Redis cache for terminal states
   const { getCached, setCached, CacheKeys, CacheTTL } = await import('@/lib/cache');
   const cacheKey = CacheKeys.insightsStatus(episodeId, language);

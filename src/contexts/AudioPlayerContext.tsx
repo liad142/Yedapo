@@ -95,6 +95,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const audioInitialized = useRef(false);
   const lastSaveRef = useRef<number>(0);
   const pendingCanPlayRef = useRef<(() => void) | null>(null);
+  const audioHandlersRef = useRef<{ event: string; handler: EventListenerOrEventListenerObject }[]>([]);
 
   // Frequently changing state
   const [currentTime, setCurrentTime] = useState(0);
@@ -193,13 +194,19 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       setIsLoading(false);
     };
 
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-    audio.addEventListener('ended', handleEnded);
-    audio.addEventListener('play', handlePlay);
-    audio.addEventListener('pause', handlePause);
-    audio.addEventListener('waiting', handleWaiting);
-    audio.addEventListener('canplay', handleCanPlay);
+    const handlers: { event: string; handler: EventListenerOrEventListenerObject }[] = [
+      { event: 'timeupdate', handler: handleTimeUpdate },
+      { event: 'loadedmetadata', handler: handleLoadedMetadata },
+      { event: 'ended', handler: handleEnded },
+      { event: 'play', handler: handlePlay },
+      { event: 'pause', handler: handlePause },
+      { event: 'waiting', handler: handleWaiting },
+      { event: 'canplay', handler: handleCanPlay },
+    ];
+    for (const { event, handler } of handlers) {
+      audio.addEventListener(event, handler);
+    }
+    audioHandlersRef.current = handlers;
 
     return audio;
   }, []);
@@ -208,6 +215,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     return () => {
       if (audioRef.current) {
+        // Remove all registered event listeners
+        for (const { event, handler } of audioHandlersRef.current) {
+          audioRef.current.removeEventListener(event, handler);
+        }
+        audioHandlersRef.current = [];
         audioRef.current.pause();
         audioRef.current.src = '';
       }
@@ -218,12 +230,26 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     const saveNow = () => {
       if (currentTrackRef.current?.id && audioRef.current && audioRef.current.currentTime > 0) {
-        saveListeningProgress(
-          currentTrackRef.current.id,
-          audioRef.current.currentTime,
-          audioRef.current.duration || 0,
-          userRef.current?.id
-        );
+        const episodeId = currentTrackRef.current.id;
+        const currentTime = audioRef.current.currentTime;
+        const duration = audioRef.current.duration || 0;
+        const userId = userRef.current?.id;
+
+        // Always save to localStorage (synchronous, reliable)
+        // Pass null userId to skip the fetch call — we use sendBeacon below instead
+        saveListeningProgress(episodeId, currentTime, duration, null);
+
+        // Use sendBeacon for DB sync — reliable during unload/hide on mobile
+        if (userId && episodeId.includes('-') && navigator.sendBeacon) {
+          navigator.sendBeacon(
+            '/api/listening-progress',
+            new Blob(
+              [JSON.stringify({ episodeId, currentTime, duration })],
+              { type: 'application/json' }
+            )
+          );
+        }
+
         lastSaveRef.current = Date.now();
       }
     };

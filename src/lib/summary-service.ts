@@ -244,10 +244,17 @@ Return ONLY a JSON object with this EXACT structure. Every field is MANDATORY �
 
   "chronological_breakdown": [
     {
+      "timestamp": "00:00",
+      "timestamp_seconds": 0,
+      "title": "Opening / Intro chapter title (3-8 words)",
+      "hook": "One-line curiosity-driven promise of what this section reveals (MANDATORY — never omit)",
+      "content": "Detailed paragraph (90-160 words) covering what was said. Include speaker names and specific examples."
+    },
+    {
       "timestamp": "05:45",
       "timestamp_seconds": 345,
       "title": "Short chapter title (3-8 words)",
-      "hook": "One-line curiosity-driven promise of what this section reveals (MANDATORY — never omit)",
+      "hook": "One-line curiosity-driven promise (MANDATORY — never omit)",
       "content": "Detailed paragraph (90-160 words) covering what was said. Include speaker names and specific examples."
     }
   ],
@@ -302,7 +309,7 @@ HARD RULES (violations = invalid output):
 
 6. **Core concepts**: 4-8 concept cards. Each explanation should cover what it is, why it matters here, and what it implies for the listener.
 
-7. **Timestamps**: The transcript may include [MM:SS] timestamps. Set "timestamp" to the EXACT [MM:SS] where the topic begins, and "timestamp_seconds" to total seconds. If no timestamps exist, use "00:00" and 0.
+7. **Timestamps**: The transcript may include [MM:SS] timestamps. Set "timestamp" to the EXACT [MM:SS] where the topic begins, and "timestamp_seconds" to total seconds. If no timestamps exist, use "00:00" and 0. IMPORTANT: The FIRST item in chronological_breakdown MUST start at "00:00" (timestamp_seconds: 0) — this is the intro/opening section. Every episode begins with something; capture it.
 
 8. **Tone**: Professional, analytical, engaging. Write directly: "Israel's geopolitical situation is shifting because..." — never "The speakers discussed..."
 

@@ -105,8 +105,16 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Math.max(limitParam, 1), 50); // clamp 1-50
   const cursor = request.nextUrl.searchParams.get('cursor'); // ISO date string for pagination
 
-  // Check Redis cache for first page (no cursor)
-  const cacheKey = `daily-mix:${country}:${limit}`;
+  // Resolve auth early so the cache key includes the user ID when personalized
+  let authUser: { id: string; email?: string | null } | null = null;
+  try {
+    authUser = await getAuthUser({ silent: true });
+  } catch {
+    // Not authenticated — use guest cache key
+  }
+
+  // Include userId in cache key to prevent one user's personalized feed from being served to another
+  const cacheKey = `daily-mix:${authUser?.id || 'guest'}:${country}:${limit}`;
   if (!cursor) {
     const cached = await getCached<{ episodes: any[]; nextCursor: string | null }>(cacheKey);
     if (cached) {
@@ -162,7 +170,10 @@ export async function GET(request: NextRequest) {
         }),
         // Always add counts from deep summary
         takeawayCount: d.actionable_takeaways?.length ?? 0,
-        chapterCount: d.chronological_breakdown?.length ?? 0,
+        chapterCount: !d.chronological_breakdown?.length ? 0
+          : (d.chronological_breakdown[0]?.timestamp_seconds ?? 0) > 0
+            ? d.chronological_breakdown.length + 1
+            : d.chronological_breakdown.length,
       });
     } else if (!displaySummaryMap.has(s.episode_id)) {
       // Fallback to deep summary display fields if no quick exists
@@ -211,16 +222,15 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 4. Get user's preferred genres for filtering
+  // 4. Get user's preferred genres for filtering (reuse authUser resolved above)
   let genreKeywords: string[] = [];
   let hasPreferences = false;
-  try {
-    const user = await getAuthUser();
-    if (user) {
+  if (authUser) {
+    try {
       const { data: profile } = await admin
         .from('user_profiles')
         .select('preferred_genres')
-        .eq('id', user.id)
+        .eq('id', authUser.id)
         .single();
 
       const preferredGenres: string[] = profile?.preferred_genres || [];
@@ -228,9 +238,9 @@ export async function GET(request: NextRequest) {
         hasPreferences = true;
         genreKeywords = preferredGenres.flatMap(id => GENRE_KEYWORDS[id] || []);
       }
+    } catch {
+      // Profile fetch failed — no filtering
     }
-  } catch {
-    // Not authenticated — no filtering
   }
 
   // 4b. Filter by country/language if provided
@@ -317,18 +327,29 @@ export async function GET(request: NextRequest) {
     return true;
   });
 
-  // 8. Apply cursor-based pagination
+  // 8. Apply cursor-based pagination (cursor format: "ISO_DATE|EPISODE_ID" for tiebreaking)
   let startIndex = 0;
   if (cursor) {
-    const cursorTime = new Date(cursor).getTime();
-    startIndex = diversified.findIndex(ep => ep._publishedAt <= cursorTime);
+    const [cursorDateStr, cursorEpisodeId] = cursor.split('|');
+    const cursorTime = new Date(cursorDateStr).getTime();
+    if (cursorEpisodeId) {
+      // Find the exact episode after the cursor (handles duplicate timestamps)
+      const cursorIdx = diversified.findIndex(
+        ep => ep._publishedAt === cursorTime && ep.id === cursorEpisodeId
+      );
+      startIndex = cursorIdx !== -1 ? cursorIdx + 1 : diversified.findIndex(ep => ep._publishedAt < cursorTime);
+    } else {
+      // Legacy cursor format (date only) — find first episode at or below cursor time
+      startIndex = diversified.findIndex(ep => ep._publishedAt <= cursorTime);
+    }
     if (startIndex === -1) startIndex = diversified.length;
   }
 
   const page = diversified.slice(startIndex, startIndex + limit);
   const hasMore = startIndex + limit < diversified.length;
-  const nextCursor = hasMore && page.length > 0
-    ? new Date(page[page.length - 1]._publishedAt).toISOString()
+  const lastItem = page[page.length - 1];
+  const nextCursor = hasMore && lastItem
+    ? `${new Date(lastItem._publishedAt).toISOString()}|${lastItem.id}`
     : null;
 
   // 9. Strip internal fields and return

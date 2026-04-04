@@ -15,6 +15,7 @@ import {
   Compass,
   Menu,
   X,
+  Plug,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { label: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { label: 'Notifications', href: '/admin/notifications', icon: Bell },
   { label: 'System', href: '/admin/system', icon: Activity },
+  { label: 'Providers', href: '/admin/providers', icon: Plug },
 ] as const;
 
 function NavItem({ item, isActive, onClick }: {

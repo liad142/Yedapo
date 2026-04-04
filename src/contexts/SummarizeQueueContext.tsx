@@ -113,9 +113,9 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
       if (transcriptStatus === 'transcribing' || deepStatus === 'transcribing') return 'transcribing';
       if (deepStatus === 'queued' || transcriptStatus === 'queued') return 'transcribing';
 
-      // No deep summary in progress — if quick is ready, we're done
-      // (avoids infinite polling when deep summary was never created)
-      if (quickStatus === 'ready' && !deepStatus) return 'ready';
+      // Quick is ready but deep doesn't exist yet — deep may still be queuing
+      // (the queue always requests 'deep', so give it time before declaring ready)
+      if (quickStatus === 'ready' && !deepStatus) return 'summarizing';
 
       // Nothing actively processing and no known state — stop polling
       if (!deepStatus && !transcriptStatus) return 'ready';

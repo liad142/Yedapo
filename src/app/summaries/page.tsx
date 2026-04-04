@@ -145,14 +145,28 @@ export default function SummariesPage() {
         setError(null);
       }
 
-      const response = await fetch('/api/summaries');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20_000);
+
+      const response = await fetch('/api/summaries', {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
       if (!response.ok) throw new Error('Failed to fetch');
 
       const data = await response.json();
       setEpisodes(data.episodes || []);
     } catch (err) {
       log.error('Error fetching summaries', err);
-      if (!silent) setError('Failed to load summaries');
+      if (!silent) {
+        setError(
+          err instanceof DOMException && err.name === 'AbortError'
+            ? 'Request timed out. Please try again.'
+            : 'Failed to load summaries',
+        );
+      }
     } finally {
       if (!silent) setIsLoading(false);
     }

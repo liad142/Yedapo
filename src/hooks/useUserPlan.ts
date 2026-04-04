@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUsageOptional } from '@/contexts/UsageContext';
 import { PLAN_LIMITS, PLAN_CUTOFFS, GUEST_CUTOFFS, type UserPlan, type PlanLimits, type ContentCutoffs } from '@/lib/plans';
 
 interface UseUserPlanResult {
@@ -14,43 +15,18 @@ interface UseUserPlanResult {
   isLoading: boolean;
 }
 
+/**
+ * Derives plan info from UsageContext (already fetched) instead of making
+ * a separate HTTP request per hook consumer. Falls back to 'free' if
+ * UsageContext is not available.
+ */
 export function useUserPlan(): UseUserPlanResult {
   const { user, isLoading: authLoading } = useAuth();
-  const [plan, setPlan] = useState<UserPlan>('free');
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    if (authLoading) return;
-
-    if (!user) {
-      // Guest / unauthenticated → free
-      setPlan('free');
-      setIsLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-
-    async function fetchPlan() {
-      try {
-        const res = await fetch('/api/user/profile');
-        if (!res.ok) throw new Error('Failed to fetch profile');
-        const { profile } = await res.json();
-        if (!cancelled) {
-          setPlan((profile?.plan as UserPlan) || 'free');
-        }
-      } catch {
-        if (!cancelled) setPlan('free');
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    }
-
-    fetchPlan();
-    return () => { cancelled = true; };
-  }, [user, authLoading]);
+  const usageCtx = useUsageOptional();
 
   const isGuest = !user;
+  const plan: UserPlan = usageCtx?.usage?.plan ?? 'free';
+  const isLoading = authLoading || (usageCtx?.isLoading ?? false);
 
   return useMemo(() => ({
     plan,
@@ -61,6 +37,6 @@ export function useUserPlan(): UseUserPlanResult {
     isFree: plan === 'free',
     isPro: plan === 'pro',
     isGuest,
-    isLoading: authLoading || isLoading,
-  }), [plan, isGuest, authLoading, isLoading]);
+    isLoading,
+  }), [plan, isGuest, isLoading]);
 }

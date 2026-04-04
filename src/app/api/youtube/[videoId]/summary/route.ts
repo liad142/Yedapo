@@ -5,7 +5,10 @@ import { importYouTubeVideo } from '@/lib/youtube/video-import';
 import { requestYouTubeSummary } from '@/lib/youtube/summary';
 import { fetchVideoDetails } from '@/lib/youtube/api';
 import { createLogger } from '@/lib/logger';
-import { checkRateLimit } from '@/lib/cache';
+import { checkRateLimit, checkPlanQuota } from '@/lib/cache';
+import { isAdminEmail } from '@/lib/admin';
+import { getUserPlan } from '@/lib/user-plan';
+import { PLAN_LIMITS } from '@/lib/plans';
 import type { SummaryLevel } from '@/types/database';
 
 const log = createLogger('youtube');
@@ -27,6 +30,21 @@ export async function POST(
 
   const rlAllowed = await checkRateLimit(`yt-summary:${user.id}`, 10, 60);
   if (!rlAllowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+
+  // Per-user daily quota — mirrors podcast summary route (skip for admins)
+  const isAdmin = isAdminEmail(user.email ?? '');
+  if (!isAdmin) {
+    const plan = await getUserPlan(user.id, user.email ?? undefined);
+    const quota = await checkPlanQuota(user.id, 'summary', PLAN_LIMITS[plan].summariesPerDay);
+    if (!quota.allowed) {
+      return NextResponse.json({
+        error: 'Daily summary limit reached',
+        limit: quota.limit,
+        used: quota.used,
+        upgrade_url: '/pricing',
+      }, { status: 429 });
+    }
+  }
 
   const body = await request.json();
   const {

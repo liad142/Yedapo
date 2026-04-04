@@ -3,7 +3,6 @@ import { fetchYouTubeMetadata } from './metadata-scraper';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('youtube');
-const supabase = createAdminClient();
 
 export interface YouTubeMetadataRow {
   episode_id: string;
@@ -48,6 +47,7 @@ export async function fetchPinnedComment(
         context: WEB_CONTEXT,
         videoId,
       }),
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!nextRes.ok) return null;
@@ -85,6 +85,7 @@ export async function fetchPinnedComment(
         context: WEB_CONTEXT,
         continuation: continuationToken,
       }),
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!commentsRes.ok) return null;
@@ -143,6 +144,7 @@ export async function ensureYouTubeMetadata(
   episodeId: string,
   videoId: string
 ): Promise<YouTubeMetadataRow | null> {
+  const supabase = createAdminClient();
   // Check if row exists and is recent
   const { data: existing } = await supabase
     .from('youtube_metadata')

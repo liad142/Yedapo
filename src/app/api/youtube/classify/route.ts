@@ -5,6 +5,7 @@ import { extractGenresFromTopicCategories, extractGenresFromTopicIds } from '@/l
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { APPLE_PODCAST_GENRES } from '@/types/apple-podcasts';
 import { createLogger } from '@/lib/logger';
+import { checkRateLimit } from '@/lib/cache';
 
 const log = createLogger('yt-classify');
 
@@ -79,6 +80,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // Rate limit: 5 req/min — this endpoint calls YouTube Data API + Gemini AI
+  const rlAllowed = await checkRateLimit(`yt-classify:${user.id}`, 5, 60);
+  if (!rlAllowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+
   let body: { channels?: Array<{ channelId: string; title: string; description: string }>; genres?: string[] };
   try {
     body = await request.json();
@@ -91,6 +96,14 @@ export async function POST(request: NextRequest) {
   if (!channels || !Array.isArray(channels) || !genres || !Array.isArray(genres) || genres.length === 0) {
     return NextResponse.json(
       { error: 'Missing or invalid channels or genres (genres must be non-empty)' },
+      { status: 400 }
+    );
+  }
+
+  // Cap channels to prevent abuse
+  if (channels.length > 50) {
+    return NextResponse.json(
+      { error: 'Maximum 50 channels per request' },
       { status: 400 }
     );
   }

@@ -13,12 +13,11 @@ export async function GET() {
     { data: profiles, count: totalUsers },
     { data: recentUsers },
   ] = await Promise.all([
-    admin.from('user_profiles').select('created_at, preferred_genres, preferred_country, onboarding_completed, plan', { count: 'exact' }),
+    admin.from('user_profiles').select('created_at, preferred_genres, preferred_country, onboarding_completed, plan', { count: 'exact' }).limit(1000),
     admin.from('user_profiles').select('id, display_name, created_at, onboarding_completed, plan').order('created_at', { ascending: false }).limit(10),
   ]);
 
-  // Limit profiles to prevent unbounded queries
-  const allProfiles = (profiles ?? []).slice(0, 1000);
+  const allProfiles = profiles ?? [];
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 

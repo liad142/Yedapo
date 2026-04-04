@@ -27,7 +27,8 @@ export async function getUserPlan(userId: string, email?: string): Promise<UserP
       return 'free';
     }
 
-    return data.plan as UserPlan;
+    const validPlans: UserPlan[] = ['free', 'pro'];
+    return validPlans.includes(data.plan) ? (data.plan as UserPlan) : 'free';
   } catch (err) {
     log.error('getUserPlan failed', { userId: userId.slice(0, 8), error: String(err) });
     return 'free';

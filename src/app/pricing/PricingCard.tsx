@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Check, X, Sparkles, ArrowRight, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -83,6 +84,7 @@ const ICONS = {
 export function PricingCard({ tier, index }: { tier: Tier; index: number }) {
   const Icon = ICONS[tier.iconName];
   const { user, setShowAuthModal } = useAuth();
+  const router = useRouter();
   const [waitlistEmail, setWaitlistEmail] = useState('');
   const [waitlistLoading, setWaitlistLoading] = useState(false);
   const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
@@ -115,17 +117,20 @@ export function PricingCard({ tier, index }: { tier: Tier; index: number }) {
   return (
     <div
       className={cn(
-        'relative flex flex-col rounded-2xl border bg-card p-6 sm:p-8 transition-all duration-300',
+        'relative flex flex-col rounded-2xl border bg-card p-6 sm:p-8 landing-card-lift',
         tier.highlighted
           ? 'border-primary shadow-xl shadow-primary/10 md:scale-[1.02] ring-1 ring-primary/20'
-          : 'border-border shadow-sm hover:shadow-md hover:border-border-strong'
+          : 'border-border shadow-sm'
       )}
       style={{ animationDelay: `${index * 100}ms` }}
     >
       {/* Badge */}
       {tier.badge && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-          <span className="inline-flex items-center gap-1 rounded-full bg-primary px-4 py-1 text-xs font-bold text-primary-foreground shadow-lg shadow-primary/25">
+          <span
+            className="inline-flex items-center gap-1 rounded-full px-4 py-1 text-xs font-bold text-white shadow-lg landing-shimmer-btn"
+            style={{ background: 'linear-gradient(135deg, hsl(var(--primary)), #8b5cf6)' }}
+          >
             <Sparkles className="h-3 w-3 fill-white/20" />
             {tier.badge}
           </span>
@@ -191,14 +196,26 @@ export function PricingCard({ tier, index }: { tier: Tier; index: number }) {
 
       {/* CTA */}
       {tier.price === 0 ? (
-        <Button
-          variant="outline"
-          size="lg"
-          className="w-full rounded-full font-semibold"
-          disabled
-        >
-          {tier.cta}
-        </Button>
+        user ? (
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full rounded-full font-semibold"
+            disabled
+          >
+            {tier.cta}
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full rounded-full font-semibold gap-2"
+            onClick={() => router.push('/discover')}
+          >
+            Get Started Free
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        )
       ) : tier.highlighted && tier.ctaDisabled ? (
         waitlistSubmitted ? (
           <p className="text-center text-sm font-medium text-primary py-2">

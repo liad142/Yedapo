@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
   const country = ALLOWED_COUNTRIES.has(rawCountry.toLowerCase()) ? rawCountry.toLowerCase() : 'us';
   const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '30', 10) || 30, 1), 100);
 
-  const user = await getAuthUser();
+  const user = await getAuthUser({ silent: true });
 
   // If not authenticated, return empty (caller will use general discovery)
   if (!user) {

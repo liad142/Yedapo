@@ -39,6 +39,41 @@ export const metadata: Metadata = {
   },
 };
 
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.yedapo.com';
+
+const organizationSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Yedapo',
+  alternateName: ['Yedapo AI', 'yedapo'],
+  url: SITE_URL,
+  logo: `${SITE_URL}/logo.png`,
+  description: 'AI-powered insights from podcasts and YouTube — know what matters',
+  // TODO: Add social profiles once claimed — strong signal to Google that Yedapo is a real brand.
+  // sameAs: [
+  //   'https://twitter.com/yedapo',
+  //   'https://www.linkedin.com/company/yedapo',
+  //   'https://www.instagram.com/yedapo',
+  // ],
+};
+
+const websiteSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'Yedapo',
+  alternateName: 'Yedapo AI',
+  url: SITE_URL,
+  description: 'AI-powered insights from podcasts and YouTube — know what matters',
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: {
+      '@type': 'EntryPoint',
+      urlTemplate: `${SITE_URL}/search?q={search_term_string}`,
+    },
+    'query-input': 'required name=search_term_string',
+  },
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -46,6 +81,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+        />
+      </head>
       <body className={`${inter.variable} ${plusJakarta.variable}`}>
         <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md">
           Skip to content

@@ -21,7 +21,7 @@
     "@google/generative-ai": "^0.24.1",
     "@mistralai/mistralai": "^1.14.0",
     "@react-email/components": "^1.0.7",
-    "@supabase/ssr": "^0.8.0",
+    "@supabase/ssr": "^0.10.0",
     "@supabase/supabase-js": "^2.91.1",
     "@upstash/qstash": "^2.10.1",
     "@upstash/redis": "^1.36.2",

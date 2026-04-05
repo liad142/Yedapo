@@ -45,7 +45,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const { episode, quickSummary } = await getEpisodeData(id);
+  const { episode, quickSummary, deepSummary } = await getEpisodeData(id);
 
   if (!episode) {
     return { title: 'Episode Not Found — Yedapo' };
@@ -57,12 +57,33 @@ export async function generateMetadata({
     image_url: string | null;
   } | null;
   const quick = quickSummary?.content_json as QuickSummaryContent | null;
+  const deep = deepSummary?.content_json as DeepSummaryContent | null;
 
-  const title = `${episode.title} — Yedapo`;
+  // Title format: "{Episode Title} — {Podcast Name} | Yedapo"
+  // Podcast name in the title tag is a strong keyword signal for branded
+  // podcast searches ("lex fridman ai agents" picks up the podcast name).
+  const title = podcast?.title
+    ? `${episode.title} — ${podcast.title} | Yedapo`
+    : `${episode.title} — Yedapo`;
   const description =
     quick?.executive_brief ||
     episode.description?.substring(0, 200) ||
     `AI-powered insights for this episode from ${podcast?.title || 'a podcast'}`;
+
+  // Assemble keywords from tags, topic_tags, and core concept names.
+  // Google gives `keywords` meta tag minimal weight, but it's free signal.
+  const quickTags = quick?.tags ?? [];
+  const deepTopicTags = deep?.topic_tags ?? [];
+  const concepts = (deep?.core_concepts ?? [])
+    .slice(0, 5)
+    .map((c) => c.concept);
+  const keywordSet = Array.from(
+    new Set(
+      [...quickTags, ...deepTopicTags, ...concepts, podcast?.title ?? '']
+        .filter(Boolean)
+        .map((k) => k.toLowerCase().trim())
+    )
+  );
 
   const baseUrl = getBaseUrl();
   const ogImageUrl = `${baseUrl}/api/og/${id}`;
@@ -71,6 +92,7 @@ export async function generateMetadata({
   return {
     title,
     description,
+    keywords: keywordSet.length > 0 ? keywordSet : undefined,
     alternates: {
       canonical: pageUrl,
     },
@@ -133,6 +155,19 @@ export default async function InsightsLayout({
     episode.description?.substring(0, 300) ||
     undefined;
 
+  // Keywords from topic_tags + core concepts for JSON-LD (modest Google signal)
+  const jsonLdKeywords = Array.from(
+    new Set(
+      [
+        ...(quick?.tags ?? []),
+        ...(deep?.topic_tags ?? []),
+        ...(deep?.core_concepts ?? []).slice(0, 5).map((c) => c.concept),
+      ]
+        .filter(Boolean)
+        .map((k) => k.trim())
+    )
+  );
+
   const podcastEpisodeLd = {
     '@context': 'https://schema.org',
     '@type': 'PodcastEpisode',
@@ -140,6 +175,7 @@ export default async function InsightsLayout({
     description: episodeDescription,
     url: episodeUrl,
     datePublished: episode.published_at || undefined,
+    ...(jsonLdKeywords.length > 0 && { keywords: jsonLdKeywords.join(', ') }),
     ...(episode.duration_seconds && {
       timeRequired: `PT${Math.floor(episode.duration_seconds / 60)}M${episode.duration_seconds % 60}S`,
     }),

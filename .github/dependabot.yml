@@ -1,34 +1,31 @@
 version: 2
 updates:
-  # npm dependencies — weekly, grouped to avoid PR spam
+  # npm dependencies — monthly, grouped, no majors
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
       day: monday
       time: "09:00"
       timezone: Asia/Jerusalem
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     labels:
       - dependencies
     groups:
-      next-ecosystem:
-        patterns:
-          - next
-          - "@next/*"
-          - react
-          - react-dom
-          - "@types/react*"
-      supabase:
-        patterns:
-          - "@supabase/*"
-      vercel:
-        patterns:
-          - "@vercel/*"
-      dev-dependencies:
-        dependency-type: development
+      patches:
+        update-types:
+          - patch
+      minors:
+        update-types:
+          - minor
+    ignore:
+      # Skip major version bumps — they usually need migration work.
+      # Review and bump these manually when the maintainers ship breaking changes.
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
 
-  # GitHub Actions — monthly
+  # GitHub Actions — monthly, no majors
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -36,3 +33,7 @@ updates:
     labels:
       - dependencies
       - ci
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major

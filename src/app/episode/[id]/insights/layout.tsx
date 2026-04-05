@@ -16,7 +16,7 @@ async function getEpisodeData(id: string) {
       supabase
         .from('episodes')
         .select(
-          'title, description, audio_url, published_at, duration_seconds, podcasts(title, image_url)'
+          'title, description, audio_url, published_at, duration_seconds, podcast_id, podcasts(title, image_url)'
         )
         .eq('id', id)
         .single(),
@@ -121,15 +121,24 @@ export default async function InsightsLayout({
   const deep = deepSummary?.content_json as DeepSummaryContent | null;
   const baseUrl = getBaseUrl();
 
-  const jsonLd = {
+  // Detect YouTube-sourced episodes via audio_url. When audio_url points at
+  // youtube.com/watch?v=X, we emit a VideoObject schema instead of (or in
+  // addition to) PodcastEpisode — gets YouTube Rich Results treatment.
+  const ytMatch = episode.audio_url?.match(/youtube\.com\/watch\?v=([\w-]{11})/);
+  const isYouTube = !!ytMatch;
+  const youtubeVideoId = ytMatch?.[1];
+  const episodeUrl = `${baseUrl}/episode/${id}/insights`;
+  const episodeDescription =
+    quick?.executive_brief ||
+    episode.description?.substring(0, 300) ||
+    undefined;
+
+  const podcastEpisodeLd = {
     '@context': 'https://schema.org',
     '@type': 'PodcastEpisode',
     name: episode.title,
-    description:
-      quick?.executive_brief ||
-      episode.description?.substring(0, 300) ||
-      undefined,
-    url: `${baseUrl}/episode/${id}/insights`,
+    description: episodeDescription,
+    url: episodeUrl,
     datePublished: episode.published_at || undefined,
     ...(episode.duration_seconds && {
       timeRequired: `PT${Math.floor(episode.duration_seconds / 60)}M${episode.duration_seconds % 60}S`,
@@ -150,11 +159,87 @@ export default async function InsightsLayout({
     ...(podcast?.image_url && { image: podcast.image_url }),
   };
 
+  // VideoObject schema for YouTube-sourced episodes — eligible for
+  // YouTube Rich Results (thumbnail carousel) in Google SERP.
+  const videoObjectLd = isYouTube
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'VideoObject',
+        name: episode.title,
+        description: episodeDescription,
+        thumbnailUrl: youtubeVideoId
+          ? [`https://i.ytimg.com/vi/${youtubeVideoId}/maxresdefault.jpg`]
+          : undefined,
+        uploadDate: episode.published_at || undefined,
+        contentUrl: episode.audio_url,
+        embedUrl: youtubeVideoId
+          ? `https://www.youtube.com/embed/${youtubeVideoId}`
+          : undefined,
+        ...(episode.duration_seconds && {
+          duration: `PT${Math.floor(episode.duration_seconds / 60)}M${episode.duration_seconds % 60}S`,
+        }),
+      }
+    : null;
+
+  // BreadcrumbList — Google SERP shows breadcrumbs, lifts CTR ~20%.
+  const podcastId = (episode as { podcast_id?: string }).podcast_id;
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Yedapo',
+        item: baseUrl,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Discover',
+        item: `${baseUrl}/discover`,
+      },
+      ...(podcast && podcastId
+        ? [
+            {
+              '@type': 'ListItem',
+              position: 3,
+              name: podcast.title,
+              item: `${baseUrl}/browse/podcast/${podcastId}`,
+            },
+            {
+              '@type': 'ListItem',
+              position: 4,
+              name: episode.title,
+              item: episodeUrl,
+            },
+          ]
+        : [
+            {
+              '@type': 'ListItem',
+              position: 3,
+              name: episode.title,
+              item: episodeUrl,
+            },
+          ]),
+    ],
+  };
+
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(podcastEpisodeLd) }}
+      />
+      {videoObjectLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(videoObjectLd) }}
+        />
+      )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
       />
       {/* Server-rendered summary content for SEO crawlers */}
       {(quick || deep) && (

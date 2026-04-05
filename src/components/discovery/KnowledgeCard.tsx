@@ -201,7 +201,7 @@ export const KnowledgeCard = React.memo(function KnowledgeCard({
       setLocalSummaryStatus('ready');
     } else if (qState === 'failed') {
       setLocalSummaryStatus('failed');
-      setLocalError(youtubeQueueItem.error || 'Oops! No transcript available for this video. It may not have subtitles enabled.');
+      setLocalError(youtubeQueueItem.error || "This video doesn't have captions yet. Try again once the creator enables captions (live streams get captions after they end).");
     } else if (qState === 'summarizing') {
       setLocalSummaryStatus('summarizing');
     } else if (qState === 'transcribing') {

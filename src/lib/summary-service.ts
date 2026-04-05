@@ -836,7 +836,7 @@ export async function ensureTranscript(
     // If we still have no transcript at this point, fail gracefully
     if (!transcriptText) {
       const errorMsg = youtubeVideoId
-        ? 'YouTube captions not available for this video'
+        ? "This video doesn't have captions yet. Try again once the creator enables captions (live streams get captions after they end)."
         : 'All transcription methods failed';
       log.error('No transcript obtained', { errorMsg });
       await supabase
@@ -1238,10 +1238,11 @@ export async function requestSummary(
     // Stage timeout: 120s for transcription
     const TRANSCRIPT_STAGE_TIMEOUT = 120_000;
     type TranscriptResult = Awaited<ReturnType<typeof ensureTranscript>>;
+    let transcriptTimer: NodeJS.Timeout | undefined;
     const transcriptResult: TranscriptResult = await Promise.race([
       ensureTranscript(episodeId, audioUrl, language, transcriptUrl, metadata),
-      new Promise<TranscriptResult>((resolve) =>
-        setTimeout(async () => {
+      new Promise<TranscriptResult>((resolve) => {
+        transcriptTimer = setTimeout(async () => {
           log.error('Transcript stage timeout (120s)', { episodeId });
           await supabase
             .from('summaries')
@@ -1250,9 +1251,12 @@ export async function requestSummary(
             .eq('level', level)
             .eq('language', language);
           resolve({ status: 'failed' as TranscriptStatus, error: 'Transcription timed out (120s)' });
-        }, TRANSCRIPT_STAGE_TIMEOUT)
-      ),
+        }, TRANSCRIPT_STAGE_TIMEOUT);
+      }),
     ]);
+    // Clear the timer if the real work won the race. Otherwise it fires at
+    // 120s and overwrites a succeeded summary status back to 'failed'.
+    if (transcriptTimer) clearTimeout(transcriptTimer);
     log.info('ensureTranscript returned', { status: transcriptResult.status, hasText: !!transcriptResult.text, hasTranscript: !!transcriptResult.transcript, error: transcriptResult.error });
 
     if (transcriptResult.status !== 'ready' || !transcriptResult.text) {
@@ -1297,31 +1301,41 @@ export async function requestSummary(
 
     // Generate the summary (language is known from RSS feed)
     checkBudget('before summary generation');
-    // Stage timeout: 120s for AI summary generation
+    // Stage timeout: 120s for AI summary generation.
+    // Returns { promise, cancel } — cancel() MUST be called after Promise.race
+    // completes, otherwise the timer fires 120s later and overwrites a
+    // succeeded summary's status back to 'failed'.
     const SUMMARY_STAGE_TIMEOUT = 120_000;
-    const makeSummaryTimeout = () => new Promise<{ status: SummaryStatus; error: string }>((resolve) =>
-      setTimeout(async () => {
-        log.error('Summary stage timeout (120s)', { episodeId });
-        await supabase
-          .from('summaries')
-          .update({ status: 'failed', error_message: 'AI summary generation timed out (120s)', updated_at: new Date().toISOString() })
-          .eq('episode_id', episodeId)
-          .eq('level', level)
-          .eq('language', language);
-        resolve({ status: 'failed' as SummaryStatus, error: 'AI summary generation timed out (120s)' });
-      }, SUMMARY_STAGE_TIMEOUT)
-    );
+    const makeSummaryTimeout = () => {
+      let timer: NodeJS.Timeout | undefined;
+      const promise = new Promise<{ status: SummaryStatus; error: string }>((resolve) => {
+        timer = setTimeout(async () => {
+          log.error('Summary stage timeout (120s)', { episodeId });
+          await supabase
+            .from('summaries')
+            .update({ status: 'failed', error_message: 'AI summary generation timed out (120s)', updated_at: new Date().toISOString() })
+            .eq('episode_id', episodeId)
+            .eq('level', level)
+            .eq('language', language);
+          resolve({ status: 'failed' as SummaryStatus, error: 'AI summary generation timed out (120s)' });
+        }, SUMMARY_STAGE_TIMEOUT);
+      });
+      const cancel = () => { if (timer) clearTimeout(timer); };
+      return { promise, cancel };
+    };
     // If speaker identification is pending (Apple multi-speaker), run it in parallel
     // with summary generation to save ~20s
     if (transcriptResult.pendingSpeakerIdentification && transcriptResult.transcript) {
       log.info('Running identifySpeakers in PARALLEL with generateSummaryForLevel...', { language });
+      const { promise: summaryTimeoutPromise, cancel: cancelSummaryTimeout } = makeSummaryTimeout();
       const [result, speakers] = await Promise.all([
         Promise.race([
           generateSummaryForLevel(episodeId, level, transcriptResult.text, language, transcriptResult.transcript, youtubeContext),
-          makeSummaryTimeout(),
+          summaryTimeoutPromise,
         ]),
         identifySpeakers(transcriptResult.transcript),
       ]);
+      cancelSummaryTimeout();
 
       // Update transcript in DB with real speaker names (non-blocking for the response)
       if (speakers.length > 0) {
@@ -1353,10 +1367,12 @@ export async function requestSummary(
     }
 
     log.info('Calling generateSummaryForLevel...', { language });
+    const { promise: summaryTimeoutPromise, cancel: cancelSummaryTimeout } = makeSummaryTimeout();
     const result = await Promise.race([
       generateSummaryForLevel(episodeId, level, transcriptResult.text, language, transcriptResult.transcript, youtubeContext),
-      makeSummaryTimeout(),
+      summaryTimeoutPromise,
     ]);
+    cancelSummaryTimeout();
     log.info('=== requestSummary ENDED ===', {
       status: result.status,
       language,

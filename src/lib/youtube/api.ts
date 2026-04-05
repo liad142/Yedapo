@@ -168,6 +168,80 @@ export async function fetchUserSubscriptions(userId: string): Promise<YouTubeSub
 }
 
 /**
+ * Parse ISO 8601 duration (e.g., "PT1H23M45S") to seconds.
+ */
+function parseIsoDuration(iso: string): number {
+  const match = iso.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!match) return 0;
+  const hours = parseInt(match[1] ?? '0', 10);
+  const minutes = parseInt(match[2] ?? '0', 10);
+  const seconds = parseInt(match[3] ?? '0', 10);
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
+/**
+ * Minimum video length in seconds to qualify as a "regular" video.
+ * YouTube Shorts are ≤60s by spec. We use 61s as the threshold.
+ */
+const MIN_REGULAR_VIDEO_SECONDS = 61;
+
+/**
+ * Enrich a list of YouTube videos with duration + liveBroadcastContent,
+ * then filter out shorts, active live broadcasts, and upcoming premieres.
+ * Returns only regular on-demand videos.
+ *
+ * Cost: 1 quota unit per videos.list call (batched up to 50 IDs/call).
+ */
+async function filterRegularVideos<T extends { videoId: string }>(
+  videos: T[]
+): Promise<T[]> {
+  if (videos.length === 0) return [];
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) return videos; // fail open — can't filter without API key
+
+  // videos.list caps at 50 IDs per call
+  const batches: T[][] = [];
+  for (let i = 0; i < videos.length; i += 50) {
+    batches.push(videos.slice(i, i + 50));
+  }
+
+  const keep = new Set<string>();
+  for (const batch of batches) {
+    const ids = batch.map((v) => v.videoId).join(',');
+    try {
+      const res = await fetch(
+        `${YT_API_BASE}/videos?${new URLSearchParams({
+          part: 'contentDetails,snippet',
+          id: ids,
+          key: apiKey,
+        })}`
+      );
+      if (!res.ok) {
+        // Fail open: if the enrichment fails, keep all videos rather than drop them
+        log.warn('videos.list enrichment failed, keeping unfiltered', { status: res.status });
+        batch.forEach((v) => keep.add(v.videoId));
+        continue;
+      }
+      await trackQuota('videos.list');
+      const data = await res.json();
+      for (const item of data.items ?? []) {
+        const durationSec = parseIsoDuration(item.contentDetails?.duration ?? '');
+        const liveStatus = item.snippet?.liveBroadcastContent ?? 'none';
+        // Only keep: long enough to not be a short AND not an active/upcoming live
+        if (durationSec >= MIN_REGULAR_VIDEO_SECONDS && liveStatus === 'none') {
+          keep.add(item.id);
+        }
+      }
+    } catch (err) {
+      log.warn('videos.list enrichment error', { error: String(err) });
+      batch.forEach((v) => keep.add(v.videoId));
+    }
+  }
+
+  return videos.filter((v) => keep.has(v.videoId));
+}
+
+/**
  * Fetch recent videos from a channel's uploads playlist.
  * Uses API key (public data, no user token needed).
  */
@@ -222,7 +296,7 @@ export async function fetchChannelVideos(
   await trackQuota('playlistItems.list');
   const playlistData = await playlistRes.json();
 
-  const videos = (playlistData.items || []).map((item: any) => {
+  const rawVideos: YouTubeVideo[] = (playlistData.items || []).map((item: any) => {
     const snippet = item.snippet;
     return {
       videoId: snippet.resourceId.videoId,
@@ -234,6 +308,10 @@ export async function fetchChannelVideos(
       channelTitle: snippet.channelTitle,
     };
   });
+
+  // Filter out Shorts (<61s), active live streams, and upcoming premieres.
+  // Costs 1 extra quota unit per 50 videos via videos.list.
+  const videos = await filterRegularVideos(rawVideos);
 
   return {
     videos,
@@ -349,12 +427,15 @@ export async function searchYouTubeVideos(
     return [];
   }
 
+  // Over-fetch by 2x to account for shorts/lives that will be filtered out.
+  // YouTube search max per call is 50.
+  const fetchCount = Math.min(50, maxResults * 2);
   const res = await fetch(
     `${YT_API_BASE}/search?${new URLSearchParams({
       part: 'snippet',
       type: 'video',
       q: term,
-      maxResults: String(maxResults),
+      maxResults: String(fetchCount),
       key: apiKey,
     })}`
   );
@@ -368,7 +449,7 @@ export async function searchYouTubeVideos(
 
   const data = await res.json();
 
-  return (data.items || []).map((item: any) => ({
+  const rawVideos: YouTubeVideo[] = (data.items || []).map((item: any) => ({
     videoId: item.id.videoId,
     title: item.snippet.title,
     description: item.snippet.description || '',
@@ -377,4 +458,8 @@ export async function searchYouTubeVideos(
     channelId: item.snippet.channelId,
     channelTitle: item.snippet.channelTitle,
   }));
+
+  // Filter to regular videos only (no Shorts, no live, no upcoming).
+  const filtered = await filterRegularVideos(rawVideos);
+  return filtered.slice(0, maxResults);
 }

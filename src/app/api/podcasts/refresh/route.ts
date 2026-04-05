@@ -28,11 +28,14 @@ export async function POST(request: NextRequest) {
     if (result.errors.length > 0) {
       console.error('[feed] Podcast refresh errors:', result.errors);
     }
-    console.log(`[feed] Podcast refresh done: ${result.podcastsRefreshed} podcasts, ${result.episodesAdded} episodes added`);
+    console.log(
+      `[feed] Podcast refresh done: ${result.podcastsRefreshed} refreshed, ${result.podcastsSkipped} skipped (cached), ${result.episodesAdded} episodes added`
+    );
 
     return NextResponse.json({
       success: true,
       podcastsRefreshed: result.podcastsRefreshed,
+      podcastsSkipped: result.podcastsSkipped,
       episodesAdded: result.episodesAdded,
       errors: result.errors.length > 0 ? result.errors : undefined,
     });

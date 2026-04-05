@@ -182,8 +182,8 @@ export function HighSignalFeed() {
     }
   }, [user, hydrated, country]);
 
-  // Track whether podcast refresh has been triggered this session
-  const podcastRefreshDone = useRef(false);
+  // Track whether source refreshes have been triggered this session
+  const sourceRefreshDone = useRef(false);
 
   // Fetch data on mount
   useEffect(() => {
@@ -191,18 +191,26 @@ export function HighSignalFeed() {
     setIsForYouLoading(true);
     forYouOffsetRef.current = 0;
     fetchForYou(0, false).then(() => {
-      // Trigger podcast feed refresh in background (once per session)
-      if (!podcastRefreshDone.current) {
-        podcastRefreshDone.current = true;
-        fetch('/api/podcasts/refresh', { method: 'POST' })
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data?.episodesAdded > 0) {
-              // Re-fetch to include newly added podcast episodes
-              fetchForYou(0, false);
-            }
-          })
-          .catch(() => {}); // Silently ignore refresh errors
+      // Trigger podcast + YouTube refreshes in parallel (once per session).
+      // Both endpoints use per-source 24h Redis caches, so repeated calls
+      // are cheap — they only hit external APIs when sources are stale.
+      if (!sourceRefreshDone.current) {
+        sourceRefreshDone.current = true;
+        Promise.all([
+          fetch('/api/podcasts/refresh', { method: 'POST' })
+            .then(res => res.ok ? res.json() : null)
+            .catch(() => null),
+          fetch('/api/youtube/refresh', { method: 'POST' })
+            .then(res => res.ok ? res.json() : null)
+            .catch(() => null),
+        ]).then(([podcastResult, youtubeResult]) => {
+          const newPodcastEpisodes = podcastResult?.episodesAdded ?? 0;
+          const newYoutubeVideos = youtubeResult?.videosAdded ?? 0;
+          // Re-fetch only if something actually changed
+          if (newPodcastEpisodes > 0 || newYoutubeVideos > 0) {
+            fetchForYou(0, false);
+          }
+        });
       }
     }).finally(() => setIsForYouLoading(false));
   }, [hydrated, user, fetchForYou]);

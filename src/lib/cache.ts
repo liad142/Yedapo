@@ -200,6 +200,14 @@ export const CacheKeys = {
   insightsStatus: (episodeId: string, language: string) =>
     `insights:status:${episodeId}:${language}`,
 
+  // Per-resource refresh markers — first user to hit a stale marker triggers
+  // the expensive external fetch (YouTube API / RSS). TTL: 24h.
+  youtubeChannelRefresh: (channelId: string) =>
+    `yt:ch:${channelId}:refreshed`,
+
+  podcastFeedRefresh: (podcastId: string) =>
+    `pod:feed:${podcastId}:refreshed`,
+
 };
 
 /**

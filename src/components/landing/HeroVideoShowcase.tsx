@@ -19,12 +19,7 @@ export function HeroVideoShowcase() {
           transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
           className="text-center max-w-3xl mx-auto mb-12"
         >
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-4 py-1.5 text-sm font-medium text-primary">
-            <span className="text-xs">▶</span>
-            Watch Yedapo in action
-          </div>
-
-          <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight font-[family-name:var(--font-plus-jakarta)] text-balance">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight font-[family-name:var(--font-plus-jakarta)] text-balance">
             See how Yedapo turns hours of podcasts and YouTube into minutes of clarity.
           </h2>
 
@@ -65,9 +60,11 @@ export function HeroVideoShowcase() {
                 <video
                   className="h-full w-full"
                   src="/yedapo-promo.mp4"
+                  autoPlay
+                  muted
+                  loop
                   playsInline
-                  controls
-                  preload="metadata"
+                  preload="auto"
                 >
                   Your browser does not support the video tag.
                 </video>

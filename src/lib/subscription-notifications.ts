@@ -9,6 +9,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createLogger } from '@/lib/logger';
 import { getCached, setCached, deleteCached, CacheKeys } from '@/lib/cache';
 import { refreshSinglePodcastFeed } from '@/lib/rsshub-db';
+import { getUserDeliveryPrefs, planDelivery } from '@/lib/notifications/delivery-scheduling';
 import type { SummaryLevel } from '@/types/database';
 
 const log = createLogger('sub-notifications');
@@ -414,7 +415,16 @@ async function createNotificationsForSubscriber(
   const supabase = createAdminClient();
   let count = 0;
 
-  // In-app notification (immediate)
+  // Phase 4: honor user's delivery preferences.
+  // If they've paused notifications or picked a digest mode, route accordingly.
+  const prefs = await getUserDeliveryPrefs(userId);
+  const plan = planDelivery(prefs);
+
+  if (!plan.send) {
+    return 0; // frequency = 'off'
+  }
+
+  // In-app notification (immediate — doesn't respect digest settings)
   if (notifyChannels.includes('in_app')) {
     const { error } = await supabase.from('in_app_notifications').insert({
       user_id: userId,
@@ -446,8 +456,9 @@ async function createNotificationsForSubscriber(
           channel: 'email',
           recipient: profile.email,
           status: 'pending',
-          scheduled: true,
-          source: 'subscription',
+          scheduled: plan.scheduled,
+          next_retry_at: plan.nextRetryAt?.toISOString() ?? null,
+          source: plan.scheduled ? 'digest' : 'subscription',
           dedupe_key: `${userId}:${episodeId}:email`,
         },
         { onConflict: 'dedupe_key', ignoreDuplicates: true }
@@ -472,8 +483,9 @@ async function createNotificationsForSubscriber(
           channel: 'telegram',
           recipient: telegram.telegram_chat_id,
           status: 'pending',
-          scheduled: true,
-          source: 'subscription',
+          scheduled: plan.scheduled,
+          next_retry_at: plan.nextRetryAt?.toISOString() ?? null,
+          source: plan.scheduled ? 'digest' : 'subscription',
           dedupe_key: `${userId}:${episodeId}:telegram`,
         },
         { onConflict: 'dedupe_key', ignoreDuplicates: true }

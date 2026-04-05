@@ -114,18 +114,23 @@ export async function POST(request: NextRequest) {
         const now = new Date().toISOString();
         const { data: record, error: insertError } = await supabase
           .from('notification_requests')
-          .insert({
-            user_id: user.id,
-            episode_id: episodeId,
-            channel,
-            recipient: resolvedRecipient,
-            scheduled: false,
-            status: sendResult.success ? 'sent' : 'failed',
-            error_message: sendResult.error || null,
-            sent_at: sendResult.success ? now : null,
-            created_at: now,
-            updated_at: now,
-          })
+          .upsert(
+            {
+              user_id: user.id,
+              episode_id: episodeId,
+              channel,
+              recipient: resolvedRecipient,
+              scheduled: false,
+              status: sendResult.success ? 'sent' : 'failed',
+              error_message: sendResult.error || null,
+              sent_at: sendResult.success ? now : null,
+              created_at: now,
+              updated_at: now,
+              source: 'explicit',
+              dedupe_key: `${user.id}:${episodeId}:${channel}`,
+            },
+            { onConflict: 'dedupe_key' }
+          )
           .select()
           .single();
 
@@ -148,16 +153,21 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
     const { data: record, error: insertError } = await supabase
       .from('notification_requests')
-      .insert({
-        user_id: user.id,
-        episode_id: episodeId,
-        channel,
-        recipient: resolvedRecipient,
-        scheduled: true,
-        status: 'pending',
-        created_at: now,
-        updated_at: now,
-      })
+      .upsert(
+        {
+          user_id: user.id,
+          episode_id: episodeId,
+          channel,
+          recipient: resolvedRecipient,
+          scheduled: true,
+          status: 'pending',
+          created_at: now,
+          updated_at: now,
+          source: 'explicit',
+          dedupe_key: `${user.id}:${episodeId}:${channel}`,
+        },
+        { onConflict: 'dedupe_key' }
+      )
       .select()
       .single();
 

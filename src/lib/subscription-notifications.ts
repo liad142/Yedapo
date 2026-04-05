@@ -437,14 +437,21 @@ async function createNotificationsForSubscriber(
       .single();
 
     if (profile?.email) {
-      const { error } = await supabase.from('notification_requests').insert({
-        user_id: userId,
-        episode_id: episodeId,
-        channel: 'email',
-        recipient: profile.email,
-        status: 'pending',
-        scheduled: true,
-      });
+      // upsert w/ ON CONFLICT — dedupe_key guarantees one row per (user, episode, channel)
+      // regardless of whether triggered by explicit share or subscription fanout.
+      const { error } = await supabase.from('notification_requests').upsert(
+        {
+          user_id: userId,
+          episode_id: episodeId,
+          channel: 'email',
+          recipient: profile.email,
+          status: 'pending',
+          scheduled: true,
+          source: 'subscription',
+          dedupe_key: `${userId}:${episodeId}:email`,
+        },
+        { onConflict: 'dedupe_key', ignoreDuplicates: true }
+      );
       if (!error) count++;
     }
   }
@@ -458,14 +465,19 @@ async function createNotificationsForSubscriber(
       .single();
 
     if (telegram?.telegram_chat_id) {
-      const { error } = await supabase.from('notification_requests').insert({
-        user_id: userId,
-        episode_id: episodeId,
-        channel: 'telegram',
-        recipient: telegram.telegram_chat_id,
-        status: 'pending',
-        scheduled: true,
-      });
+      const { error } = await supabase.from('notification_requests').upsert(
+        {
+          user_id: userId,
+          episode_id: episodeId,
+          channel: 'telegram',
+          recipient: telegram.telegram_chat_id,
+          status: 'pending',
+          scheduled: true,
+          source: 'subscription',
+          dedupe_key: `${userId}:${episodeId}:telegram`,
+        },
+        { onConflict: 'dedupe_key', ignoreDuplicates: true }
+      );
       if (!error) count++;
     }
   }

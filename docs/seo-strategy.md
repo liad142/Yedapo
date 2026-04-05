@@ -44,12 +44,13 @@ Different solutions for each.
 2. **Bing Webmaster Tools** — Bing indexes faster than Google for new sites
 3. **IndexNow** — auto-pings Bing/Yandex when new summaries publish (Bing free tier supports this)
 
-### Code improvements (PRs in flight)
+### Code improvements
 
-- [x] **VideoObject + BreadcrumbList schemas** (PR: TBD)
-- [x] **Split sitemap into 1,000-URL chunks** (PR: TBD)
-- [ ] **URL slug migration**: `/episode/{uuid}` → `/podcast/{podcast-slug}/{episode-slug}` — **biggest single SEO win** (PR: TBD)
-- [ ] **Add `keywords` meta tag** from summary tags (minor)
+- [x] **VideoObject + BreadcrumbList schemas** (PR #41)
+- [x] **Split sitemap into 1,000-URL chunks** (PR #41)
+- [x] **Add `keywords` meta tag + JSON-LD keywords** (PR #41)
+- [x] **Podcast name in `<title>` tag** for branded-search keyword matching (PR #41)
+- [ ] **URL slug migration** — **DEFERRED to week 2 post-launch** (see below for why)
 
 ### Verification tools
 
@@ -61,7 +62,7 @@ Different solutions for each.
 
 ## Problem 2: Ranking High
 
-### Lever 1: URL slugs (HIGHEST IMPACT)
+### Lever 1: URL slugs (HIGHEST IMPACT — POST-LAUNCH)
 
 Change:
 ```
@@ -71,13 +72,20 @@ Change:
 
 Google heavily weights keywords in URL. UUIDs give zero signal. This alone can move rankings 10-20 positions for long-tail queries.
 
-Implementation plan:
-1. Add `slug` column to `podcasts` and `episodes` tables
-2. Generate slugs on insert (kebab-case, sanitized)
-3. New routes: `/podcast/{podcast-slug}/{episode-slug}`
-4. Old UUID routes → 301 redirect to slug URL (preserves Google authority)
-5. Update sitemap to use slug URLs
-6. Update all internal links
+**Why deferred:** 29 internal link touchpoints + DB migration + redirect logic = 1-2 days of focused work. Doing this during pre-launch final testing was too risky.
+
+**Timing:** Ship in Week 2 post-launch, after a few days of validated uptime with real users.
+
+**Implementation plan** (for future-me):
+1. Migration: `ALTER TABLE episodes ADD COLUMN short_id TEXT GENERATED ALWAYS AS (substring(id::text, 1, 8)) STORED; CREATE INDEX ... ON episodes(short_id);`
+2. Same migration on `podcasts` table.
+3. Utility `src/lib/episode-slug.ts` with `slugify`, `buildEpisodeUrl`, `parseEpisodeParam` (UUID or slug-shortid).
+4. Update `/episode/[id]/insights/{layout,page}.tsx` to accept both UUID and slug-shortid formats. If slug-shortid, look up by `short_id` column.
+5. Update all 29 internal link touchpoints to use `buildEpisodeUrl` helper.
+6. Update sitemap to emit slug URLs.
+7. Middleware/proxy: if request matches old UUID-only URL pattern, 301 redirect to canonical slug URL (preserves inbound link authority).
+8. Regression test: /discover, /my-list, /summaries, all KnowledgeCard/InsightCard clicks, SMTP links, OG share links.
+9. Deploy behind a feature flag initially to catch stragglers.
 
 ### Lever 2: Content Volume
 

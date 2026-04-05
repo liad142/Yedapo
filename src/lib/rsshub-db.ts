@@ -5,6 +5,11 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPodcastFeed } from '@/lib/rss';
 import { getPodcastById } from '@/lib/apple-podcasts';
+import { CacheKeys, hasCached, setCached } from '@/lib/cache';
+
+// 24 hours — per-podcast refresh cache. First user to hit a stale podcast
+// triggers the RSS fetch; other users skip it until TTL expires.
+const PODCAST_REFRESH_TTL = 24 * 60 * 60;
 
 // Use singleton admin client for connection pooling
 function getSupabaseClient() {
@@ -527,6 +532,7 @@ export async function refreshSinglePodcastFeed(
  */
 export async function refreshPodcastFeed(userId: string): Promise<{
   podcastsRefreshed: number;
+  podcastsSkipped: number;
   episodesAdded: number;
   errors: string[];
 }> {
@@ -538,18 +544,44 @@ export async function refreshPodcastFeed(userId: string): Promise<{
     .eq('user_id', userId);
 
   if (!subs || subs.length === 0) {
-    return { podcastsRefreshed: 0, episodesAdded: 0, errors: [] };
+    return { podcastsRefreshed: 0, podcastsSkipped: 0, episodesAdded: 0, errors: [] };
+  }
+
+  // Per-podcast 24h cache: skip subscriptions whose RSS feed was refreshed
+  // recently (by this or any other user) to avoid redundant RSS fetches.
+  const freshnessChecks = await Promise.all(
+    subs.map((sub) => {
+      const podcast = sub.podcasts as any;
+      if (!podcast?.id) return Promise.resolve(true); // treat bad rows as "skip"
+      return hasCached(CacheKeys.podcastFeedRefresh(podcast.id));
+    })
+  );
+
+  const staleSubs = subs.filter((_, i) => !freshnessChecks[i]);
+  const skipped = subs.length - staleSubs.length;
+
+  if (staleSubs.length === 0) {
+    return { podcastsRefreshed: 0, podcastsSkipped: skipped, episodesAdded: 0, errors: [] };
   }
 
   let totalEpisodes = 0;
   const errors: string[] = [];
 
   const results = await Promise.allSettled(
-    subs.map(async (sub) => {
+    staleSubs.map(async (sub) => {
       const podcast = sub.podcasts as any;
       if (!podcast?.rss_feed_url) return { count: 0 };
 
       const count = await populatePodcastFeedItems(userId, podcast);
+
+      // Mark podcast as refreshed — other users (and this user on reload)
+      // skip this podcast's RSS fetch for 24h.
+      await setCached(
+        CacheKeys.podcastFeedRefresh(podcast.id),
+        Date.now(),
+        PODCAST_REFRESH_TTL
+      );
+
       return { count };
     })
   );
@@ -558,13 +590,14 @@ export async function refreshPodcastFeed(userId: string): Promise<{
     if (results[i].status === 'fulfilled') {
       totalEpisodes += (results[i] as PromiseFulfilledResult<{ count: number }>).value.count;
     } else {
-      const podcast = (subs[i].podcasts as any);
+      const podcast = (staleSubs[i].podcasts as any);
       errors.push(`${podcast?.title || 'Unknown'}: ${(results[i] as PromiseRejectedResult).reason?.message || 'Unknown error'}`);
     }
   }
 
   return {
-    podcastsRefreshed: subs.length - errors.length,
+    podcastsRefreshed: staleSubs.length - errors.length,
+    podcastsSkipped: skipped,
     episodesAdded: totalEpisodes,
     errors,
   };

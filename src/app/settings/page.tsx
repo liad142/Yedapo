@@ -27,6 +27,7 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { YouTubeChannelCard } from '@/components/onboarding/YouTubeChannelCard';
 import { YouTubeImportModal } from '@/components/YouTubeImportModal';
 import { TelegramConnectFlow } from '@/components/insights/TelegramConnectFlow';
+import { DeliveryPreferences } from '@/components/settings/DeliveryPreferences';
 import {
   Dialog,
   DialogContent,
@@ -855,6 +856,16 @@ export default function SettingsPage() {
                   Open Admin Panel
                 </Link>
               </Button>
+            </div>
+          </section>
+        )}
+
+        {/* ── NOTIFICATION DELIVERY ── */}
+        {user && (
+          <section>
+            <SectionLabel>Notification Delivery</SectionLabel>
+            <div className="mt-3 rounded-2xl border border-border bg-card p-5">
+              <DeliveryPreferences />
             </div>
           </section>
         )}

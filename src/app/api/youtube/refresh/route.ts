@@ -37,8 +37,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get all followed channels
-    const channels = await getFollowedChannels(user.id);
+    // Get all followed channels. Defensive filter against rows with missing
+    // channelId (would have poisoned the cache with `yt:ch:undefined:refreshed`).
+    const allChannels = await getFollowedChannels(user.id);
+    const channels = allChannels.filter((ch) => !!ch.channelId);
+
+    if (channels.length < allChannels.length) {
+      log.warn('Skipped channels with missing channelId', {
+        skipped: allChannels.length - channels.length,
+        total: allChannels.length,
+      });
+    }
 
     if (channels.length === 0) {
       return NextResponse.json({

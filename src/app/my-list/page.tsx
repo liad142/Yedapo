@@ -43,11 +43,11 @@ interface PodcastWithStatus {
 
 interface FollowedChannel {
   id: string;
-  channel_id: string;
-  channel_name: string;
-  channel_url: string;
-  channel_handle?: string;
-  thumbnail_url?: string;
+  channelId: string;
+  channelName: string;
+  channelUrl: string;
+  channelHandle?: string;
+  thumbnailUrl?: string;
   description?: string;
 }
 
@@ -228,9 +228,9 @@ function MyListContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          channelId: channel.channel_id,
-          title: channel.channel_name,
-          thumbnailUrl: channel.thumbnail_url,
+          channelId: channel.channelId,
+          title: channel.channelName,
+          thumbnailUrl: channel.thumbnailUrl,
           description: channel.description,
         }),
       });
@@ -436,7 +436,7 @@ function MyListContent() {
       <Toast open={!!pendingChannelRemoval} onOpenChange={() => setPendingChannelRemoval(null)} position="bottom">
         <div className="flex items-center gap-3 pr-6">
           <p className="text-sm font-medium text-foreground">
-            Removed &ldquo;{pendingChannelRemoval?.item.channel_name}&rdquo;
+            Removed &ldquo;{pendingChannelRemoval?.item.channelName}&rdquo;
           </p>
           <Button variant="outline" size="sm" onClick={undoChannelRemoval} className="gap-1.5 shrink-0">
             <Undo2 className="h-3.5 w-3.5" />
@@ -609,13 +609,13 @@ function YouTubeChannelCard({
   };
 
   return (
-    <Link href={`/browse/youtube/${channel.channel_id}`} className="block h-full">
+    <Link href={`/browse/youtube/${channel.channelId}`} className="block h-full">
       <div className="group h-full bg-card dark:border dark:border-white/5 rounded-2xl overflow-hidden transition-all duration-300 shadow-sm hover:shadow-md dark:shadow-none dark:hover:shadow-none hover:scale-[1.02]">
         <div className="relative aspect-square w-full bg-secondary flex items-center justify-center">
-          {channel.thumbnail_url ? (
+          {channel.thumbnailUrl ? (
             <Image
-              src={channel.thumbnail_url.replace(/=s\d+/, '=s480')}
-              alt={channel.channel_name}
+              src={channel.thumbnailUrl.replace(/=s\d+/, '=s480')}
+              alt={channel.channelName}
               fill
               className="object-cover"
               sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
@@ -649,12 +649,12 @@ function YouTubeChannelCard({
 
         <div className="p-3 sm:p-5">
           <h3 className="text-sm sm:text-h4 leading-tight tracking-tight text-foreground line-clamp-2 sm:line-clamp-1 mb-0.5 sm:mb-1 group-hover:text-primary transition-colors">
-            {channel.channel_name}
+            {channel.channelName}
           </h3>
 
-          {channel.channel_handle && (
+          {channel.channelHandle && (
             <p className="text-[11px] sm:text-xs text-muted-foreground line-clamp-1 mb-2 sm:mb-4">
-              {channel.channel_handle}
+              {channel.channelHandle}
             </p>
           )}
         </div>

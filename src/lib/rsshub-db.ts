@@ -131,7 +131,23 @@ export async function getFollowedChannels(
 
   if (error) throw new Error(`Failed to get followed channels: ${error.message}`);
 
-  return (data || []).map((item: any) => item.youtube_channels as YouTubeChannel);
+  // Map snake_case (DB) to camelCase (YouTubeChannel type).
+  return (data || [])
+    .map((item: any) => item.youtube_channels)
+    .filter((row: any) => row) // drop null joins
+    .map((row: any): YouTubeChannel => ({
+      id: row.id,
+      channelId: row.channel_id,
+      channelName: row.channel_name,
+      channelUrl: row.channel_url,
+      channelHandle: row.channel_handle ?? undefined,
+      thumbnailUrl: row.thumbnail_url ?? undefined,
+      description: row.description ?? undefined,
+      subscriberCount: row.subscriber_count ?? undefined,
+      videoCount: row.video_count ?? undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
 }
 
 /**

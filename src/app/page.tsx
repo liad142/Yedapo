@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { LandingPage } from '@/components/landing/LandingPage';
+import { getAuthUser } from '@/lib/auth-helpers';
 
 export const metadata: Metadata = {
   title: 'Yedapo — AI-Powered Podcast & YouTube Insights',
@@ -20,6 +22,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function Home() {
+export default async function Home() {
+  // Authed users skip the marketing page and go straight to the app.
+  // silent:true because unauthenticated visitors are the expected case here.
+  const user = await getAuthUser({ silent: true });
+  if (user) {
+    redirect('/discover');
+  }
+
   return <LandingPage />;
 }

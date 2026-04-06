@@ -4,8 +4,17 @@ import Link from 'next/link';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 
+/**
+ * YouTube video ID for the Yedapo promo/explainer video.
+ * Upload to YouTube, then paste the video ID here (the part after v= in the URL).
+ * Example: for https://www.youtube.com/watch?v=abc123 → use 'abc123'
+ */
+const PROMO_VIDEO_ID = process.env.NEXT_PUBLIC_PROMO_VIDEO_ID || '';
+
 export function HeroVideoShowcase() {
   const prefersReduced = useReducedMotion();
+
+  if (!PROMO_VIDEO_ID) return null; // Don't render section until video ID is set
 
   return (
     <section className="relative py-20 lg:py-28 overflow-hidden">
@@ -37,7 +46,7 @@ export function HeroVideoShowcase() {
           </div>
         </motion.div>
 
-        {/* Full-width video */}
+        {/* Full-width YouTube embed */}
         <motion.div
           initial={prefersReduced ? undefined : { opacity: 0, scale: 0.98 }}
           whileInView={prefersReduced ? undefined : { opacity: 1, scale: 1 }}
@@ -48,26 +57,15 @@ export function HeroVideoShowcase() {
             <div className="absolute inset-x-32 -top-8 h-20 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
 
             <div className="relative overflow-hidden rounded-[22px] border border-border/60 bg-black">
-              <div className="flex items-center px-4 sm:px-5 py-3 border-b border-white/10 bg-black/80">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-[#ff5f57]" />
-                  <div className="h-3 w-3 rounded-full bg-[#febc2e]" />
-                  <div className="h-3 w-3 rounded-full bg-[#28c840]" />
-                </div>
-              </div>
-
-              <div className="aspect-video bg-black">
-                <video
+              <div className="aspect-video">
+                <iframe
+                  src={`https://www.youtube.com/embed/${PROMO_VIDEO_ID}?autoplay=1&mute=1&loop=1&playlist=${PROMO_VIDEO_ID}&rel=0&modestbranding=1&showinfo=0&controls=0`}
+                  title="Yedapo — AI Podcast & YouTube Insights"
                   className="h-full w-full"
-                  src="/yedapo-promo.mp4"
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  preload="auto"
-                >
-                  Your browser does not support the video tag.
-                </video>
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  loading="lazy"
+                />
               </div>
             </div>
           </div>

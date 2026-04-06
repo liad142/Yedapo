@@ -10,6 +10,8 @@ import { createLogger } from '@/lib/logger';
 import { getCached, setCached, deleteCached, CacheKeys } from '@/lib/cache';
 import { refreshSinglePodcastFeed } from '@/lib/rsshub-db';
 import { getUserDeliveryPrefs, planDelivery } from '@/lib/notifications/delivery-scheduling';
+import { NOTIFICATION_ACCESS } from '@/lib/plans';
+import type { UserPlan } from '@/lib/plans';
 import type { SummaryLevel } from '@/types/database';
 
 const log = createLogger('sub-notifications');
@@ -418,14 +420,31 @@ async function createNotificationsForSubscriber(
   // Phase 4: honor user's delivery preferences.
   // If they've paused notifications or picked a digest mode, route accordingly.
   const prefs = await getUserDeliveryPrefs(userId);
-  const plan = planDelivery(prefs);
+  const deliveryPlan = planDelivery(prefs);
 
-  if (!plan.send) {
+  if (!deliveryPlan.send) {
     return 0; // frequency = 'off'
   }
 
+  // Plan-based gating: filter channels the user's plan can actually use.
+  // Free users only get in_app. Email/telegram/whatsapp require Pro.
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('plan')
+    .eq('id', userId)
+    .single();
+  const userPlan: UserPlan = (profile?.plan as UserPlan) ?? 'free';
+  const access = NOTIFICATION_ACCESS[userPlan];
+  const allowedChannels = notifyChannels.filter((ch) => {
+    if (ch === 'in_app') return access.inApp;
+    if (ch === 'email') return access.email;
+    if (ch === 'telegram') return access.telegram;
+    if (ch === 'whatsapp') return access.whatsapp;
+    return false;
+  });
+
   // In-app notification (immediate — doesn't respect digest settings)
-  if (notifyChannels.includes('in_app')) {
+  if (allowedChannels.includes('in_app')) {
     const { error } = await supabase.from('in_app_notifications').insert({
       user_id: userId,
       episode_id: episodeId,
@@ -438,7 +457,7 @@ async function createNotificationsForSubscriber(
   }
 
   // Email notification (scheduled - waits for summary completion)
-  if (notifyChannels.includes('email') && episodeId) {
+  if (allowedChannels.includes('email') && episodeId) {
     // Get user's email
     const { data: profile } = await supabase
       .from('user_profiles')
@@ -456,9 +475,9 @@ async function createNotificationsForSubscriber(
           channel: 'email',
           recipient: profile.email,
           status: 'pending',
-          scheduled: plan.scheduled,
-          next_retry_at: plan.nextRetryAt?.toISOString() ?? null,
-          source: plan.scheduled ? 'digest' : 'subscription',
+          scheduled: deliveryPlan.scheduled,
+          next_retry_at: deliveryPlan.nextRetryAt?.toISOString() ?? null,
+          source: deliveryPlan.scheduled ? 'digest' : 'subscription',
           dedupe_key: `${userId}:${episodeId}:email`,
         },
         { onConflict: 'dedupe_key', ignoreDuplicates: true }
@@ -468,7 +487,7 @@ async function createNotificationsForSubscriber(
   }
 
   // Telegram notification (scheduled - waits for summary completion)
-  if (notifyChannels.includes('telegram') && episodeId) {
+  if (allowedChannels.includes('telegram') && episodeId) {
     const { data: telegram } = await supabase
       .from('telegram_connections')
       .select('telegram_chat_id')
@@ -483,9 +502,9 @@ async function createNotificationsForSubscriber(
           channel: 'telegram',
           recipient: telegram.telegram_chat_id,
           status: 'pending',
-          scheduled: plan.scheduled,
-          next_retry_at: plan.nextRetryAt?.toISOString() ?? null,
-          source: plan.scheduled ? 'digest' : 'subscription',
+          scheduled: deliveryPlan.scheduled,
+          next_retry_at: deliveryPlan.nextRetryAt?.toISOString() ?? null,
+          source: deliveryPlan.scheduled ? 'digest' : 'subscription',
           dedupe_key: `${userId}:${episodeId}:telegram`,
         },
         { onConflict: 'dedupe_key', ignoreDuplicates: true }

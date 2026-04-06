@@ -297,6 +297,26 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Fallback: episodes where podcast join returned null — fetch podcast directly
+    const missingPodcastEps = (episodes || []).filter((ep: any) => {
+      const p = Array.isArray(ep.podcasts) ? ep.podcasts[0] : ep.podcasts;
+      return !p?.title && ep.podcast_id;
+    });
+    if (missingPodcastEps.length > 0) {
+      const podcastIds = [...new Set(missingPodcastEps.map((ep: any) => ep.podcast_id))];
+      const { data: fallbackPodcasts } = await admin
+        .from('podcasts')
+        .select('id, title, image_url, rss_feed_url')
+        .in('id', podcastIds);
+      if (fallbackPodcasts?.length) {
+        const podMap = new Map(fallbackPodcasts.map((p: any) => [p.id, p]));
+        for (const ep of missingPodcastEps) {
+          const fb = podMap.get(ep.podcast_id);
+          if (fb) ep.podcasts = fb;
+        }
+      }
+    }
+
     const episodeMap = new Map(
       (episodes || []).map((ep: any) => [ep.id, ep])
     );
@@ -313,7 +333,7 @@ export async function GET(request: NextRequest) {
         whyItMatters: raw.whyItMatters,
         category: raw.category,
         source: {
-          name: podcast?.title || 'Unknown Source',
+          name: podcast?.title || ep?.title?.split(':')[0]?.trim() || 'Unknown Source',
           episodeTitle: ep?.title || '',
           episodeId: raw.episodeId,
           imageUrl: podcast?.image_url || undefined,

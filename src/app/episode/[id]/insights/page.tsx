@@ -80,7 +80,18 @@ export default function EpisodeInsightsPage() {
 
       if (episodeError) throw episodeError;
 
-      const podcastData = episodeData.podcasts;
+      let podcastData = episodeData.podcasts;
+
+      // Fallback: if the join returned null but podcast_id exists, try a direct lookup.
+      // This handles edge cases where Supabase joins silently fail (RLS, stale FK, etc.)
+      if (!podcastData && episodeData.podcast_id) {
+        const { data: directPodcast } = await supabase
+          .from("podcasts")
+          .select("*")
+          .eq("id", episodeData.podcast_id)
+          .single();
+        if (directPodcast) podcastData = directPodcast;
+      }
 
       setEpisode({
         ...episodeData,

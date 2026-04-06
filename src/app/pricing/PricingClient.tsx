@@ -152,10 +152,10 @@ function PricingCardFree() {
       {/* Tagline */}
       <div className="mb-5 pb-5 border-b border-border">
         <p className="text-xs font-bold uppercase tracking-widest mb-1 text-primary/70">
-          ALWAYS FREE
+          FREE FOREVER
         </p>
         <p className="text-sm text-muted-foreground">
-          {PLAN_META.free.description}
+          Enough to see what you&apos;re missing.
         </p>
       </div>
 
@@ -319,7 +319,7 @@ function PricingCardPro({ interval }: { interval: BillingInterval }) {
             UNLIMITED
           </p>
           <p className="text-sm text-muted-foreground">
-            {PLAN_META.pro.description}
+            Stop choosing which episodes deserve your attention. All of them do.
           </p>
         </div>
 
@@ -463,24 +463,24 @@ function FeatureComparisonTable() {
 
 const FAQS = [
   {
-    q: 'Can I cancel anytime?',
-    a: 'Yes, absolutely. You can cancel your Pro subscription at any time from Settings. You will keep access to Pro features until the end of your current billing period.',
+    q: 'Is the free plan really free forever?',
+    a: 'Yes. No credit card. No trial that expires. You get 3 AI summaries and 5 Ask AI questions every day, indefinitely. We cap usage, not time.',
   },
   {
-    q: 'What happens when I downgrade?',
-    a: 'Your Pro features stay active until the end of the billing cycle. After that, you return to Free limits: 3 summaries/day, 5 Ask AI questions/day, and limited follows. All your saved data is preserved.',
+    q: 'What happens when I hit the free limit?',
+    a: `Your existing summaries stay accessible. You just can't generate new ones until the next day. If you consistently hit the ceiling, that's your signal — the content you consume outgrew the free plan.`,
+  },
+  {
+    q: 'Can I cancel anytime?',
+    a: `One click, no questions. Cancel from your settings page and keep access through the end of your billing period. No exit interviews, no dark patterns.`,
   },
   {
     q: 'Do cached summaries count against my quota?',
     a: 'No. If someone already generated a summary for an episode, you can read it for free. Your daily quota only covers new AI generations.',
   },
   {
-    q: 'What counts as an AI summary?',
-    a: 'Each time you generate a summary for a podcast episode or YouTube video, it counts as one. Already-generated summaries are cached and free for everyone.',
-  },
-  {
     q: 'Is the yearly plan worth it?',
-    a: `With the yearly plan, you save $${PRICING.pro.yearlySavings} per year (20% off). That is $${PRICING.pro.yearlyPerMonth}/month instead of $${PRICING.pro.monthly}/month. If you use Yedapo regularly, the yearly plan pays for itself quickly.`,
+    a: `With the yearly plan, you save $${PRICING.pro.yearlySavings} per year (20% off). That's $${PRICING.pro.yearlyPerMonth}/month instead of $${PRICING.pro.monthly}/month. If you use Yedapo regularly, the yearly plan pays for itself quickly.`,
   },
 ];
 
@@ -561,8 +561,7 @@ function SocialProofStrip() {
   return (
     <div className="text-center">
       <p className="text-sm text-muted-foreground">
-        <span className="font-semibold text-foreground">1,200+</span> listeners
-        already use Yedapo to stay informed.
+        Used by product managers, founders, and researchers who refuse to fall behind.
       </p>
       <p className="text-xs text-muted-foreground mt-1">
         All plans include unlimited podcast browsing, search, playback, and episode sharing.
@@ -604,12 +603,12 @@ export function PricingClient() {
             Pricing
           </div>
           <h1 className="text-h1 sm:text-display tracking-tight text-foreground">
-            Listen more. Understand deeper.
+            Every episode you skip is knowledge you lose.
           </h1>
           <p className="text-muted-foreground mt-3 text-base sm:text-lg leading-relaxed">
-            Every plan includes full podcast browsing and playback.
+            Free gets you started. But 3 summaries a day means most of your feed goes unread.
             <br className="hidden sm:block" />
-            Pick the AI tier that matches how you listen.
+            Your competitors aren&apos;t waiting.
           </p>
         </ScrollReveal>
 

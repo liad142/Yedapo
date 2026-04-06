@@ -297,22 +297,32 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fallback: episodes where podcast join returned null — fetch podcast directly
-    const missingPodcastEps = (episodes || []).filter((ep: any) => {
+    // Fallback: episodes where podcast has empty/null title — find a duplicate
+    // podcast row with the same image_url that DOES have a title.
+    // Root cause: duplicate podcast rows created when episodes are imported
+    // via different sources (Apple vs PodcastIndex).
+    const emptyTitleEps = (episodes || []).filter((ep: any) => {
       const p = Array.isArray(ep.podcasts) ? ep.podcasts[0] : ep.podcasts;
-      return !p?.title && ep.podcast_id;
+      return !p?.title && p?.image_url;
     });
-    if (missingPodcastEps.length > 0) {
-      const podcastIds = [...new Set(missingPodcastEps.map((ep: any) => ep.podcast_id))];
-      const { data: fallbackPodcasts } = await admin
-        .from('podcasts')
-        .select('id, title, image_url, rss_feed_url')
-        .in('id', podcastIds);
-      if (fallbackPodcasts?.length) {
-        const podMap = new Map(fallbackPodcasts.map((p: any) => [p.id, p]));
-        for (const ep of missingPodcastEps) {
-          const fb = podMap.get(ep.podcast_id);
-          if (fb) ep.podcasts = fb;
+    if (emptyTitleEps.length > 0) {
+      const imageUrls = emptyTitleEps.map((ep: any) => {
+        const p = Array.isArray(ep.podcasts) ? ep.podcasts[0] : ep.podcasts;
+        return p.image_url;
+      }).filter(Boolean);
+      if (imageUrls.length > 0) {
+        const { data: matchingPodcasts } = await admin
+          .from('podcasts')
+          .select('id, title, image_url, rss_feed_url')
+          .in('image_url', imageUrls)
+          .neq('title', '');
+        if (matchingPodcasts?.length) {
+          const imgToTitle = new Map(matchingPodcasts.map((p: any) => [p.image_url, p]));
+          for (const ep of emptyTitleEps) {
+            const p = Array.isArray(ep.podcasts) ? ep.podcasts[0] : ep.podcasts;
+            const match = imgToTitle.get(p.image_url);
+            if (match) ep.podcasts = match;
+          }
         }
       }
     }
@@ -333,7 +343,7 @@ export async function GET(request: NextRequest) {
         whyItMatters: raw.whyItMatters,
         category: raw.category,
         source: {
-          name: podcast?.title || ep?.title?.split(':')[0]?.trim() || 'Unknown Source',
+          name: podcast?.title || 'Unknown Source',
           episodeTitle: ep?.title || '',
           episodeId: raw.episodeId,
           imageUrl: podcast?.image_url || undefined,

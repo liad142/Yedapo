@@ -138,6 +138,7 @@ export async function POST(request: NextRequest) {
             description: video.description,
             thumbnailUrl: video.thumbnailUrl,
             publishedAt: new Date(video.publishedAt),
+            duration: video.durationSeconds,
             url: `https://www.youtube.com/watch?v=${video.videoId}`,
             videoId: video.videoId,
             userId: user.id,

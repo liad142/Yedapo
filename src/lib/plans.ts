@@ -78,7 +78,7 @@ export interface PlanMeta {
 
 export const PLAN_META: Record<UserPlan, PlanMeta> = {
   free: {
-    label: 'Listener',
+    label: 'Free',
     price: '$0',
     description: 'Get instant value from any podcast',
     features: [
@@ -92,8 +92,8 @@ export const PLAN_META: Record<UserPlan, PlanMeta> = {
     ],
   },
   pro: {
-    label: 'Explorer',
-    price: '$9.99/mo',
+    label: 'Pro',
+    price: '$12.99/mo',
     description: 'Unlimited AI power for every episode',
     features: [
       'Unlimited AI summaries',

@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 const TIERS: Tier[] = [
   {
     name: 'Free',
-    subtitle: 'Listener',
+    subtitle: 'Free',
     iconName: 'headphones',
     price: 0,
     priceSuffix: 'Free forever',
@@ -47,9 +47,9 @@ const TIERS: Tier[] = [
   },
   {
     name: 'Pro',
-    subtitle: 'Explorer',
+    subtitle: 'Pro',
     iconName: 'sparkles',
-    price: 9.99,
+    price: 12.99,
     priceSuffix: '/ month',
     tagline: 'UNLIMITED',
     tagDescription: 'No limits. Every feature. Maximum insight.',

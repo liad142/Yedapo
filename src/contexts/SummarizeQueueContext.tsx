@@ -205,7 +205,11 @@ export function SummarizeQueueProvider({ children }: { children: React.ReactNode
         log.success('Processing complete', { episodeId, durationMs: elapsedMs });
         posthog.capture('summary_completed', { episode_id: episodeId, duration_ms: elapsedMs });
         setStats(prev => ({ ...prev, completed: prev.completed + 1 }));
-        refreshUsage();
+        // Don't call refreshUsage() here — the client-side counter was already
+        // incremented by incrementSummary() when the user triggered the summary.
+        // Fetching from the server at this moment races with the Redis quota
+        // increment, causing the counter to briefly show 0 (server returns the
+        // pre-increment value). The client count is authoritative until page reload.
         finishProcessing(episodeId);
         processNext();
         return;

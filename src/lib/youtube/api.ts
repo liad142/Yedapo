@@ -77,6 +77,7 @@ export interface YouTubeVideo {
   publishedAt: string;
   channelId: string;
   channelTitle: string;
+  durationSeconds?: number;
 }
 
 /**
@@ -205,7 +206,7 @@ async function filterRegularVideos<T extends { videoId: string }>(
     batches.push(videos.slice(i, i + 50));
   }
 
-  const keep = new Set<string>();
+  const keep = new Map<string, number>(); // videoId → durationSeconds
   for (const batch of batches) {
     const ids = batch.map((v) => v.videoId).join(',');
     try {
@@ -219,7 +220,7 @@ async function filterRegularVideos<T extends { videoId: string }>(
       if (!res.ok) {
         // Fail open: if the enrichment fails, keep all videos rather than drop them
         log.warn('videos.list enrichment failed, keeping unfiltered', { status: res.status });
-        batch.forEach((v) => keep.add(v.videoId));
+        batch.forEach((v) => keep.set(v.videoId, 0));
         continue;
       }
       await trackQuota('videos.list');
@@ -229,16 +230,21 @@ async function filterRegularVideos<T extends { videoId: string }>(
         const liveStatus = item.snippet?.liveBroadcastContent ?? 'none';
         // Only keep: long enough to not be a short AND not an active/upcoming live
         if (durationSec >= MIN_REGULAR_VIDEO_SECONDS && liveStatus === 'none') {
-          keep.add(item.id);
+          keep.set(item.id, durationSec);
         }
       }
     } catch (err) {
       log.warn('videos.list enrichment error', { error: String(err) });
-      batch.forEach((v) => keep.add(v.videoId));
+      batch.forEach((v) => keep.set(v.videoId, 0));
     }
   }
 
-  return videos.filter((v) => keep.has(v.videoId));
+  return videos
+    .filter((v) => keep.has(v.videoId))
+    .map((v) => ({
+      ...v,
+      durationSeconds: keep.get(v.videoId) || (v as any).durationSeconds,
+    }));
 }
 
 /**

@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUsage } from '@/contexts/UsageContext';
+import { useSummarizeQueue } from '@/contexts/SummarizeQueueContext';
 import { SummarizeButton } from '@/components/SummarizeButton';
 
 interface SearchPodcast {
@@ -40,6 +42,9 @@ interface SearchVideo {
 export function SemanticSearchBar() {
   const router = useRouter();
   const { user, setShowCompactPrompt } = useAuth();
+  const { usage } = useUsage();
+  const { setShowUpgradeModal } = useSummarizeQueue();
+  const atQuotaLimit = usage && usage.summary.limit !== -1 && usage.summary.used >= usage.summary.limit;
   // Read initial query from URL without useSearchParams() to avoid dynamic rendering / RSC refetches
   const [query, setQuery] = useState(() => {
     if (typeof window === 'undefined') return '';
@@ -495,17 +500,24 @@ export function SemanticSearchBar() {
                                   />
                                 ) : (
                                   <button
-                                    onClick={(e) => handleVideoImportAndSummarize(e, video)}
+                                    onClick={(e) => {
+                                      if (atQuotaLimit) {
+                                        e.stopPropagation();
+                                        setShowUpgradeModal(true);
+                                        return;
+                                      }
+                                      handleVideoImportAndSummarize(e, video);
+                                    }}
                                     disabled={importingVideos[video.videoId]}
                                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-primary rounded-full transition-all hover:scale-105 active:scale-95 shadow-sm shadow-primary/20 hover:shadow-primary/40 cursor-pointer disabled:opacity-50"
-                                    title="Summarize"
+                                    title={atQuotaLimit ? 'Upgrade to summarize' : 'Summarize'}
                                   >
                                     {importingVideos[video.videoId] ? (
                                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                     ) : (
                                       <Sparkles className="h-3.5 w-3.5 fill-white/20" />
                                     )}
-                                    <span>{importingVideos[video.videoId] ? 'Importing...' : 'Summarize'}</span>
+                                    <span>{importingVideos[video.videoId] ? 'Importing...' : atQuotaLimit ? 'Upgrade' : 'Summarize'}</span>
                                   </button>
                                 )}
                               </div>

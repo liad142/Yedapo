@@ -107,7 +107,7 @@ export function SummarizeButton({ episodeId, initialStatus = 'not_ready', classN
         return (
           <div className="flex items-center">
             <Sparkles className="mr-2 h-4 w-4" />
-            {atLimit ? 'Limit reached' : 'Summarize'}
+            {atLimit ? 'Upgrade to summarize' : 'Summarize'}
             {!atLimit && <ShortcutHint shortcut="S" className="ml-2" />}
           </div>
         );

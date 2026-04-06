@@ -37,21 +37,28 @@ function createSupabaseClient(request: NextRequest) {
 async function handlePostAuth(userId: string, origin: string, next: string): Promise<string> {
   const admin = createAdminClient();
 
-  const [{ data: profile }, { count: summaryCount }] = await Promise.all([
+  const [{ data: profile }, { count: subCount }, { count: ytCount }] = await Promise.all([
     admin
       .from('user_profiles')
-      .select('onboarding_completed')
+      .select('onboarding_completed, preferred_genres')
       .eq('id', userId)
       .single(),
     admin
-      .from('user_summaries')
+      .from('podcast_subscriptions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId),
+    admin
+      .from('youtube_channel_follows')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId),
   ]);
 
-  // Skip onboarding if the user already completed it OR has existing activity
-  // (returning users who signed up before onboarding was introduced).
-  const hasActivity = (summaryCount ?? 0) > 0;
+  // Skip onboarding if the user already completed it OR has any existing
+  // activity (subscriptions, follows, or genres set). This covers returning
+  // users who signed up before onboarding was introduced AND users who
+  // completed onboarding but haven't generated summaries yet.
+  const hasGenres = (profile?.preferred_genres?.length ?? 0) > 0;
+  const hasActivity = (subCount ?? 0) > 0 || (ytCount ?? 0) > 0 || hasGenres;
   const shouldOnboard = !profile?.onboarding_completed && !hasActivity;
   const redirectUrl = shouldOnboard
     ? `${origin}/onboarding`

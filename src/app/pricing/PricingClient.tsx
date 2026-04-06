@@ -154,9 +154,6 @@ function PricingCardFree() {
         <p className="text-xs font-bold uppercase tracking-widest mb-1 text-primary/70">
           FREE FOREVER
         </p>
-        <p className="text-sm text-muted-foreground">
-          Enough to see what you&apos;re missing.
-        </p>
       </div>
 
       {/* Features */}
@@ -317,9 +314,6 @@ function PricingCardPro({ interval }: { interval: BillingInterval }) {
         <div className="mb-5 pb-5 border-b border-border">
           <p className="text-xs font-bold uppercase tracking-widest mb-1 text-primary">
             UNLIMITED
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Stop choosing which episodes deserve your attention. All of them do.
           </p>
         </div>
 
@@ -605,11 +599,6 @@ export function PricingClient() {
           <h1 className="text-h1 sm:text-display tracking-tight text-foreground">
             Every episode you skip is knowledge you lose.
           </h1>
-          <p className="text-muted-foreground mt-3 text-base sm:text-lg leading-relaxed">
-            Free gets you started. But 3 summaries a day means most of your feed goes unread.
-            <br className="hidden sm:block" />
-            Your competitors aren&apos;t waiting.
-          </p>
         </ScrollReveal>
 
         {/* Billing toggle */}

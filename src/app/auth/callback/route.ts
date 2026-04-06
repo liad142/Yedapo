@@ -37,13 +37,22 @@ function createSupabaseClient(request: NextRequest) {
 async function handlePostAuth(userId: string, origin: string, next: string): Promise<string> {
   const admin = createAdminClient();
 
-  const { data: profile } = await admin
-    .from('user_profiles')
-    .select('onboarding_completed')
-    .eq('id', userId)
-    .single();
+  const [{ data: profile }, { count: summaryCount }] = await Promise.all([
+    admin
+      .from('user_profiles')
+      .select('onboarding_completed')
+      .eq('id', userId)
+      .single(),
+    admin
+      .from('user_summaries')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId),
+  ]);
 
-  const shouldOnboard = !profile || !profile.onboarding_completed;
+  // Skip onboarding if the user already completed it OR has existing activity
+  // (returning users who signed up before onboarding was introduced).
+  const hasActivity = (summaryCount ?? 0) > 0;
+  const shouldOnboard = !profile?.onboarding_completed && !hasActivity;
   const redirectUrl = shouldOnboard
     ? `${origin}/onboarding`
     : `${origin}${next}`;

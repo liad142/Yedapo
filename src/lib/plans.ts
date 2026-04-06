@@ -137,10 +137,10 @@ export interface FeatureCategory {
 
 export const FEATURE_COMPARISON: FeatureCategory[] = [
   {
-    name: 'AI Generation',
+    name: 'AI Brainpower',
     features: [
-      { label: 'AI summaries', free: '3/day', pro: 'Unlimited' },
-      { label: 'Ask AI questions', free: '5/day', pro: 'Unlimited' },
+      { label: 'AI summaries per day', free: '3/day', pro: 'Unlimited' },
+      { label: 'Ask AI questions per day', free: '5/day', pro: 'Unlimited' },
       { label: 'Priority generation queue', free: false, pro: true },
     ],
   },
@@ -158,9 +158,8 @@ export const FEATURE_COMPARISON: FeatureCategory[] = [
   {
     name: 'Following & Library',
     features: [
-      { label: 'Podcast subscriptions', free: '15', pro: 'Unlimited' },
-      { label: 'YouTube channel follows', free: '3', pro: 'Unlimited' },
-      { label: 'Saved episodes', free: '25', pro: 'Unlimited' },
+      { label: 'Podcast subscriptions', free: '5', pro: 'Unlimited' },
+      { label: 'YouTube channel follows', free: '5', pro: 'Unlimited' },
     ],
   },
   {
@@ -186,33 +185,30 @@ export interface PlanMeta {
 
 export const PLAN_META: Record<UserPlan, PlanMeta> = {
   free: {
-    label: 'Listener',
+    label: 'Free',
     monthlyPrice: 0,
-    description: 'Get instant value from any podcast',
+    description: 'Try AI summaries with limits',
     features: [
       '3 AI summaries per day',
       '5 Ask AI questions per day',
-      'Full summaries & insights',
-      'All chapters & takeaways',
-      '15 podcast subscriptions',
-      '3 YouTube channel follows',
-      '25 saved episodes',
-      'In-app notifications',
+      'Basic summaries & chapters',
+      '5 podcast subscriptions',
+      '5 YouTube channel follows',
+      'In-app notifications only',
     ],
   },
   pro: {
-    label: 'Explorer',
+    label: 'Pro',
     monthlyPrice: PRICING.pro.monthly,
     badge: 'Most Popular',
-    description: 'Unlimited AI power for every episode',
+    description: 'Every episode, fully understood',
     features: [
       'Unlimited AI summaries',
       'Unlimited Ask AI',
       'Full transcript with search',
       'All highlights & counterpoints',
       'Complete shownotes',
-      'Unlimited subscriptions',
-      'Unlimited YouTube channels',
+      'Unlimited podcasts & YouTube channels',
       'Email, Telegram & WhatsApp delivery',
       'Daily/weekly digest mode',
       'Export summaries',

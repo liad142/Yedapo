@@ -347,7 +347,7 @@ function PricingCardPro({ interval }: { interval: BillingInterval }) {
           )}
         >
           <Sparkles className="h-4 w-4 fill-white/20" />
-          Start Explorer Plan
+          Start Pro Plan
           <ArrowRight className="h-4 w-4" />
         </Button>
       </div>

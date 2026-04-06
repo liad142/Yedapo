@@ -82,8 +82,20 @@ export default function EpisodeInsightsPage() {
 
       let podcastData = episodeData.podcasts;
 
-      // Fallback: if the join returned null but podcast_id exists, try a direct lookup.
-      // This handles edge cases where Supabase joins silently fail (RLS, stale FK, etc.)
+      // Fallback: if podcast title is empty/null, find a duplicate row with
+      // the same image_url that has a real title. This happens when duplicate
+      // podcast rows are created via different import sources.
+      if ((!podcastData?.title) && podcastData?.image_url) {
+        const { data: match } = await supabase
+          .from("podcasts")
+          .select("*")
+          .eq("image_url", podcastData.image_url)
+          .neq("title", "")
+          .limit(1)
+          .single();
+        if (match?.title) podcastData = match;
+      }
+      // Fallback 2: no podcast data at all — try direct lookup
       if (!podcastData && episodeData.podcast_id) {
         const { data: directPodcast } = await supabase
           .from("podcasts")

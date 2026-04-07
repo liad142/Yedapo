@@ -5,6 +5,26 @@
  */
 
 export type UserPlan = 'free' | 'pro';
+export type BillingInterval = 'monthly' | 'yearly';
+
+// ---------------------------------------------------------------------------
+// Pricing constants
+// ---------------------------------------------------------------------------
+export const PRICING = {
+  pro: {
+    monthly: 12.99,
+    yearlyDiscount: 0.20, // 20% off
+    get yearly() {
+      return +(this.monthly * 12 * (1 - this.yearlyDiscount)).toFixed(2);
+    },
+    get yearlyPerMonth() {
+      return +(this.yearly / 12).toFixed(2);
+    },
+    get yearlySavings() {
+      return +(this.monthly * 12 - this.yearly).toFixed(2);
+    },
+  },
+} as const;
 
 // ---------------------------------------------------------------------------
 // Daily generation quotas
@@ -20,19 +40,53 @@ export const PLAN_LIMITS: Record<UserPlan, PlanLimits> = {
 };
 
 // ---------------------------------------------------------------------------
+// Notification / delivery gating
+// ---------------------------------------------------------------------------
+export interface NotificationAccess {
+  inApp: boolean;
+  email: boolean;
+  telegram: boolean;
+  whatsapp: boolean;
+  digestMode: boolean;
+  frequencyControl: boolean;
+  canConnect: boolean; // Can connect channels (even if delivery is gated)
+}
+
+export const NOTIFICATION_ACCESS: Record<UserPlan, NotificationAccess> = {
+  free: {
+    inApp: true,
+    email: false,
+    telegram: false,
+    whatsapp: false,
+    digestMode: false,
+    frequencyControl: false,
+    canConnect: true, // Free users CAN connect (investment → conversion trigger)
+  },
+  pro: {
+    inApp: true,
+    email: true,
+    telegram: true,
+    whatsapp: true,
+    digestMode: true,
+    frequencyControl: true,
+    canConnect: true,
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Content gating cutoffs (item-based, not character %)
 // Values represent how many items FREE users can see.
 // Pro sees everything (cutoff = Infinity).
 // ---------------------------------------------------------------------------
 export interface ContentCutoffs {
-  deepSummaryParagraphs: number; // paragraphs of comprehensive_overview (split by \n, blanks filtered)
+  deepSummaryParagraphs: number;
   coreConcepts: number;
-  chapters: number;              // chronological_breakdown items
-  takeaways: number;             // actionable_takeaways items
-  transcriptSegments: number;    // transcript segments visible (no search for free)
+  chapters: number;
+  takeaways: number;
+  transcriptSegments: number;
   highlights: number;
-  counterpoints: number;         // 0 = fully locked
-  shownotes: number;             // 0 = fully locked
+  counterpoints: number;
+  shownotes: number;
 }
 
 // Guest users (not signed in) see a teaser with blur + sign-up CTA.
@@ -49,7 +103,6 @@ export const GUEST_CUTOFFS: ContentCutoffs = {
 
 // Registered users (even free plan) can VIEW all summary content.
 // Gating for free plan is only on generation quotas (3 summaries/day, 5 asks/day).
-// If free-plan content restrictions are added later, split into separate objects.
 const FULL_ACCESS: ContentCutoffs = {
   deepSummaryParagraphs: Infinity,
   coreConcepts: Infinity,
@@ -69,45 +122,100 @@ export const PLAN_CUTOFFS: Record<UserPlan, ContentCutoffs> = {
 // ---------------------------------------------------------------------------
 // Pricing display metadata (used by pricing page & upgrade modal)
 // ---------------------------------------------------------------------------
+
+/** Feature category for the comparison table */
+export interface PlanFeature {
+  label: string;
+  free: string | boolean;  // true = included, false = excluded, string = specific value
+  pro: string | boolean;
+}
+
+export interface FeatureCategory {
+  name: string;
+  features: PlanFeature[];
+}
+
+export const FEATURE_COMPARISON: FeatureCategory[] = [
+  {
+    name: 'AI Brainpower',
+    features: [
+      { label: 'AI summaries per day', free: '3/day', pro: 'Unlimited' },
+      { label: 'Ask AI questions per day', free: '5/day', pro: 'Unlimited' },
+      { label: 'Priority generation queue', free: false, pro: true },
+    ],
+  },
+  {
+    name: 'Depth of Insight',
+    features: [
+      { label: 'Full summaries & insights', free: true, pro: true },
+      { label: 'Chapters & takeaways', free: true, pro: true },
+      { label: 'Full transcript with search', free: false, pro: true },
+      { label: 'Highlights & counterpoints', free: false, pro: true },
+      { label: 'Complete shownotes', free: false, pro: true },
+      { label: 'Export summaries', free: false, pro: true },
+    ],
+  },
+  {
+    name: 'Your Coverage',
+    features: [
+      { label: 'Podcast subscriptions', free: '5', pro: 'Unlimited' },
+      { label: 'YouTube channel follows', free: '5', pro: 'Unlimited' },
+    ],
+  },
+  {
+    name: 'Summaries Delivered to You',
+    features: [
+      { label: 'In-app notifications', free: true, pro: true },
+      { label: 'Email delivery', free: false, pro: true },
+      { label: 'Telegram delivery', free: false, pro: true },
+      { label: 'WhatsApp delivery', free: false, pro: 'Coming soon' },
+      { label: 'Daily/weekly digest', free: false, pro: true },
+      { label: 'Choose delivery time', free: false, pro: true },
+    ],
+  },
+];
+
 export interface PlanMeta {
   label: string;
-  price: string;         // display string, e.g. "$9.99/mo"
+  monthlyPrice: number;     // 0 for free
   description: string;
-  features: string[];
+  badge?: string;            // e.g. "Most Popular"
+  features: string[];        // quick bullet list (for upgrade modals)
 }
 
 export const PLAN_META: Record<UserPlan, PlanMeta> = {
   free: {
     label: 'Free',
-    price: '$0',
-    description: 'Get instant value from any podcast',
+    monthlyPrice: 0,
+    description: 'Free forever',
     features: [
       '3 AI summaries per day',
       '5 Ask AI questions per day',
-      'Full summaries & insights',
-      'All chapters & takeaways',
-      '15 podcast subscriptions',
-      '3 YouTube channel follows',
-      '25 saved episodes',
+      'Chapters & takeaways',
+      '5 podcast subscriptions',
+      '5 YouTube channels',
+      'In-app notifications',
     ],
   },
   pro: {
     label: 'Pro',
-    price: '$12.99/mo',
-    description: 'Unlimited AI power for every episode',
+    monthlyPrice: PRICING.pro.monthly,
+    badge: 'Most Popular',
+    description: 'Unlimited',
     features: [
       'Unlimited AI summaries',
       'Unlimited Ask AI',
-      'Full deep summaries & chapters',
-      'Full transcript with search',
-      'All highlights & counterpoints',
-      'Complete shownotes',
-      'Unlimited subscriptions',
-      'Unlimited YouTube channels',
+      'Unlimited podcasts & YouTube channels',
+      'Full transcripts with search',
+      'Highlights, counterpoints & shownotes',
+      'Email, Telegram & WhatsApp delivery',
+      'Daily & weekly digest',
       'Export summaries',
-      'Priority generation queue',
-      'Email notifications',
-      'Early access to new features',
+      'Priority queue',
+      'Early access',
     ],
   },
 };
+
+// Legacy compat — old code referenced PLAN_META.*.price as a string
+// TODO: migrate callers to use monthlyPrice number + PRICING constants

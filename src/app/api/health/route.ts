@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Redis } from '@upstash/redis';
+import { checkRateLimit } from '@/lib/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,6 +9,14 @@ export async function GET(request: NextRequest) {
   const monitoringSecret = process.env.MONITORING_SECRET;
   const authHeader = request.headers.get('authorization');
   const isMonitor = monitoringSecret && authHeader === `Bearer ${monitoringSecret}`;
+
+  if (!isMonitor) {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const allowed = await checkRateLimit(`health:${ip}`, 10, 60);
+    if (!allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
+  }
 
   const checks: Record<string, { status: string; latencyMs?: number }> = {};
   let overallStatus: 'ok' | 'degraded' | 'down' = 'ok';

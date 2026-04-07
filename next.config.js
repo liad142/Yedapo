@@ -50,7 +50,8 @@ const nextConfig = {
     ],
   },
   async headers() {
-    const scriptSrc = `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''} https://va.vercel-scripts.com https://us-assets.i.posthog.com https://www.youtube.com https://static.cloudflareinsights.com`;
+    const isDev = process.env.NODE_ENV === 'development';
+    const scriptSrc = `script-src 'self'${isDev ? " 'unsafe-inline' 'unsafe-eval'" : ''} https://va.vercel-scripts.com https://us-assets.i.posthog.com https://www.youtube.com https://static.cloudflareinsights.com`;
     return [
       {
         source: "/(.*)",
@@ -69,8 +70,13 @@ const nextConfig = {
               "img-src 'self' data: https:",
               "media-src *",
               "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com https://*.upstash.io https://va.vercel-scripts.com https://vitals.vercel-insights.com https://us.i.posthog.com https://us-assets.i.posthog.com",
-              "font-src 'self' data:",
+              "font-src 'self' data: https://fonts.gstatic.com",
               "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "frame-ancestors 'none'",
+              "form-action 'self' https://*.supabase.co",
+              "upgrade-insecure-requests",
             ].join("; "),
           },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },

@@ -582,16 +582,7 @@ function FAQSection() {
    ═══════════════════════════════════════════════════════════════════════ */
 
 function SocialProofStrip() {
-  return (
-    <div className="text-center">
-      <p className="text-sm text-muted-foreground">
-        Used by product managers, founders, and researchers who refuse to fall behind.
-      </p>
-      <p className="text-xs text-muted-foreground mt-1">
-        All plans include unlimited podcast browsing, search, playback, and episode sharing.
-      </p>
-    </div>
-  );
+  return null;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════

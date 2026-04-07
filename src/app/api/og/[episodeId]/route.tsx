@@ -2,6 +2,21 @@ import { ImageResponse } from 'next/og';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { QuickSummaryContent } from '@/types/database';
 
+// Cache fonts in module scope so they're fetched once per cold start
+let fontsLoaded: { regular: ArrayBuffer; bold: ArrayBuffer; hebrewRegular: ArrayBuffer; hebrewBold: ArrayBuffer } | null = null;
+
+async function loadFonts() {
+  if (fontsLoaded) return fontsLoaded;
+  const [regular, bold, hebrewRegular, hebrewBold] = await Promise.all([
+    fetch('https://fonts.gstatic.com/s/notosans/v42/o-0mIpQlx3QUlC5A4PNB6Ryti20_6n1iPHjcz6L1SoM-jCpoiyD9A99d.ttf').then(r => r.arrayBuffer()),
+    fetch('https://fonts.gstatic.com/s/notosans/v42/o-0mIpQlx3QUlC5A4PNB6Ryti20_6n1iPHjcz6L1SoM-jCpoiyAaBN9d.ttf').then(r => r.arrayBuffer()),
+    fetch('https://fonts.gstatic.com/s/notosanshebrew/v50/or3HQ7v33eiDljA1IufXTtVf7V6RvEEdhQlk0LlGxCyaeNKYZC0sqk3xXGiXd4qtog.ttf').then(r => r.arrayBuffer()),
+    fetch('https://fonts.gstatic.com/s/notosanshebrew/v50/or3HQ7v33eiDljA1IufXTtVf7V6RvEEdhQlk0LlGxCyaeNKYZC0sqk3xXGiXkI2tog.ttf').then(r => r.arrayBuffer()),
+  ]);
+  fontsLoaded = { regular, bold, hebrewRegular, hebrewBold };
+  return fontsLoaded;
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ episodeId: string }> }
@@ -40,9 +55,61 @@ export async function GET(
   const tags = quick?.tags?.slice(0, 4) || [];
   const artworkUrl = podcast?.image_url;
 
+  // Detect RTL content (Hebrew, Arabic, etc.)
+  const rtlRegex = /[\u0590-\u05FF\u0600-\u06FF\u0700-\u074F]/;
+  const isRtl = rtlRegex.test(title) || rtlRegex.test(podcastName) || rtlRegex.test(hookHeadline);
+  const lang = isRtl ? 'he' : 'en';
+
+  // Satori renders all characters LTR (known bug). For RTL text we must
+  // reverse the visual order ourselves.
+  // Strategy: split into strong LTR runs (3+ Latin letters) vs everything else.
+  // Everything else (Hebrew, digits, punctuation, spaces) is treated as RTL context.
+  function fixRtl(text: string): string {
+    if (!isRtl) return text;
+    if (!rtlRegex.test(text)) return text; // Pure English text, no fix needed
+
+    // Split into LTR runs (Latin words, digits) vs RTL context (Hebrew + punctuation/spaces)
+    const parts: { text: string; isLtr: boolean }[] = [];
+    // Match: sequences of Latin words OR digit sequences (both are LTR in RTL context)
+    const ltrRunRegex = /[A-Za-z]{2,}(?:\s+[A-Za-z]{2,})*|\d+/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = ltrRunRegex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push({ text: text.slice(lastIndex, match.index), isLtr: false });
+      }
+      parts.push({ text: match[0], isLtr: true });
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < text.length) {
+      parts.push({ text: text.slice(lastIndex), isLtr: false });
+    }
+
+    // Mirror paired brackets in RTL context
+    const mirrorMap: Record<string, string> = { '(': ')', ')': '(', '[': ']', ']': '[', '{': '}', '}': '{' };
+
+    // Reverse the entire parts order (RTL visual), and reverse chars within RTL parts
+    // LTR parts (Latin words, digits) keep their internal order
+    return parts
+      .reverse()
+      .map(p => {
+        if (p.isLtr) return p.text;
+        return Array.from(p.text)
+          .reverse()
+          .map(ch => mirrorMap[ch] || ch)
+          .join('');
+      })
+      .join('');
+  }
+
+  // Load Noto Sans fonts (Latin + Hebrew)
+  const fonts = await loadFonts();
+
   return new ImageResponse(
     (
       <div
+        lang={lang}
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -50,7 +117,7 @@ export async function GET(
           height: '100%',
           background: 'linear-gradient(145deg, #0a0a0f 0%, #0f1729 40%, #0a1628 100%)',
           padding: 0,
-          fontFamily: 'system-ui, sans-serif',
+          fontFamily: '"Noto Sans", "Noto Sans Hebrew"',
           position: 'relative',
           overflow: 'hidden',
         }}
@@ -140,9 +207,9 @@ export async function GET(
                   letterSpacing: '-0.01em',
                 }}
               >
-                {podcastName.length > 50
+                {fixRtl(podcastName.length > 50
                   ? podcastName.substring(0, 47) + '...'
-                  : podcastName}
+                  : podcastName)}
               </span>
               <span style={{ fontSize: 15, color: 'rgba(255,255,255,0.4)' }}>
                 Episode Insights
@@ -172,9 +239,9 @@ export async function GET(
                 margin: 0,
               }}
             >
-              {title.length > 100
+              {fixRtl(title.length > 100
                 ? title.substring(0, 97) + '...'
-                : title}
+                : title)}
             </h1>
 
             {hookHeadline && (
@@ -204,9 +271,9 @@ export async function GET(
                     fontStyle: 'italic',
                   }}
                 >
-                  {hookHeadline.length > 120
+                  {fixRtl(hookHeadline.length > 120
                     ? hookHeadline.substring(0, 117) + '...'
-                    : hookHeadline}
+                    : hookHeadline)}
                 </span>
               </div>
             )}
@@ -235,7 +302,7 @@ export async function GET(
                     fontWeight: 500,
                   }}
                 >
-                  {tag}
+                  {fixRtl(tag)}
                 </span>
               ))}
             </div>
@@ -276,6 +343,12 @@ export async function GET(
     {
       width: 1200,
       height: 630,
+      fonts: [
+        { name: 'Noto Sans', data: fonts.regular, weight: 400 as const, style: 'normal' as const },
+        { name: 'Noto Sans', data: fonts.bold, weight: 700 as const, style: 'normal' as const },
+        { name: 'Noto Sans Hebrew', data: fonts.hebrewRegular, weight: 400 as const, style: 'normal' as const },
+        { name: 'Noto Sans Hebrew', data: fonts.hebrewBold, weight: 700 as const, style: 'normal' as const },
+      ],
     }
   );
 }

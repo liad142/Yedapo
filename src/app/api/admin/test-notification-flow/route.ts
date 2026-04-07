@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
         status: 'ok',
         detail: {
           episodeTitle: content.episodeTitle,
-          podcastTitle: content.podcastTitle,
+          podcastName: content.podcastName,
           hasHookHeadline: !!content.hookHeadline,
           highlightCount: content.highlights?.length || 0,
         },

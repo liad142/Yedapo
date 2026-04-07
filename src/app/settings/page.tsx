@@ -263,12 +263,12 @@ export default function SettingsPage() {
     }
   };
 
-  const CHANNEL_OPTIONS = [
+  const CHANNEL_OPTIONS: readonly { id: string; label: string; icon: typeof Smartphone; comingSoon?: boolean }[] = [
     { id: 'in_app', label: 'In-app', icon: Smartphone },
     { id: 'email', label: 'Email', icon: Mail },
     { id: 'telegram', label: 'Telegram', icon: Send },
     { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, comingSoon: true },
-  ] as const;
+  ];
 
   const hasTelegram = notifConnections?.telegram.connected ?? false;
 

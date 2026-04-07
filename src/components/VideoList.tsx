@@ -36,7 +36,7 @@ export function VideoList({ videos }: VideoListProps) {
         if (!data?.availability) return;
         const statusMap = new Map<string, string>();
         for (const item of data.availability) {
-          if (item.hasDeepSummary || item.hasQuickSummary) {
+          if (item.hasDeepSummary) {
             statusMap.set(item.episodeId, 'ready');
           } else if (item.deepStatus || item.quickStatus) {
             // Use whatever status exists (queued, transcribing, summarizing, failed)

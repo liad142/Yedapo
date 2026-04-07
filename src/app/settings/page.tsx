@@ -474,7 +474,7 @@ export default function SettingsPage() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fetchYouTubeChannels = async () => {
+  const fetchYouTubeChannels = async (): Promise<'ok' | 'needsPermission' | 'empty' | 'error'> => {
     setIsLoadingYt(true);
     setYtFetched(false);
     setYtImportDone(false);
@@ -488,15 +488,20 @@ export default function SettingsPage() {
         setYtNeedsPermission(true);
         setIsLoadingYt(false);
         setYtFetched(true);
-        return;
+        return 'needsPermission';
       }
 
       const subs: { channelId: string; title: string; description: string; thumbnailUrl: string }[] = data.subscriptions || [];
       setYtChannels(subs);
       setSelectedYtChannels(new Set(subs.map(ch => ch.channelId)));
-      if (subs.length > 0) setShowYtImportModal(true);
+      if (subs.length > 0) {
+        setShowYtImportModal(true);
+        return 'ok';
+      }
+      return 'empty';
     } catch {
       setErrorToast('Could not load YouTube subscriptions.');
+      return 'error';
     } finally {
       setIsLoadingYt(false);
       setYtFetched(true);
@@ -586,8 +591,13 @@ export default function SettingsPage() {
     finally { setUnfollowingId(null); }
   };
 
-  const handleAddMore = () => {
-    fetchYouTubeChannels();
+  const handleAddMore = async () => {
+    const result = await fetchYouTubeChannels();
+    if (result === 'needsPermission') {
+      setShowYtConnectDialog(true);
+    } else if (result === 'empty') {
+      setErrorToast('No new YouTube subscriptions found. All channels may already be imported.');
+    }
   };
 
   const handleDisconnectYouTube = async () => {

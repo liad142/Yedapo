@@ -26,6 +26,7 @@ export async function GET() {
     return NextResponse.json({ subscriptions, needsPermission: false });
   } catch (err) {
     log.error('Error fetching subscriptions', err);
-    return NextResponse.json({ subscriptions: [], needsPermission: false });
+    // If fetch failed (likely 403/expired token), signal that reconnection is needed
+    return NextResponse.json({ subscriptions: [], needsPermission: true });
   }
 }

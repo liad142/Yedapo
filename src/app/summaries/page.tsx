@@ -41,6 +41,27 @@ interface EpisodeWithSummary {
   status: string;
 }
 
+const VIEWED_SUMMARIES_KEY = 'yedapo:viewed_summaries';
+
+function getViewedSummaries(): Set<string> {
+  try {
+    const stored = localStorage.getItem(VIEWED_SUMMARIES_KEY);
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function markSummaryViewed(episodeId: string) {
+  try {
+    const viewed = getViewedSummaries();
+    viewed.add(episodeId);
+    localStorage.setItem(VIEWED_SUMMARIES_KEY, JSON.stringify([...viewed]));
+  } catch {
+    // silent
+  }
+}
+
 function formatDuration(seconds: number | null): string {
   if (!seconds) return '';
   const hours = Math.floor(seconds / 3600);
@@ -136,7 +157,13 @@ export default function SummariesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
+  const [viewedIds, setViewedIds] = useState<Set<string>>(new Set());
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Load viewed summaries from localStorage
+  useEffect(() => {
+    setViewedIds(getViewedSummaries());
+  }, []);
 
   const fetchSummaries = useCallback(async (silent = false) => {
     try {
@@ -504,124 +531,191 @@ export default function SummariesPage() {
               </>
             )}
           </div>
-        ) : (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground mb-4">
-              {filteredEpisodes.length} {filteredEpisodes.length === 1 ? 'summary' : 'summaries'}
-            </p>
+        ) : (() => {
+          // Split into sections: in-progress, unread ready, read ready
+          const inProgress = filteredEpisodes.filter(e => NON_TERMINAL_STATUSES.includes(e.status));
+          const failed = filteredEpisodes.filter(e => e.status === 'failed');
+          const unread = filteredEpisodes.filter(e => e.status === 'ready' && !viewedIds.has(e.id))
+            .sort((a, b) => new Date(b.summary_updated_at || 0).getTime() - new Date(a.summary_updated_at || 0).getTime());
+          const read = filteredEpisodes.filter(e => e.status === 'ready' && viewedIds.has(e.id))
+            .sort((a, b) => new Date(b.summary_updated_at || 0).getTime() - new Date(a.summary_updated_at || 0).getTime());
 
-            {filteredEpisodes.map((episode) => {
-              const isInProgress = NON_TERMINAL_STATUSES.includes(episode.status);
-              const isFailed = episode.status === 'failed';
-              const isReady = episode.status === 'ready';
+          const renderCard = (episode: EpisodeWithSummary, isUnread: boolean) => {
+            const isInProgress = NON_TERMINAL_STATUSES.includes(episode.status);
+            const isFailed = episode.status === 'failed';
+            const isReady = episode.status === 'ready';
 
-              const cardContent = (
-                <Card className={`transition-colors ${isReady ? 'hover:bg-accent/50 cursor-pointer' : ''} ${isInProgress ? 'border-blue-200 dark:border-blue-800' : ''} ${isFailed ? 'border-destructive/30' : ''}`}>
-                  <CardContent className="p-3 sm:p-4">
-                    <div className="flex gap-3 sm:gap-4">
-                      {/* Podcast Artwork */}
-                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden flex-shrink-0 bg-muted relative">
-                        {episode.podcast?.image_url ? (
-                          <SafeImage
-                            src={episode.podcast.image_url}
-                            alt={episode.podcast.title}
-                            width={64}
-                            height={64}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Mic2 className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
-                          </div>
+            const cardContent = (
+              <Card className={`transition-colors ${isReady ? 'hover:bg-accent/50 cursor-pointer' : ''} ${isInProgress ? 'border-blue-200 dark:border-blue-800' : ''} ${isFailed ? 'border-destructive/30' : ''} ${isUnread ? 'bg-green-50/50 dark:bg-green-950/20' : ''}`}>
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex gap-3 sm:gap-4">
+                    {/* Podcast Artwork */}
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden flex-shrink-0 bg-muted relative">
+                      {episode.podcast?.image_url ? (
+                        <SafeImage
+                          src={episode.podcast.image_url}
+                          alt={episode.podcast.title}
+                          width={64}
+                          height={64}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Mic2 className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Episode Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className={`text-sm sm:text-base ${isUnread ? 'font-semibold' : 'font-medium'} line-clamp-2 sm:line-clamp-1 ${isReady ? 'hover:text-primary' : ''} transition-colors`}>
+                            {episode.title}
+                          </h3>
+                          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">
+                            {episode.podcast?.title}
+                          </p>
+                        </div>
+                        <StatusBadge status={episode.status} queuePosition={getActiveQueuePosition(queue, episode.id)} />
+                      </div>
+
+                      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                        {episode.published_at && (
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(episode.published_at)}
+                          </span>
+                        )}
+                        {episode.duration_seconds && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {formatDuration(episode.duration_seconds)}
+                          </span>
+                        )}
+                        {isFailed && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs text-destructive hover:text-destructive"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleRetry(episode.id);
+                            }}
+                            disabled={retryingIds.has(episode.id)}
+                          >
+                            {retryingIds.has(episode.id) ? (
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            ) : (
+                              <RotateCcw className="h-3 w-3 mr-1" />
+                            )}
+                            Retry
+                          </Button>
+                        )}
+                        {isInProgress && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleCancel(episode.id);
+                            }}
+                            disabled={retryingIds.has(episode.id)}
+                          >
+                            {retryingIds.has(episode.id) ? (
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            ) : (
+                              <XCircle className="h-3 w-3 mr-1" />
+                            )}
+                            Cancel
+                          </Button>
                         )}
                       </div>
-
-                      {/* Episode Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <h3 className={`text-sm sm:text-base font-medium line-clamp-2 sm:line-clamp-1 ${isReady ? 'hover:text-primary' : ''} transition-colors`}>
-                              {episode.title}
-                            </h3>
-                            <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">
-                              {episode.podcast?.title}
-                            </p>
-                          </div>
-                          <StatusBadge status={episode.status} queuePosition={getActiveQueuePosition(queue, episode.id)} />
-                        </div>
-
-                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                          {episode.published_at && (
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {formatDate(episode.published_at)}
-                            </span>
-                          )}
-                          {episode.duration_seconds && (
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {formatDuration(episode.duration_seconds)}
-                            </span>
-                          )}
-                          {isFailed && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 px-2 text-xs text-destructive hover:text-destructive"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleRetry(episode.id);
-                              }}
-                              disabled={retryingIds.has(episode.id)}
-                            >
-                              {retryingIds.has(episode.id) ? (
-                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              ) : (
-                                <RotateCcw className="h-3 w-3 mr-1" />
-                              )}
-                              Retry
-                            </Button>
-                          )}
-                          {isInProgress && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleCancel(episode.id);
-                              }}
-                              disabled={retryingIds.has(episode.id)}
-                            >
-                              {retryingIds.has(episode.id) ? (
-                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              ) : (
-                                <XCircle className="h-3 w-3 mr-1" />
-                              )}
-                              Cancel
-                            </Button>
-                          )}
-                        </div>
-                      </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+
+            if (isReady) {
+              return (
+                <Link
+                  key={episode.id}
+                  href={`/episode/${episode.id}/insights`}
+                  onClick={() => {
+                    markSummaryViewed(episode.id);
+                    setViewedIds(prev => new Set([...prev, episode.id]));
+                  }}
+                >
+                  {cardContent}
+                </Link>
               );
+            }
 
-              if (isReady) {
-                return (
-                  <Link key={episode.id} href={`/episode/${episode.id}/insights`}>
-                    {cardContent}
-                  </Link>
-                );
-              }
+            return <div key={episode.id}>{cardContent}</div>;
+          };
 
-              return <div key={episode.id}>{cardContent}</div>;
-            })}
+          return (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-muted-foreground">
+                {filteredEpisodes.length} {filteredEpisodes.length === 1 ? 'summary' : 'summaries'}
+              </p>
+              {failed.length > 0 && (
+                <button
+                  onClick={() => document.getElementById('failed-section')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="flex items-center gap-1.5 text-xs text-destructive/80 hover:text-destructive transition-colors"
+                >
+                  <AlertCircle className="h-3 w-3" />
+                  {failed.length} failed
+                </button>
+              )}
+            </div>
+
+            {/* In-progress summaries */}
+            {inProgress.length > 0 && (
+              <div className="space-y-2">
+                {inProgress.map(ep => renderCard(ep, false))}
+              </div>
+            )}
+
+            {/* Unread summaries */}
+            {unread.length > 0 && (
+              <div className="space-y-2">
+                {(inProgress.length > 0 || read.length > 0) && (
+                  <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 pt-2">
+                    Unread ({unread.length})
+                  </p>
+                )}
+                {unread.map(ep => renderCard(ep, true))}
+              </div>
+            )}
+
+            {/* Read summaries */}
+            {read.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 pt-2">
+                  Read ({read.length})
+                </p>
+                {read.map(ep => renderCard(ep, false))}
+              </div>
+            )}
+
+            {/* Failed summaries — pushed to bottom */}
+            {failed.length > 0 && (
+              <div className="space-y-2" id="failed-section">
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 pt-2">
+                  Failed ({failed.length})
+                </p>
+                {failed.map(ep => renderCard(ep, false))}
+              </div>
+            )}
           </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );

@@ -130,6 +130,20 @@ export default function EpisodeInsightsPage() {
     fetch(`/api/subscriptions/${episode.podcast_id}`, { method: 'PATCH' }).catch(() => {});
   }, [episode?.podcast_id]);
 
+  // Mark summary as read (clears green dot in My Summaries)
+  useEffect(() => {
+    if (!episodeId) return;
+    try {
+      const key = 'yedapo:viewed_summaries';
+      const stored = localStorage.getItem(key);
+      const viewed: string[] = stored ? JSON.parse(stored) : [];
+      if (!viewed.includes(episodeId)) {
+        viewed.push(episodeId);
+        localStorage.setItem(key, JSON.stringify(viewed));
+      }
+    } catch { /* silent */ }
+  }, [episodeId]);
+
   const isYouTube = isYouTubeContent(episode?.podcast);
 
   // Navigate to the podcast's browse page

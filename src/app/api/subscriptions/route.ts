@@ -160,7 +160,13 @@ export async function POST(request: NextRequest) {
       podcast_id: podcastId,
     };
     if (typeof notifyEnabled === 'boolean') insertData.notify_enabled = notifyEnabled;
-    if (Array.isArray(notifyChannels)) insertData.notify_channels = notifyChannels;
+    if (Array.isArray(notifyChannels)) {
+      const VALID_CHANNELS = ['email', 'telegram', 'in_app', 'in-app', 'whatsapp'];
+      if (!notifyChannels.every((c: string) => VALID_CHANNELS.includes(c))) {
+        return NextResponse.json({ error: 'Invalid notification channel' }, { status: 400 });
+      }
+      insertData.notify_channels = notifyChannels;
+    }
 
     const { data: subscription, error } = await createAdminClient()
       .from('podcast_subscriptions')

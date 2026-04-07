@@ -51,7 +51,7 @@ const nextConfig = {
   },
   async headers() {
     const isDev = process.env.NODE_ENV === 'development';
-    const scriptSrc = `script-src 'self'${isDev ? " 'unsafe-inline' 'unsafe-eval'" : ''} https://va.vercel-scripts.com https://us-assets.i.posthog.com https://www.youtube.com https://static.cloudflareinsights.com`;
+    const scriptSrc = `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} https://va.vercel-scripts.com https://us-assets.i.posthog.com https://www.youtube.com https://static.cloudflareinsights.com`;
     return [
       {
         source: "/(.*)",

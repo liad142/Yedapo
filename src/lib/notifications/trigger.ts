@@ -15,13 +15,12 @@ const log = createLogger('notifications');
 export async function triggerPendingNotifications(episodeId: string): Promise<void> {
   const supabase = createAdminClient();
 
-  // Find all pending scheduled notifications for this episode
+  // Find all pending notifications for this episode (both immediate and scheduled-but-ready)
   const { data: pending, error } = await supabase
     .from('notification_requests')
     .select('*')
     .eq('episode_id', episodeId)
-    .eq('status', 'pending')
-    .eq('scheduled', true);
+    .eq('status', 'pending');
 
   if (error) {
     log.error('Failed to query pending notifications', { episodeId, error: error.message });
@@ -33,7 +32,21 @@ export async function triggerPendingNotifications(episodeId: string): Promise<vo
     return;
   }
 
-  log.info('Processing pending notifications', { episodeId, count: pending.length });
+  // Filter out digest notifications that aren't due yet
+  const now = new Date();
+  const readyToSend = pending.filter(n => {
+    if (n.scheduled && n.next_retry_at && new Date(n.next_retry_at) > now) {
+      return false; // Digest not due yet — leave for digest cron
+    }
+    return true;
+  });
+
+  if (readyToSend.length === 0) {
+    log.info('No notifications ready to send (digest not due)', { episodeId, totalPending: pending.length });
+    return;
+  }
+
+  log.info('Processing pending notifications', { episodeId, count: readyToSend.length, skippedDigest: pending.length - readyToSend.length });
 
   // Build share content once for all notifications
   let content;
@@ -52,13 +65,12 @@ export async function triggerPendingNotifications(episodeId: string): Promise<vo
         updated_at: new Date().toISOString(),
       })
       .eq('episode_id', episodeId)
-      .eq('status', 'pending')
-      .eq('scheduled', true);
+      .eq('status', 'pending');
     return;
   }
 
   // Process each notification independently
-  for (const notification of pending) {
+  for (const notification of readyToSend) {
     try {
       const channel = notification.channel as NotificationChannel;
       let result: { success: boolean; error?: string };
@@ -143,5 +155,5 @@ export async function triggerPendingNotifications(episodeId: string): Promise<vo
     }
   }
 
-  log.success('Finished processing notifications', { episodeId, processed: pending.length });
+  log.success('Finished processing notifications', { episodeId, processed: readyToSend.length });
 }

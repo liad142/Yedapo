@@ -368,7 +368,7 @@ export async function checkNewYouTubeVideos(): Promise<{
           const channels: string[] = sub.notify_channels || [];
           const created = await createNotificationsForSubscriber(
             sub.user_id,
-            null, // No episode_id for YouTube feed items
+            episode?.id || null, // Use episode ID so triggerPendingNotifications can find it
             'youtube',
             channelDbId,
             item.title,

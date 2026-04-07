@@ -32,11 +32,13 @@ export const PRICING = {
 export interface PlanLimits {
   summariesPerDay: number;  // Infinity = unlimited
   askAiPerDay: number;
+  maxPodcastSubs: number;   // Infinity = unlimited
+  maxYoutubeFollows: number;
 }
 
 export const PLAN_LIMITS: Record<UserPlan, PlanLimits> = {
-  free:  { summariesPerDay: 3,        askAiPerDay: 5 },
-  pro:   { summariesPerDay: Infinity, askAiPerDay: Infinity },
+  free:  { summariesPerDay: 3,        askAiPerDay: 5,        maxPodcastSubs: 5,        maxYoutubeFollows: 5 },
+  pro:   { summariesPerDay: Infinity, askAiPerDay: Infinity, maxPodcastSubs: Infinity, maxYoutubeFollows: Infinity },
 };
 
 // ---------------------------------------------------------------------------
@@ -149,9 +151,9 @@ export const FEATURE_COMPARISON: FeatureCategory[] = [
     features: [
       { label: 'Full summaries & insights', free: true, pro: true },
       { label: 'Chapters & takeaways', free: true, pro: true },
-      { label: 'Full transcript with search', free: false, pro: true },
-      { label: 'Highlights & counterpoints', free: false, pro: true },
-      { label: 'Complete shownotes', free: false, pro: true },
+      { label: 'Full transcript with search', free: true, pro: true },
+      { label: 'Highlights & counterpoints', free: true, pro: true },
+      { label: 'Complete shownotes', free: true, pro: true },
       { label: 'Export summaries', free: false, pro: true },
     ],
   },
@@ -191,7 +193,8 @@ export const PLAN_META: Record<UserPlan, PlanMeta> = {
     features: [
       '3 AI summaries per day',
       '5 Ask AI questions per day',
-      'Chapters & takeaways',
+      'Full summaries & insights',
+      'Full transcript with search',
       '5 podcast subscriptions',
       '5 YouTube channels',
       'In-app notifications',
@@ -205,14 +208,11 @@ export const PLAN_META: Record<UserPlan, PlanMeta> = {
     features: [
       'Unlimited AI summaries',
       'Unlimited Ask AI',
-      'Unlimited podcasts & YouTube channels',
-      'Full transcripts with search',
-      'Highlights, counterpoints & shownotes',
-      'Email, Telegram & WhatsApp delivery',
+      'Unlimited subscriptions & follows',
+      'Email, Telegram & WhatsApp alerts',
+      'Export summaries (Markdown)',
       'Daily & weekly digest',
-      'Export summaries',
-      'Priority queue',
-      'Early access',
+      'Priority generation queue',
     ],
   },
 };

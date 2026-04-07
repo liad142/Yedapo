@@ -12,6 +12,7 @@ import { VideoList } from '@/components/VideoList';
 import type { VideoItem } from '@/components/VideoCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { NotifyToggle } from '@/components/NotifyToggle';
+import { UpgradeModal } from '@/components/UpgradeModal';
 
 interface ChannelInfo {
   title: string;
@@ -41,6 +42,8 @@ export default function YouTubeChannelClient({
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [totalResults, setTotalResults] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [upgradeInfo, setUpgradeInfo] = useState({ limit: 5, used: 5 });
 
   useEffect(() => {
     async function load() {
@@ -127,7 +130,13 @@ export default function YouTubeChannelClient({
             description: channel.description,
           }),
         });
-        if (res.ok) {
+        if (res.status === 429) {
+          const body = await res.json().catch(() => ({}));
+          if (body.limit !== undefined) {
+            setUpgradeInfo({ limit: body.limit, used: body.used ?? body.limit });
+            setShowUpgrade(true);
+          }
+        } else if (res.ok) {
           const data = await res.json();
           setIsFollowing(true);
           if (data.channel?.id) setChannelDbId(data.channel.id);
@@ -330,6 +339,13 @@ export default function YouTubeChannelClient({
           </section>
         </div>
       </div>
+
+      <UpgradeModal
+        open={showUpgrade}
+        onClose={() => setShowUpgrade(false)}
+        rateLimitInfo={upgradeInfo}
+        feature="youtubeFollows"
+      />
     </div>
   );
 }

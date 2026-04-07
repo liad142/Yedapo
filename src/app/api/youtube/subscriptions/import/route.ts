@@ -4,6 +4,8 @@ import { upsertYouTubeChannel, followYouTubeChannel, upsertFeedItems } from '@/l
 import { fetchChannelVideos } from '@/lib/youtube/api';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createLogger } from '@/lib/logger';
+import { getUserPlan } from '@/lib/user-plan';
+import { PLAN_LIMITS } from '@/lib/plans';
 
 const log = createLogger('yt-import');
 
@@ -25,8 +27,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No channels provided' }, { status: 400 });
   }
 
-  // Cap at 100 channels per import
-  const limited = channels.slice(0, 100);
+  // --- YouTube follow limit check (Free plan) ---
+  const plan = await getUserPlan(user.id, user.email);
+  const followLimit = PLAN_LIMITS[plan].maxYoutubeFollows;
+  let slotsAvailable = Infinity;
+  if (followLimit !== Infinity) {
+    const admin = createAdminClient();
+    const { count, error: countErr } = await admin
+      .from('youtube_channel_follows')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+
+    const currentCount = countErr ? 0 : (count ?? 0);
+    slotsAvailable = Math.max(0, followLimit - currentCount);
+    if (slotsAvailable === 0) {
+      return NextResponse.json(
+        { error: 'Subscription limit reached', limit: followLimit, used: currentCount, upgrade_url: '/pricing' },
+        { status: 429 }
+      );
+    }
+  }
+
+  // Cap at 100 channels per import (and available slots for free plan)
+  const limited = channels.slice(0, Math.min(100, slotsAvailable));
 
   log.info('Starting import', { channelCount: limited.length, userId: user.id.slice(0, 8) });
 

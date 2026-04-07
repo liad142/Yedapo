@@ -12,6 +12,8 @@ import {
   Bell,
   Loader2,
   FileText,
+  Download,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +32,9 @@ import {
 } from "@/components/ui/dialog";
 import { Toast } from "@/components/ui/toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserPlan } from "@/hooks/useUserPlan";
 import { TelegramConnectFlow } from "./TelegramConnectFlow";
+import Link from "next/link";
 import type { SendNotificationPayload } from "@/types/notifications";
 
 interface ShareMenuProps {
@@ -49,8 +53,12 @@ export function ShareMenu({
   markdownContent,
 }: ShareMenuProps) {
   const { user, setShowAuthModal } = useAuth();
+  const { isPro } = useUserPlan();
 
   const [copied, setCopied] = useState(false);
+  const [copiedMarkdown, setCopiedMarkdown] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -212,6 +220,59 @@ export function ShareMenu({
     showToast("Telegram connected successfully");
   };
 
+  /** Gate Pro-only actions: show upgrade dialog for non-Pro users */
+  const requirePro = (action: () => void) => {
+    if (isPro) {
+      action();
+      return;
+    }
+    setShowUpgradeDialog(true);
+  };
+
+  const handleDownloadMarkdown = async () => {
+    setIsDownloading(true);
+    try {
+      const res = await fetch(`/api/episodes/${episodeId}/export`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        if (res.status === 403) {
+          setShowUpgradeDialog(true);
+          return;
+        }
+        throw new Error(data?.error || 'Failed to export');
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition');
+      const filenameMatch = disposition?.match(/filename="(.+)"/);
+      const filename = filenameMatch?.[1] || 'summary.md';
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      posthog.capture('summary_exported', { method: 'download_markdown', episode_id: episodeId });
+      showToast("Summary downloaded");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to download");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleCopyMarkdown = async () => {
+    if (!markdownContent) return;
+    await navigator.clipboard.writeText(markdownContent);
+    posthog.capture('summary_exported', { method: 'copy_markdown', episode_id: episodeId });
+    setCopiedMarkdown(true);
+    showToast("Markdown copied to clipboard");
+    setTimeout(() => setCopiedMarkdown(false), 2000);
+  };
+
   return (
     <>
       <DropdownMenu>
@@ -225,7 +286,7 @@ export function ShareMenu({
             Share
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-52">
+        <DropdownMenuContent align="start" className="w-60">
           {summaryReady ? (
             <>
               {/* -- Summary ready: share now options -- */}
@@ -237,20 +298,6 @@ export function ShareMenu({
                 )}
                 {copied ? "Copied!" : "Copy link"}
               </DropdownMenuItem>
-
-              {markdownContent && (
-                <DropdownMenuItem
-                  onClick={async () => {
-                    await navigator.clipboard.writeText(markdownContent);
-                    posthog.capture('summary_shared', { method: 'copy_markdown', episode_id: episodeId });
-                    showToast("Markdown copied to clipboard");
-                  }}
-                  className="gap-2"
-                >
-                  <FileText className="h-4 w-4" />
-                  Copy as Markdown
-                </DropdownMenuItem>
-              )}
 
               <DropdownMenuItem onClick={handleWhatsApp} className="gap-2">
                 <MessageCircle className="h-4 w-4" />
@@ -271,6 +318,52 @@ export function ShareMenu({
                 <Mail className="h-4 w-4" />
                 Send via Email
               </DropdownMenuItem>
+
+              {/* -- Export options (Pro only) -- */}
+              <div className="h-px bg-border my-1" />
+
+              <DropdownMenuItem
+                onClick={() => requirePro(handleDownloadMarkdown)}
+                disabled={isDownloading}
+                className="gap-2 justify-between"
+              >
+                <span className={`flex items-center gap-2 ${!isPro ? 'text-muted-foreground' : ''}`}>
+                  {isDownloading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  {isDownloading ? "Exporting..." : "Download as Markdown"}
+                </span>
+                {!isPro && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                    <Sparkles className="h-2.5 w-2.5" />
+                    Pro
+                  </span>
+                )}
+              </DropdownMenuItem>
+
+              {markdownContent && (
+                <DropdownMenuItem
+                  onClick={() => requirePro(handleCopyMarkdown)}
+                  className="gap-2 justify-between"
+                >
+                  <span className={`flex items-center gap-2 ${!isPro ? 'text-muted-foreground' : ''}`}>
+                    {copiedMarkdown ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <FileText className="h-4 w-4" />
+                    )}
+                    {copiedMarkdown ? "Copied!" : "Copy Markdown"}
+                  </span>
+                  {!isPro && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                      <Sparkles className="h-2.5 w-2.5" />
+                      Pro
+                    </span>
+                  )}
+                </DropdownMenuItem>
+              )}
             </>
           ) : (
             <>
@@ -351,6 +444,43 @@ export function ShareMenu({
           </DialogHeader>
           <div className="mt-4">
             <TelegramConnectFlow onConnected={handleTelegramConnected} />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pro Upgrade Dialog */}
+      <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
+        <DialogContent className="max-w-sm p-6">
+          <DialogClose onClick={() => setShowUpgradeDialog(false)} />
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+                <Sparkles className="h-4 w-4 text-white" />
+              </div>
+              Pro Feature
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-3 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Exporting summaries as Markdown is available on the Pro plan.
+              Upgrade to download and copy summaries for Obsidian, Notion, or
+              any markdown-based workflow.
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button asChild className="w-full gap-2">
+                <Link href="/pricing">
+                  <Sparkles className="h-4 w-4" />
+                  Upgrade to Pro
+                </Link>
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setShowUpgradeDialog(false)}
+                className="w-full text-muted-foreground"
+              >
+                Maybe later
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

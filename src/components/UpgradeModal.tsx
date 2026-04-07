@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { PLAN_META } from '@/lib/plans';
 import { getTimeUntilReset } from '@/lib/time-utils';
 
-export type RateLimitFeature = 'summary' | 'askAi';
+export type RateLimitFeature = 'summary' | 'askAi' | 'podcastSubs' | 'youtubeFollows';
 
 interface RateLimitInfo {
   limit: number;
@@ -25,14 +25,26 @@ interface UpgradeModalProps {
 
 const PRO_BENEFITS = PLAN_META.pro.features;
 
-const FEATURE_COPY: Record<RateLimitFeature, { noun: string; heading: string }> = {
+const FEATURE_COPY: Record<RateLimitFeature, { noun: string; heading: string; showResetTimer: boolean }> = {
   summary: {
     noun: 'summary creations',
     heading: "You've used all your daily summary creations",
+    showResetTimer: true,
   },
   askAi: {
     noun: 'Ask AI questions',
     heading: "You've used all your daily Ask AI questions",
+    showResetTimer: true,
+  },
+  podcastSubs: {
+    noun: 'podcast subscriptions',
+    heading: "You've reached your podcast subscription limit",
+    showResetTimer: false,
+  },
+  youtubeFollows: {
+    noun: 'YouTube channel follows',
+    heading: "You've reached your YouTube channel follow limit",
+    showResetTimer: false,
   },
 };
 
@@ -130,17 +142,22 @@ export function UpgradeModal({ open, onClose, rateLimitInfo, feature = 'summary'
             {FEATURE_COPY[feature].heading}
           </p>
           <p className="text-xs text-muted-foreground/70 mb-1">
-            Daily limit: {limit} {FEATURE_COPY[feature].noun} &middot; {used}/{limit} used today
+            {FEATURE_COPY[feature].showResetTimer
+              ? `Daily limit: ${limit} ${FEATURE_COPY[feature].noun} \u00b7 ${used}/${limit} used today`
+              : `Limit: ${limit} ${FEATURE_COPY[feature].noun} \u00b7 ${used}/${limit} used`}
           </p>
           <p className="text-xs font-medium text-primary mb-1">
-            Pro gets unlimited {FEATURE_COPY[feature].noun} per day
+            Pro gets unlimited {FEATURE_COPY[feature].noun}{FEATURE_COPY[feature].showResetTimer ? ' per day' : ''}
           </p>
 
-          {/* Reset timer */}
-          <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground/70 mb-6">
-            <Clock className="h-3 w-3" />
-            <span>Resets in {resetTime}</span>
-          </div>
+          {/* Reset timer (only for daily quotas) */}
+          {FEATURE_COPY[feature].showResetTimer && (
+            <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground/70 mb-6">
+              <Clock className="h-3 w-3" />
+              <span>Resets in {resetTime}</span>
+            </div>
+          )}
+          {!FEATURE_COPY[feature].showResetTimer && <div className="mb-6" />}
 
           {/* Pro benefits */}
           <div className="mb-6 space-y-2.5 text-left px-2">

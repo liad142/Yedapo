@@ -196,6 +196,7 @@ function PricingCardFree() {
 function PricingCardPro({ interval }: { interval: BillingInterval }) {
   const { user, setShowAuthModal } = useAuth();
   const prefersReduced = useReducedMotion();
+  const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
   const features = PLAN_META.pro.features;
 
   const displayPrice =
@@ -206,11 +207,40 @@ function PricingCardPro({ interval }: { interval: BillingInterval }) {
       ? `$${PRICING.pro.yearly}/year, billed annually`
       : 'Billed monthly';
 
-  const handleCTA = () => {
+  const handleCTA = async () => {
     if (!user) {
       setShowAuthModal(true);
+      return;
     }
-    // TODO: redirect to Stripe checkout when payments are live
+
+    setIsCheckoutLoading(true);
+    try {
+      const priceId =
+        interval === 'yearly'
+          ? process.env.NEXT_PUBLIC_STRIPE_PRO_YEARLY_PRICE_ID
+          : process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID;
+
+      const res = await fetch('/api/stripe/checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error('Checkout error:', data.error);
+        return;
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      console.error('Failed to start checkout:', err);
+    } finally {
+      setIsCheckoutLoading(false);
+    }
   };
 
   return (
@@ -333,6 +363,7 @@ function PricingCardPro({ interval }: { interval: BillingInterval }) {
         <Button
           size="lg"
           onClick={handleCTA}
+          disabled={isCheckoutLoading}
           className={cn(
             'w-full rounded-full font-semibold gap-2 transition-all',
             'bg-primary text-primary-foreground',
@@ -340,9 +371,18 @@ function PricingCardPro({ interval }: { interval: BillingInterval }) {
             'hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98]'
           )}
         >
-          <Sparkles className="h-4 w-4 fill-white/20" />
-          Start Pro Plan
-          <ArrowRight className="h-4 w-4" />
+          {isCheckoutLoading ? (
+            <>
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              Redirecting...
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-4 w-4 fill-white/20" />
+              Start Pro Plan
+              <ArrowRight className="h-4 w-4" />
+            </>
+          )}
         </Button>
       </div>
     </div>
@@ -354,10 +394,10 @@ function PricingCardPro({ interval }: { interval: BillingInterval }) {
    ═══════════════════════════════════════════════════════════════════════ */
 
 const CATEGORY_ICONS: Record<string, typeof Zap> = {
-  'AI Generation': Zap,
-  'Content Access': BookOpen,
-  'Following & Library': Library,
-  'Delivery & Notifications': Bell,
+  'AI Brainpower': Zap,
+  'Depth of Insight': BookOpen,
+  'Your Coverage': Library,
+  'Summaries Delivered to You': Bell,
 };
 
 function FeatureCellValue({ value }: { value: string | boolean }) {

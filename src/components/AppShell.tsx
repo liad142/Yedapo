@@ -9,6 +9,7 @@ import { AskAIProvider } from '@/contexts/AskAIContext';
 import { LegalFooter } from '@/components/LegalFooter';
 import { useAudioPlayerSafe } from '@/contexts/AudioPlayerContext';
 import { useSummarizeQueueOptional } from '@/contexts/SummarizeQueueContext';
+import { useSubscriptionOptional } from '@/contexts/SubscriptionContext';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 
 // Dynamic imports for components that only appear on user interaction
@@ -61,6 +62,19 @@ function UpgradeModalBridge() {
   );
 }
 
+function SubscriptionUpgradeModalBridge() {
+  const subCtx = useSubscriptionOptional();
+  if (!subCtx) return null;
+  return (
+    <UpgradeModal
+      open={subCtx.upgradeState.show}
+      onClose={subCtx.dismissUpgrade}
+      rateLimitInfo={subCtx.upgradeState.rateLimitInfo}
+      feature={subCtx.upgradeState.feature}
+    />
+  );
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLanding = pathname === '/';
@@ -89,6 +103,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <AskAIChatPopup />
       <CookieConsent />
       <UpgradeModalBridge />
+      <SubscriptionUpgradeModalBridge />
       <KeyboardShortcutsManager />
     </AskAIProvider>
   );

@@ -16,6 +16,9 @@ import {
   YouTubeChannel,
 } from '@/lib/rsshub-db';
 import { getAuthUser } from '@/lib/auth-helpers';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { getUserPlan } from '@/lib/user-plan';
+import { PLAN_LIMITS } from '@/lib/plans';
 
 export async function POST(request: NextRequest) {
   const user = await getAuthUser();
@@ -32,6 +35,23 @@ export async function POST(request: NextRequest) {
         { error: 'Rate limit exceeded. Please try again in a minute.' },
         { status: 429 }
       );
+    }
+
+    // --- YouTube follow limit check (Free plan) ---
+    const plan = await getUserPlan(user.id, user.email);
+    const followLimit = PLAN_LIMITS[plan].maxYoutubeFollows;
+    if (followLimit !== Infinity) {
+      const { count, error: countErr } = await createAdminClient()
+        .from('youtube_channel_follows')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      if (!countErr && (count ?? 0) >= followLimit) {
+        return NextResponse.json(
+          { error: 'Subscription limit reached', limit: followLimit, used: count, upgrade_url: '/pricing' },
+          { status: 429 }
+        );
+      }
     }
 
     // Direct follow path: channelId + metadata provided by the browse page

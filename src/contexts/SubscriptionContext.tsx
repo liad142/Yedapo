@@ -3,10 +3,17 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import posthog from 'posthog-js';
 import { useAuth } from '@/contexts/AuthContext';
+import type { RateLimitFeature } from '@/components/UpgradeModal';
 
 interface NotificationPrefs {
   notifyEnabled: boolean;
   notifyChannels: string[];
+}
+
+interface SubscriptionUpgradeState {
+  show: boolean;
+  feature: RateLimitFeature;
+  rateLimitInfo: { limit: number; used: number };
 }
 
 interface SubscriptionContextType {
@@ -23,6 +30,9 @@ interface SubscriptionContextType {
   updateNotificationPrefs: (appleId: string, enabled: boolean, channels: string[]) => Promise<void>;
   /** Get last_viewed_at for a podcast by Apple ID */
   getLastViewedAt: (appleId: string) => string | null;
+  /** Upgrade modal state for subscription limits */
+  upgradeState: SubscriptionUpgradeState;
+  dismissUpgrade: () => void;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | null>(null);
@@ -35,6 +45,12 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const [notificationPrefsMap, setNotificationPrefsMap] = useState<Map<string, NotificationPrefs>>(new Map());
   const [lastViewedAtMap, setLastViewedAtMap] = useState<Map<string, string>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
+  const [upgradeState, setUpgradeState] = useState<SubscriptionUpgradeState>({
+    show: false,
+    feature: 'podcastSubs',
+    rateLimitInfo: { limit: 5, used: 5 },
+  });
+  const dismissUpgrade = useCallback(() => setUpgradeState(prev => ({ ...prev, show: false })), []);
 
   const refreshSubscriptions = useCallback(async () => {
     if (!user) {
@@ -117,11 +133,32 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       const { id: podcastId } = await addResponse.json();
 
       // Create subscription
-      await fetch('/api/subscriptions', {
+      const subRes = await fetch('/api/subscriptions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ podcastId }),
       });
+
+      if (subRes.status === 429) {
+        const body = await subRes.json().catch(() => ({}));
+        // Revert optimistic update
+        setSubscribedAppleIds(prev => {
+          const next = new Set(prev);
+          next.delete(appleId);
+          return next;
+        });
+        // Show upgrade modal if it's a subscription limit (not a rate-limit)
+        if (body.limit !== undefined) {
+          setUpgradeState({
+            show: true,
+            feature: 'podcastSubs',
+            rateLimitInfo: { limit: body.limit, used: body.used ?? body.limit },
+          });
+        }
+        return;
+      }
+
+      if (!subRes.ok) throw new Error('Failed to subscribe');
 
       // Update internal state
       setSubscribedPodcastIds(prev => new Set(prev).add(podcastId));
@@ -236,7 +273,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     getNotificationPrefs,
     updateNotificationPrefs,
     getLastViewedAt,
-  }), [subscribedPodcastIds, subscribedAppleIds, isLoading, isSubscribed, subscribe, unsubscribe, refreshSubscriptions, getNotificationPrefs, updateNotificationPrefs, getLastViewedAt]);
+    upgradeState,
+    dismissUpgrade,
+  }), [subscribedPodcastIds, subscribedAppleIds, isLoading, isSubscribed, subscribe, unsubscribe, refreshSubscriptions, getNotificationPrefs, updateNotificationPrefs, getLastViewedAt, upgradeState, dismissUpgrade]);
 
   return (
     <SubscriptionContext.Provider value={value}>
@@ -251,4 +290,9 @@ export function useSubscription() {
     throw new Error('useSubscription must be used within a SubscriptionProvider');
   }
   return context;
+}
+
+/** Safe version that returns null outside the provider (e.g. marketing pages) */
+export function useSubscriptionOptional() {
+  return useContext(SubscriptionContext);
 }

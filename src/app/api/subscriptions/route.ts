@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getAuthUser } from '@/lib/auth-helpers';
 import { checkRateLimit } from '@/lib/cache';
 import { refreshSinglePodcastFeed } from '@/lib/rsshub-db';
+import { getUserPlan } from '@/lib/user-plan';
+import { PLAN_LIMITS } from '@/lib/plans';
 
 // GET: List all subscribed podcasts for a user
 export async function GET(request: NextRequest) {
@@ -146,6 +148,23 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // --- Subscription limit check (Free plan) ---
+    const plan = await getUserPlan(user.id, user.email);
+    const limit = PLAN_LIMITS[plan].maxPodcastSubs;
+    if (limit !== Infinity) {
+      const { count, error: countErr } = await createAdminClient()
+        .from('podcast_subscriptions')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      if (!countErr && (count ?? 0) >= limit) {
+        return NextResponse.json(
+          { error: 'Subscription limit reached', limit, used: count, upgrade_url: '/pricing' },
+          { status: 429 }
+        );
+      }
+    }
+
     const { podcastId, notifyEnabled, notifyChannels } = await request.json();
 
     if (!podcastId) {

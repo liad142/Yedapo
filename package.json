@@ -38,6 +38,7 @@
     "resend": "^6.10.0",
     "rss-parser": "^3.13.0",
     "server-only": "^0.0.1",
+    "stripe": "^22.0.0",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.2",
     "undici": "^7.24.7"

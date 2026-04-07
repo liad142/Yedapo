@@ -37,7 +37,7 @@ export interface PlanLimits {
 }
 
 export const PLAN_LIMITS: Record<UserPlan, PlanLimits> = {
-  free:  { summariesPerDay: 3,        askAiPerDay: 5,        maxPodcastSubs: 5,        maxYoutubeFollows: 5 },
+  free:  { summariesPerDay: 3,        askAiPerDay: 0,        maxPodcastSubs: 5,        maxYoutubeFollows: 5 },
   pro:   { summariesPerDay: Infinity, askAiPerDay: Infinity, maxPodcastSubs: Infinity, maxYoutubeFollows: Infinity },
 };
 
@@ -142,7 +142,7 @@ export const FEATURE_COMPARISON: FeatureCategory[] = [
     name: 'AI Brainpower',
     features: [
       { label: 'AI summaries per day', free: '3/day', pro: 'Unlimited' },
-      { label: 'Ask AI questions per day', free: '5/day', pro: 'Unlimited' },
+      { label: 'Ask AI (episode Q&A)', free: false, pro: 'Unlimited' },
       { label: 'Priority generation queue', free: false, pro: true },
     ],
   },
@@ -171,7 +171,7 @@ export const FEATURE_COMPARISON: FeatureCategory[] = [
       { label: 'Email delivery', free: false, pro: true },
       { label: 'Telegram delivery', free: false, pro: true },
       { label: 'WhatsApp delivery', free: false, pro: 'Coming soon' },
-      { label: 'Daily/weekly digest', free: false, pro: true },
+      { label: 'Daily/weekly digest', free: true, pro: true },
       { label: 'Choose delivery time', free: false, pro: true },
     ],
   },
@@ -192,9 +192,9 @@ export const PLAN_META: Record<UserPlan, PlanMeta> = {
     description: 'Free forever',
     features: [
       '3 AI summaries per day',
-      '5 Ask AI questions per day',
       'Full summaries & insights',
       'Full transcript with search',
+      'Daily & weekly digest',
       '5 podcast subscriptions',
       '5 YouTube channels',
       'In-app notifications',
@@ -211,7 +211,6 @@ export const PLAN_META: Record<UserPlan, PlanMeta> = {
       'Unlimited subscriptions & follows',
       'Email, Telegram & WhatsApp alerts',
       'Export summaries (Markdown)',
-      'Daily & weekly digest',
       'Priority generation queue',
     ],
   },

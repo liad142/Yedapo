@@ -131,12 +131,7 @@ function PricingCardFree() {
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <Headphones className="h-5 w-5" />
         </div>
-        <div>
-          <p className="text-xs font-medium text-muted-foreground">
-            {PLAN_META.free.label}
-          </p>
-          <p className="text-h3 text-foreground leading-tight">Free</p>
-        </div>
+        <p className="text-h3 text-foreground leading-tight">Free</p>
       </div>
 
       {/* Price */}
@@ -280,12 +275,7 @@ function PricingCardPro({ interval }: { interval: BillingInterval }) {
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/30">
             <Sparkles className="h-5 w-5" />
           </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground">
-              {PLAN_META.pro.label}
-            </p>
-            <p className="text-h3 text-foreground leading-tight">Pro</p>
-          </div>
+          <p className="text-h3 text-foreground leading-tight">Pro</p>
         </div>
 
         {/* Price */}

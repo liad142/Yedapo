@@ -15,6 +15,7 @@ import {
   Sparkles,
   Link as LinkIcon,
   Crown,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -410,9 +411,9 @@ export function ShareMenu({
                   {/* Social share circles */}
                   <div className="flex items-center gap-2 mt-3">
                     {[
-                      { label: 'WhatsApp', icon: MessageCircle, color: 'bg-[#25D366]/10 text-[#25D366]', hoverColor: 'group-hover:bg-[#25D366]/20', onClick: handleWhatsApp },
-                      { label: 'Telegram', icon: Send, color: 'bg-[#229ED9]/10 text-[#229ED9]', hoverColor: 'group-hover:bg-[#229ED9]/20', onClick: handleTelegram },
-                      { label: 'Email', icon: Mail, color: 'bg-primary/10 text-primary', hoverColor: 'group-hover:bg-primary/20', onClick: () => openEmailDialog(false) },
+                      { label: 'WhatsApp', icon: MessageCircle, color: 'bg-[#25D366]/10 text-[#25D366]', mutedColor: 'bg-[#25D366]/5 text-[#25D366]/50', hoverColor: 'group-hover:bg-[#25D366]/20', onClick: handleWhatsApp },
+                      { label: 'Telegram', icon: Send, color: 'bg-[#229ED9]/10 text-[#229ED9]', mutedColor: 'bg-[#229ED9]/5 text-[#229ED9]/50', hoverColor: 'group-hover:bg-[#229ED9]/20', onClick: handleTelegram },
+                      { label: 'Email', icon: Mail, color: 'bg-primary/10 text-primary', mutedColor: 'bg-primary/5 text-primary/50', hoverColor: 'group-hover:bg-primary/20', onClick: () => openEmailDialog(false) },
                     ].map((channel) => (
                       <button
                         key={channel.label}
@@ -422,26 +423,29 @@ export function ShareMenu({
                           "group cursor-pointer"
                         )}
                       >
-                        <div
-                          className={cn(
-                            "flex items-center justify-center",
-                            "h-12 w-12 rounded-full mx-auto",
-                            "transition-all duration-150",
-                            "group-active:scale-95",
-                            isPro
-                              ? cn(channel.color, channel.hoverColor)
-                              : "bg-muted/60 text-muted-foreground/40"
-                          )}
-                        >
-                          {isPro ? (
+                        <div className="relative mx-auto">
+                          <div
+                            className={cn(
+                              "flex items-center justify-center",
+                              "h-12 w-12 rounded-full",
+                              "transition-all duration-150",
+                              "group-active:scale-95",
+                              isPro
+                                ? cn(channel.color, channel.hoverColor)
+                                : cn(channel.mutedColor, "group-hover:opacity-80")
+                            )}
+                          >
                             <channel.icon className="h-5 w-5" />
-                          ) : (
-                            <Crown className="h-4 w-4 text-accent-amber" />
+                          </div>
+                          {!isPro && (
+                            <div className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent-amber shadow-sm ring-2 ring-background">
+                              <Lock className="h-2 w-2 text-white" />
+                            </div>
                           )}
                         </div>
                         <span className={cn(
                           "text-[11px] font-medium",
-                          isPro ? "text-muted-foreground" : "text-muted-foreground/50"
+                          isPro ? "text-muted-foreground" : "text-muted-foreground/60"
                         )}>
                           {channel.label}
                         </span>

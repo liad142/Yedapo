@@ -340,10 +340,10 @@ export function ShareMenu({
       <div className="relative inline-block">
         <Button
           ref={triggerRef}
-          variant="ghost"
+          variant="outline"
           size="sm"
           className={cn(
-            "h-10 px-4 gap-2 text-muted-foreground",
+            "h-10 px-5 gap-2 rounded-full text-sm font-medium",
             open && "bg-secondary text-foreground"
           )}
           onClick={() => setOpen(!open)}
@@ -356,9 +356,8 @@ export function ShareMenu({
           <div
             ref={panelRef}
             className={cn(
-              "absolute z-50 left-0 top-full mt-2",
-              "w-[calc(100vw-2rem)] sm:w-80",
-              "max-w-80",
+              "absolute z-50 right-0 sm:left-0 top-full mt-2",
+              "w-[min(calc(100vw-2rem),20rem)]",
               elevation.floating,
               "overflow-hidden",
               "animate-in fade-in-0 zoom-in-95 duration-150"

@@ -17,11 +17,12 @@ interface NotifyToggleProps {
   className?: string;
 }
 
-const CHANNEL_OPTIONS = [
+const CHANNEL_OPTIONS: readonly { id: string; label: string; comingSoon?: boolean }[] = [
   { id: 'in_app', label: 'In-app' },
   { id: 'email', label: 'Email' },
   { id: 'telegram', label: 'Telegram' },
-] as const;
+  { id: 'whatsapp', label: 'WhatsApp', comingSoon: true },
+];
 
 export function NotifyToggle({
   enabled,
@@ -116,14 +117,17 @@ export function NotifyToggle({
             Notify via
           </div>
           {CHANNEL_OPTIONS.map((option) => {
-            if (option.id === 'telegram' && !hasTelegram) return null;
             const isActive = localChannels.includes(option.id);
+            const isDisabled = isSaving || !!option.comingSoon;
             return (
               <button
                 key={option.id}
-                onClick={() => handleToggleChannel(option.id)}
-                disabled={isSaving}
-                className="w-full flex items-center gap-3 px-3 py-2 text-sm hover:bg-secondary transition-colors cursor-pointer"
+                onClick={() => !option.comingSoon && handleToggleChannel(option.id)}
+                disabled={isDisabled}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2 text-sm hover:bg-secondary transition-colors cursor-pointer",
+                  option.comingSoon && "opacity-50 cursor-not-allowed"
+                )}
               >
                 <div className={cn(
                   'w-4 h-4 rounded border flex items-center justify-center transition-colors',
@@ -134,6 +138,9 @@ export function NotifyToggle({
                   {isActive && <Check className="h-3 w-3" />}
                 </div>
                 <span className="text-foreground">{option.label}</span>
+                {option.comingSoon && (
+                  <span className="text-[10px] text-muted-foreground ml-auto">soon</span>
+                )}
               </button>
             );
           })}

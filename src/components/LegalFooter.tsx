@@ -14,6 +14,9 @@ export function LegalFooter() {
             <Link href="/privacy" className="hover:text-foreground transition-colors">
               Privacy
             </Link>
+            <Link href="/refund" className="hover:text-foreground transition-colors">
+              Refund
+            </Link>
             <Link href="/dmca" className="hover:text-foreground transition-colors">
               DMCA
             </Link>

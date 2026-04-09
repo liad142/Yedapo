@@ -9,6 +9,7 @@ const productLinks = [
 const legalLinks = [
   { label: 'Terms', href: '/terms' },
   { label: 'Privacy', href: '/privacy' },
+  { label: 'Refund', href: '/refund' },
   { label: 'DMCA', href: '/dmca' },
 ];
 

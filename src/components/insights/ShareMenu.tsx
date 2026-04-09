@@ -409,80 +409,44 @@ export function ShareMenu({
 
                   {/* Social share circles */}
                   <div className="flex items-center gap-2 mt-3">
-                    {/* WhatsApp */}
-                    <button
-                      onClick={handleWhatsApp}
-                      className={cn(
-                        "flex flex-col items-center gap-1.5 flex-1",
-                        "group cursor-pointer"
-                      )}
-                    >
-                      <div
+                    {[
+                      { label: 'WhatsApp', icon: MessageCircle, color: 'bg-[#25D366]/10 text-[#25D366]', hoverColor: 'group-hover:bg-[#25D366]/20', onClick: handleWhatsApp },
+                      { label: 'Telegram', icon: Send, color: 'bg-[#229ED9]/10 text-[#229ED9]', hoverColor: 'group-hover:bg-[#229ED9]/20', onClick: handleTelegram },
+                      { label: 'Email', icon: Mail, color: 'bg-primary/10 text-primary', hoverColor: 'group-hover:bg-primary/20', onClick: () => openEmailDialog(false) },
+                    ].map((channel) => (
+                      <button
+                        key={channel.label}
+                        onClick={() => isPro ? channel.onClick() : setShowUpgradeDialog(true)}
                         className={cn(
-                          "flex items-center justify-center",
-                          "h-12 w-12 rounded-full mx-auto",
-                          "bg-[#25D366]/10 text-[#25D366]",
-                          "group-hover:bg-[#25D366]/20",
-                          "transition-all duration-150",
-                          "group-active:scale-95"
+                          "flex flex-col items-center gap-1.5 flex-1",
+                          "group cursor-pointer"
                         )}
                       >
-                        <MessageCircle className="h-5 w-5" />
-                      </div>
-                      <span className="text-[11px] text-muted-foreground font-medium">
-                        WhatsApp
-                      </span>
-                    </button>
-
-                    {/* Telegram */}
-                    <button
-                      onClick={handleTelegram}
-                      className={cn(
-                        "flex flex-col items-center gap-1.5 flex-1",
-                        "group cursor-pointer"
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "flex items-center justify-center",
-                          "h-12 w-12 rounded-full mx-auto",
-                          "bg-[#229ED9]/10 text-[#229ED9]",
-                          "group-hover:bg-[#229ED9]/20",
-                          "transition-all duration-150",
-                          "group-active:scale-95"
-                        )}
-                      >
-                        <Send className="h-5 w-5" />
-                      </div>
-                      <span className="text-[11px] text-muted-foreground font-medium">
-                        Telegram
-                      </span>
-                    </button>
-
-                    {/* Email */}
-                    <button
-                      onClick={() => openEmailDialog(false)}
-                      className={cn(
-                        "flex flex-col items-center gap-1.5 flex-1",
-                        "group cursor-pointer"
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "flex items-center justify-center",
-                          "h-12 w-12 rounded-full mx-auto",
-                          "bg-primary/10 text-primary",
-                          "group-hover:bg-primary/20",
-                          "transition-all duration-150",
-                          "group-active:scale-95"
-                        )}
-                      >
-                        <Mail className="h-5 w-5" />
-                      </div>
-                      <span className="text-[11px] text-muted-foreground font-medium">
-                        Email
-                      </span>
-                    </button>
+                        <div
+                          className={cn(
+                            "flex items-center justify-center",
+                            "h-12 w-12 rounded-full mx-auto",
+                            "transition-all duration-150",
+                            "group-active:scale-95",
+                            isPro
+                              ? cn(channel.color, channel.hoverColor)
+                              : "bg-muted/60 text-muted-foreground/40"
+                          )}
+                        >
+                          {isPro ? (
+                            <channel.icon className="h-5 w-5" />
+                          ) : (
+                            <Crown className="h-4 w-4 text-accent-amber" />
+                          )}
+                        </div>
+                        <span className={cn(
+                          "text-[11px] font-medium",
+                          isPro ? "text-muted-foreground" : "text-muted-foreground/50"
+                        )}>
+                          {channel.label}
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 </div>
 

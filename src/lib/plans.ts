@@ -57,12 +57,12 @@ export interface NotificationAccess {
 export const NOTIFICATION_ACCESS: Record<UserPlan, NotificationAccess> = {
   free: {
     inApp: true,
-    email: true,
-    telegram: true,
-    whatsapp: true,
-    digestMode: true,
-    frequencyControl: true,
-    canConnect: true,
+    email: false,
+    telegram: false,
+    whatsapp: false,
+    digestMode: false,
+    frequencyControl: false,
+    canConnect: true, // Free users CAN see channels but get upgrade prompt
   },
   pro: {
     inApp: true,
@@ -168,11 +168,11 @@ export const FEATURE_COMPARISON: FeatureCategory[] = [
     name: 'Summaries Delivered to You',
     features: [
       { label: 'In-app notifications', free: true, pro: true },
-      { label: 'Email delivery', free: true, pro: true },
-      { label: 'Telegram delivery', free: true, pro: true },
-      { label: 'WhatsApp delivery', free: 'Coming soon', pro: 'Coming soon' },
+      { label: 'Email delivery', free: false, pro: true },
+      { label: 'Telegram delivery', free: false, pro: true },
+      { label: 'WhatsApp delivery', free: false, pro: 'Coming soon' },
       { label: 'Daily/weekly digest', free: true, pro: true },
-      { label: 'Choose delivery time', free: true, pro: true },
+      { label: 'Choose delivery time', free: false, pro: true },
     ],
   },
 ];

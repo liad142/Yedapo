@@ -372,42 +372,6 @@ export function ShareMenu({
                     Share
                   </p>
 
-                  {/* Copy link row */}
-                  <button
-                    onClick={handleCopyLink}
-                    className={cn(
-                      "w-full flex items-center gap-3 rounded-xl p-2.5 -mx-0.5",
-                      "transition-colors duration-150",
-                      "hover:bg-secondary",
-                      "group cursor-pointer"
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "flex-shrink-0 flex items-center justify-center",
-                        "h-10 w-10 rounded-xl",
-                        "bg-secondary text-muted-foreground",
-                        "group-hover:bg-primary/10 group-hover:text-primary",
-                        "transition-colors duration-150"
-                      )}
-                    >
-                      {copied ? (
-                        <Check className="h-4 w-4 text-emerald-500" />
-                      ) : (
-                        <LinkIcon className="h-4 w-4" />
-                      )}
-                    </div>
-                    <div className="flex-1 text-left min-w-0">
-                      <p className="text-sm font-medium text-foreground">
-                        {copied ? "Copied!" : "Copy link"}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {truncatedUrl}
-                      </p>
-                    </div>
-                    <Copy className="h-3.5 w-3.5 text-muted-foreground/50 flex-shrink-0" />
-                  </button>
-
                   {/* Social share circles */}
                   <div className="flex items-center gap-2 mt-3">
                     {[

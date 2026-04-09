@@ -18,7 +18,8 @@ export default function TermsPage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground">1. Acceptance of Terms</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            By accessing or using Yedapo (&quot;the Service&quot;), you agree to be bound by these Terms of Service.
+            By accessing or using Yedapo (&quot;the Service&quot;), operated by Yedapo, Tel Aviv, Israel,
+            you agree to be bound by these Terms of Service.
             If you do not agree with any part of these terms, you may not use the Service.
           </p>
         </section>
@@ -172,13 +173,27 @@ export default function TermsPage() {
           </p>
         </section>
 
-        <section className="space-y-4 pb-8">
+        <section className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground">18. Contact</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            For questions about these Terms, please contact us through the channels listed on our{' '}
-            <Link href="/dmca" className="text-primary hover:underline">DMCA & Takedown Policy</Link> page.
+            For questions about these Terms, contact us at{' '}
+            <a href="mailto:legal@yedapo.com" className="text-primary hover:underline">legal@yedapo.com</a>.
           </p>
         </section>
+
+        <div className="pt-4 border-t border-border pb-8">
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p className="font-medium text-foreground">Yedapo</p>
+            <p>Tel Aviv, Israel</p>
+            <p>
+              <a href="mailto:support@yedapo.com" className="text-primary hover:underline">support@yedapo.com</a>
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            See also: <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>{" "}
+            and <Link href="/refund" className="text-primary hover:underline">Refund Policy</Link>
+          </p>
+        </div>
       </div>
     </div>
   );

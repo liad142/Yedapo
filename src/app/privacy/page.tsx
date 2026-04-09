@@ -242,15 +242,27 @@ export default function PrivacyPage() {
           </p>
         </section>
 
-        <section className="space-y-4 pb-8">
+        <section className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground">16. Contact</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            For questions about this Privacy Policy, please contact us at{' '}
-            <a href="mailto:privacy@yedapo.com" className="text-primary hover:underline">privacy@yedapo.com</a>{' '}
-            or through the channels listed on our{' '}
-            <Link href="/dmca" className="text-primary hover:underline">contact page</Link>.
+            For questions about this Privacy Policy, contact us at{' '}
+            <a href="mailto:privacy@yedapo.com" className="text-primary hover:underline">privacy@yedapo.com</a>.
           </p>
         </section>
+
+        <div className="pt-4 border-t border-border pb-8">
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p className="font-medium text-foreground">Yedapo</p>
+            <p>Tel Aviv, Israel</p>
+            <p>
+              <a href="mailto:privacy@yedapo.com" className="text-primary hover:underline">privacy@yedapo.com</a>
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            See also: <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link>{" "}
+            and <Link href="/refund" className="text-primary hover:underline">Refund Policy</Link>
+          </p>
+        </div>
       </div>
     </div>
   );

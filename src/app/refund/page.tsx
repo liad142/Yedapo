@@ -128,8 +128,15 @@ export default function RefundPage() {
           </p>
         </section>
 
-        <div className="pt-4 border-t border-border">
-          <p className="text-xs text-muted-foreground">
+        <div className="pt-4 border-t border-border pb-8">
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p className="font-medium text-foreground">Yedapo</p>
+            <p>Tel Aviv, Israel</p>
+            <p>
+              <a href="mailto:support@yedapo.com" className="text-primary hover:underline">support@yedapo.com</a>
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
             See also: <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link>{" "}
             and <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>
           </p>

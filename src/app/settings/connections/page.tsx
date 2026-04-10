@@ -1,19 +1,34 @@
 'use client';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
+import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Youtube,
   Send,
   Loader2,
   Unplug,
-  ExternalLink,
   NotebookPen,
+  Mail,
+  Check,
+  MessageCircle,
+  AlertTriangle,
 } from 'lucide-react';
+import posthog from 'posthog-js';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Toast } from '@/components/ui/toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from '@/components/ui/dialog';
+import { TelegramConnectFlow } from '@/components/insights/TelegramConnectFlow';
+import { ConnectedAppCard } from '@/components/settings/sections/ConnectedAppCard';
+import { cn } from '@/lib/utils';
 
 interface NotionStatus {
   connected: boolean;
@@ -41,8 +56,19 @@ function ConnectionsPageContent() {
   const router = useRouter();
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Action states
   const [isConnectingNotion, setIsConnectingNotion] = useState(false);
   const [isDisconnectingNotion, setIsDisconnectingNotion] = useState(false);
+  const [isDisconnectingYt, setIsDisconnectingYt] = useState(false);
+  const [showTelegramDialog, setShowTelegramDialog] = useState(false);
+  const [showDisconnectYtDialog, setShowDisconnectYtDialog] = useState(false);
+
+  // Email test
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
+  const [testEmailResult, setTestEmailResult] = useState<'sent' | 'error' | null>(null);
+
+  // Toast
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
@@ -58,9 +84,7 @@ function ConnectionsPageContent() {
       const [ytRes, notifRes, notionRes] = await Promise.all([
         fetch('/api/youtube/channels').then((r) => (r.ok ? r.json() : null)),
         fetch('/api/settings/notifications').then((r) => (r.ok ? r.json() : null)),
-        fetch('/api/integrations/notion/status').then((r) =>
-          r.ok ? r.json() : null
-        ),
+        fetch('/api/integrations/notion/status').then((r) => (r.ok ? r.json() : null)),
       ]);
       setStatus({
         youtube: {
@@ -73,12 +97,13 @@ function ConnectionsPageContent() {
         },
         notion: {
           connected: notionRes?.connected ?? false,
-          workspaceName: notionRes?.workspaceName ?? null,
-          hasDatabase: notionRes?.hasDatabase ?? false,
+          workspaceName:
+            notionRes?.workspaceName ?? notionRes?.workspace_name ?? null,
+          hasDatabase: notionRes?.hasDatabase ?? notionRes?.has_database ?? false,
         },
       });
     } catch {
-      // silent
+      /* silent */
     } finally {
       setIsLoading(false);
     }
@@ -88,30 +113,31 @@ function ConnectionsPageContent() {
     if (user) fetchStatus();
   }, [user, fetchStatus]);
 
-  // Handle OAuth callback query params (?notion=connected | ?notion=needs_share)
+  // Handle OAuth callback query params (?notion=connected | ?notion=needs_share | ?yt=connected)
   useEffect(() => {
     const notionParam = searchParams.get('notion');
-    if (!notionParam) return;
+    const ytParam = searchParams.get('yt');
+    if (!notionParam && !ytParam) return;
 
     if (notionParam === 'connected') {
       showToast('Connected to Notion \u2713');
     } else if (notionParam === 'needs_share') {
-      showToast(
-        'Share a Notion page with Yedapo to enable exports',
-        5000
-      );
+      showToast('Share a Notion page with Yedapo to enable exports', 5000);
     } else if (notionParam === 'error') {
       showToast('Failed to connect Notion. Please try again.');
     }
+    if (ytParam === 'connected') {
+      showToast('YouTube connected. Manage channels in Notifications.');
+      fetchStatus();
+    }
 
-    // Clean up the query param so the toast doesn't re-fire on navigation
     const url = new URL(window.location.href);
     url.searchParams.delete('notion');
-    router.replace(url.pathname + (url.search ? url.search : ''), {
-      scroll: false,
-    });
-  }, [searchParams, router, showToast]);
+    url.searchParams.delete('yt');
+    router.replace(url.pathname + (url.search ? url.search : ''), { scroll: false });
+  }, [searchParams, router, showToast, fetchStatus]);
 
+  // ─── Notion handlers ───
   const handleConnectNotion = async () => {
     setIsConnectingNotion(true);
     try {
@@ -127,9 +153,7 @@ function ConnectionsPageContent() {
       if (!data.url) throw new Error('Missing authorize URL');
       window.location.href = data.url;
     } catch (err) {
-      showToast(
-        err instanceof Error ? err.message : 'Failed to connect Notion'
-      );
+      showToast(err instanceof Error ? err.message : 'Failed to connect Notion');
       setIsConnectingNotion(false);
     }
   };
@@ -137,9 +161,7 @@ function ConnectionsPageContent() {
   const handleDisconnectNotion = async () => {
     setIsDisconnectingNotion(true);
     try {
-      const res = await fetch('/api/integrations/notion/disconnect', {
-        method: 'POST',
-      });
+      const res = await fetch('/api/integrations/notion/disconnect', { method: 'POST' });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         throw new Error(data?.error || 'Failed to disconnect');
@@ -147,11 +169,81 @@ function ConnectionsPageContent() {
       showToast('Disconnected from Notion');
       await fetchStatus();
     } catch (err) {
-      showToast(
-        err instanceof Error ? err.message : 'Failed to disconnect Notion'
-      );
+      showToast(err instanceof Error ? err.message : 'Failed to disconnect Notion');
     } finally {
       setIsDisconnectingNotion(false);
+    }
+  };
+
+  // ─── YouTube handlers ───
+  const connectYouTube = async () => {
+    try {
+      const email = user?.email || '';
+      const res = await fetch(
+        `/api/youtube/connect?login_hint=${encodeURIComponent(email)}`
+      );
+      if (!res.ok) throw new Error('Failed to get OAuth URL');
+      const { url } = await res.json();
+      window.location.href = url;
+    } catch {
+      showToast('Could not start YouTube connection.');
+    }
+  };
+
+  const handleDisconnectYouTube = async () => {
+    setIsDisconnectingYt(true);
+    try {
+      const res = await fetch('/api/youtube/disconnect', { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to disconnect YouTube');
+      posthog.capture('youtube_disconnected');
+      setShowDisconnectYtDialog(false);
+      await fetchStatus();
+      showToast('YouTube disconnected.');
+    } catch {
+      showToast('Failed to disconnect YouTube. Please try again.');
+    } finally {
+      setIsDisconnectingYt(false);
+    }
+  };
+
+  // ─── Telegram handler ───
+  const handleTelegramConnected = () => {
+    setShowTelegramDialog(false);
+    fetchStatus();
+    showToast('Telegram connected \u2713');
+  };
+
+  // ─── Email test handler ───
+  const handleSendTestEmail = async () => {
+    setSendingTestEmail(true);
+    setTestEmailResult(null);
+    try {
+      const res = await fetch('/api/summaries');
+      if (!res.ok) throw new Error('Failed to fetch summaries');
+      const data = await res.json();
+      const readyEp = data.episodes?.find((e: { status: string }) => e.status === 'ready');
+      const episodeId = readyEp?.id;
+      if (!episodeId) throw new Error('No episodes with ready summaries found');
+
+      const sendRes = await fetch('/api/notifications/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          episodeId,
+          channel: 'email',
+          recipient: user?.email,
+        }),
+      });
+      if (!sendRes.ok) {
+        const err = await sendRes.json();
+        throw new Error(err.error || 'Send failed');
+      }
+      setTestEmailResult('sent');
+    } catch {
+      setTestEmailResult('error');
+    } finally {
+      setSendingTestEmail(false);
+      setTimeout(() => setTestEmailResult(null), 5000);
     }
   };
 
@@ -174,101 +266,141 @@ function ConnectionsPageContent() {
   return (
     <>
       <div className="space-y-4">
+        {/* Email */}
+        <ConnectedAppCard
+          icon={<Mail className="h-6 w-6 text-blue-500" />}
+          iconBgClass="bg-blue-500/10"
+          title="Email"
+          subtitle={user.email}
+          badge={
+            <span className="text-xs font-medium text-green-600 dark:text-green-400 bg-green-500/10 px-2 py-1 rounded-full">
+              Verified
+            </span>
+          }
+          action={
+            <button
+              onClick={handleSendTestEmail}
+              disabled={sendingTestEmail}
+              className={cn(
+                'text-xs font-medium px-2.5 py-1 rounded-full transition-colors',
+                testEmailResult === 'sent'
+                  ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                  : testEmailResult === 'error'
+                  ? 'bg-red-500/10 text-red-600 dark:text-red-400'
+                  : 'bg-primary/10 text-primary hover:bg-primary/15'
+              )}
+            >
+              {sendingTestEmail ? (
+                <span className="flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Sending...
+                </span>
+              ) : testEmailResult === 'sent' ? (
+                <span className="flex items-center gap-1">
+                  <Check className="h-3 w-3" /> Sent!
+                </span>
+              ) : testEmailResult === 'error' ? (
+                'Failed'
+              ) : (
+                'Send Test'
+              )}
+            </button>
+          }
+        />
+
         {/* YouTube */}
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0">
-              <Youtube className="h-6 w-6 text-red-500" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold text-foreground">YouTube</p>
-                {status?.youtube.connected && (
-                  <span className="w-2 h-2 rounded-full bg-green-500" />
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {status?.youtube.connected
-                  ? `${status.youtube.channelCount} channel${status.youtube.channelCount === 1 ? '' : 's'} followed`
-                  : 'Connect your Google account to follow YouTube channels'}
-              </p>
-            </div>
-            {status?.youtube.connected ? (
+        <ConnectedAppCard
+          icon={<Youtube className="h-6 w-6 text-red-500" />}
+          iconBgClass="bg-red-500/10"
+          title="YouTube"
+          statusDot={status?.youtube.connected}
+          subtitle={
+            status?.youtube.connected
+              ? `${status.youtube.channelCount} channel${
+                  status.youtube.channelCount === 1 ? '' : 's'
+                } followed`
+              : 'Connect your Google account to follow YouTube channels'
+          }
+          action={
+            status?.youtube.connected ? (
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" asChild>
-                  <a href="/my-list?tab=youtube">
-                    Manage <ExternalLink className="h-3 w-3 ml-1" />
-                  </a>
+                  <Link href="/settings/notifications">Manage</Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowDisconnectYtDialog(true)}
+                  className="gap-2 border-destructive/50 text-destructive hover:bg-destructive/10"
+                >
+                  <Unplug className="h-3.5 w-3.5" />
+                  Disconnect
                 </Button>
               </div>
             ) : (
-              <Button variant="outline" size="sm" className="gap-2">
-                <Youtube className="h-3.5 w-3.5" />
-                Connect YouTube
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Telegram */}
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-sky-500/10 flex items-center justify-center shrink-0">
-              <Send className="h-6 w-6 text-sky-500" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold text-foreground">Telegram</p>
-                {status?.telegram.connected && (
-                  <span className="w-2 h-2 rounded-full bg-green-500" />
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {status?.telegram.connected
-                  ? `Connected as ${status.telegram.username ? `@${status.telegram.username}` : 'Telegram user'}`
-                  : 'Connect your Telegram account to receive summaries via bot'}
-              </p>
-            </div>
-            {status?.telegram.connected ? (
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2 border-destructive/50 text-destructive hover:bg-destructive/10"
+                className="gap-2"
+                onClick={connectYouTube}
               >
-                <Unplug className="h-3.5 w-3.5" />
-                Disconnect
+                <Youtube className="h-3.5 w-3.5" />
+                Connect
               </Button>
+            )
+          }
+        />
+
+        {/* Telegram */}
+        <ConnectedAppCard
+          icon={<Send className="h-6 w-6 text-sky-500" />}
+          iconBgClass="bg-sky-500/10"
+          title="Telegram"
+          statusDot={status?.telegram.connected}
+          subtitle={
+            status?.telegram.connected
+              ? `Connected as ${
+                  status.telegram.username
+                    ? `@${status.telegram.username}`
+                    : 'Telegram user'
+                }`
+              : 'Connect your Telegram account to receive summaries via bot'
+          }
+          action={
+            status?.telegram.connected ? (
+              <span className="text-xs font-medium text-green-600 dark:text-green-400 bg-green-500/10 px-2 py-1 rounded-full">
+                Connected
+              </span>
             ) : (
-              <Button variant="outline" size="sm" className="gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => setShowTelegramDialog(true)}
+              >
                 <Send className="h-3.5 w-3.5" />
                 Connect
               </Button>
-            )}
-          </div>
-        </div>
+            )
+          }
+        />
 
         {/* Notion */}
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-foreground/5 dark:bg-white/10 flex items-center justify-center shrink-0">
-              <NotebookPen className="h-6 w-6 text-foreground" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold text-foreground">Notion</p>
-                {status?.notion.connected && (
-                  <span className="w-2 h-2 rounded-full bg-green-500" />
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground truncate">
-                {status?.notion.connected
-                  ? status.notion.hasDatabase
-                    ? `Connected to ${status.notion.workspaceName || 'your workspace'}`
-                    : `Connected to ${status.notion.workspaceName || 'workspace'} \u2014 share a page to finish setup`
-                  : 'Connect to export summaries to Notion'}
-              </p>
-            </div>
-            {status?.notion.connected ? (
+        <ConnectedAppCard
+          icon={<NotebookPen className="h-6 w-6 text-foreground" />}
+          iconBgClass="bg-foreground/5 dark:bg-white/10"
+          title="Notion"
+          statusDot={status?.notion.connected}
+          subtitle={
+            status?.notion.connected
+              ? status.notion.hasDatabase
+                ? `Connected to ${status.notion.workspaceName || 'your workspace'}`
+                : `Connected to ${
+                    status.notion.workspaceName || 'workspace'
+                  } \u2014 share a page to finish setup`
+              : 'Connect to export summaries to Notion'
+          }
+          action={
+            status?.notion.connected ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -298,27 +430,80 @@ function ConnectionsPageContent() {
                 )}
                 Connect
               </Button>
-            )}
-          </div>
-        </div>
+            )
+          }
+        />
 
         {/* WhatsApp — coming soon */}
-        <div className="rounded-2xl border border-border bg-card p-5 opacity-60">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0">
-              <svg className="h-6 w-6 text-green-500" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
-                <path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.955 9.955 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground">WhatsApp</p>
-              <p className="text-xs text-muted-foreground">Receive summaries via WhatsApp messages</p>
-            </div>
-            <Badge variant="secondary" className="text-xs shrink-0">Coming Soon</Badge>
-          </div>
-        </div>
+        <ConnectedAppCard
+          icon={<MessageCircle className="h-6 w-6 text-green-500" />}
+          iconBgClass="bg-green-500/10"
+          title="WhatsApp"
+          subtitle="Receive summaries via WhatsApp messages"
+          disabled
+          badge={
+            <Badge variant="secondary" className="text-xs">
+              Coming Soon
+            </Badge>
+          }
+        />
       </div>
+
+      {/* Telegram Connect Dialog */}
+      <Dialog open={showTelegramDialog} onOpenChange={setShowTelegramDialog}>
+        <DialogContent className="max-w-sm p-6">
+          <DialogClose onClick={() => setShowTelegramDialog(false)} />
+          <DialogHeader>
+            <DialogTitle>Connect Telegram</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            <TelegramConnectFlow onConnected={handleTelegramConnected} />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Disconnect YouTube Confirmation Dialog */}
+      <Dialog open={showDisconnectYtDialog} onOpenChange={setShowDisconnectYtDialog}>
+        <DialogContent className="max-w-sm p-6">
+          <DialogClose onClick={() => setShowDisconnectYtDialog(false)} />
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Disconnect YouTube
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-3 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This will remove your Google connection and unfollow all{' '}
+              {status?.youtube.channelCount ?? 0} YouTube channel
+              {status?.youtube.channelCount === 1 ? '' : 's'}. Your existing summaries will
+              not be affected.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowDisconnectYtDialog(false)}
+                className="flex-1"
+                disabled={isDisconnectingYt}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDisconnectYouTube}
+                disabled={isDisconnectingYt}
+                className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-2"
+              >
+                {isDisconnectingYt ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Unplug className="h-4 w-4" />
+                )}
+                Disconnect
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Toast feedback */}
       <Toast open={toastOpen} onOpenChange={setToastOpen}>

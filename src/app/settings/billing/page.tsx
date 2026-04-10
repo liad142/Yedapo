@@ -1,13 +1,22 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { CreditCard, Sparkles, ArrowRight, CheckCircle, ExternalLink } from 'lucide-react';
+import {
+  CreditCard,
+  Sparkles,
+  ArrowRight,
+  CheckCircle,
+  ExternalLink,
+  LifeBuoy,
+  Loader2,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUsage } from '@/contexts/UsageContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Toast } from '@/components/ui/toast';
 import { UsageMeter } from '@/components/UsageMeter';
 import { PLAN_META, PRICING } from '@/lib/plans';
 import type { UserPlan } from '@/lib/plans';
@@ -25,12 +34,39 @@ function BillingContent() {
   const { usage } = useUsage();
   const searchParams = useSearchParams();
   const [isPortalLoading, setIsPortalLoading] = useState(false);
+  const [hasStripeCustomer, setHasStripeCustomer] = useState<boolean | null>(null);
+  const [errorToast, setErrorToast] = useState<string | null>(null);
   const userPlan: UserPlan = usage?.plan ?? 'free';
   const meta = PLAN_META[userPlan];
   const isSuccess = searchParams.get('success') === 'true';
 
+  // Check whether the user has a real Stripe customer on file.
+  // Users whose plan was manually assigned by support will have plan='pro'
+  // but no stripe_customer_id — the billing portal can't help them.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/stripe/portal');
+        if (!res.ok) {
+          if (!cancelled) setHasStripeCustomer(false);
+          return;
+        }
+        const data = await res.json();
+        if (!cancelled) setHasStripeCustomer(!!data.hasCustomer);
+      } catch {
+        if (!cancelled) setHasStripeCustomer(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
   const handleManageSubscription = async () => {
     setIsPortalLoading(true);
+    setErrorToast(null);
     try {
       const res = await fetch('/api/stripe/portal', {
         method: 'POST',
@@ -40,15 +76,15 @@ function BillingContent() {
       const data = await res.json();
 
       if (!res.ok) {
-        console.error('Portal error:', data.error);
+        setErrorToast(data.error || 'Failed to open billing portal');
         return;
       }
 
       if (data.url) {
         window.location.href = data.url;
       }
-    } catch (err) {
-      console.error('Failed to open billing portal:', err);
+    } catch {
+      setErrorToast('Failed to open billing portal. Please try again.');
     } finally {
       setIsPortalLoading(false);
     }
@@ -62,6 +98,11 @@ function BillingContent() {
     );
   }
 
+  // True only when we've confirmed there's no Stripe customer AND the user is
+  // on a paid plan. Don't block free users from the upgrade CTA.
+  const showManualPlanNotice =
+    userPlan === 'pro' && hasStripeCustomer === false;
+
   return (
     <div className="space-y-6">
       {/* Success Banner */}
@@ -69,9 +110,7 @@ function BillingContent() {
         <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 flex items-center gap-3">
           <CheckCircle className="h-5 w-5 text-primary shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-foreground">
-              Welcome to Pro!
-            </p>
+            <p className="text-sm font-semibold text-foreground">Welcome to Pro!</p>
             <p className="text-xs text-muted-foreground">
               Your subscription is active. Enjoy unlimited AI summaries, Ask AI, and all Pro features.
             </p>
@@ -85,7 +124,10 @@ function BillingContent() {
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-semibold text-foreground">{meta.label}</h3>
-              <Badge variant={userPlan === 'pro' ? 'default' : 'secondary'} className="text-xs">
+              <Badge
+                variant={userPlan === 'pro' ? 'default' : 'secondary'}
+                className="text-xs"
+              >
                 {userPlan === 'pro' ? `$${PRICING.pro.monthly}/mo` : 'Free'}
               </Badge>
             </div>
@@ -103,17 +145,17 @@ function BillingContent() {
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
-          ) : (
+          ) : showManualPlanNotice ? null : (
             <Button
               variant="ghost"
               size="sm"
               onClick={handleManageSubscription}
-              disabled={isPortalLoading}
+              disabled={isPortalLoading || hasStripeCustomer === null}
               className="gap-2"
             >
               {isPortalLoading ? (
                 <>
-                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   Loading...
                 </>
               ) : (
@@ -142,23 +184,52 @@ function BillingContent() {
         </div>
       </div>
 
-      {/* Billing History / Manage */}
-      {userPlan === 'pro' ? (
+      {/* Billing History / Manage / Manual plan notice */}
+      {showManualPlanNotice ? (
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <LifeBuoy className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-foreground">
+                Plan assigned by support
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Your Pro plan was activated manually and isn&apos;t linked to a Stripe
+                subscription, so there&apos;s no self-serve billing portal. Contact us if
+                you need to change payment details or cancel.
+              </p>
+              <Button variant="outline" size="sm" className="mt-3 gap-2" asChild>
+                <a href="mailto:support@yedapo.com?subject=Billing%20question">
+                  <LifeBuoy className="h-3.5 w-3.5" />
+                  Contact support
+                </a>
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : userPlan === 'pro' ? (
         <div className="rounded-2xl border border-border bg-card p-6">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold text-foreground">Billing</h3>
           </div>
           <p className="text-sm text-muted-foreground">
-            Manage your payment method, view invoices, or cancel your subscription from the Stripe billing portal.
+            Manage your payment method, view invoices, or cancel your subscription from
+            the Stripe billing portal.
           </p>
           <Button
             variant="outline"
             size="sm"
             onClick={handleManageSubscription}
-            disabled={isPortalLoading}
+            disabled={isPortalLoading || hasStripeCustomer === null}
             className="mt-3 gap-2"
           >
-            <ExternalLink className="h-3.5 w-3.5" />
+            {isPortalLoading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <ExternalLink className="h-3.5 w-3.5" />
+            )}
             Open Billing Portal
           </Button>
         </div>
@@ -171,6 +242,11 @@ function BillingContent() {
           </p>
         </div>
       )}
+
+      {/* Error Toast */}
+      <Toast open={!!errorToast} onOpenChange={() => setErrorToast(null)} position="top">
+        <p className="text-sm text-destructive font-medium">{errorToast}</p>
+      </Toast>
     </div>
   );
 }

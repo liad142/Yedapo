@@ -6,6 +6,29 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('stripe');
 
+/**
+ * GET — lightweight check used by the billing page to decide whether to show
+ * the "Manage Subscription" / "Open Billing Portal" buttons. Returns
+ * { hasCustomer: boolean } without ever hitting the Stripe API.
+ */
+export async function GET() {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from('user_profiles')
+    .select('stripe_customer_id')
+    .eq('id', user.id)
+    .single();
+
+  return NextResponse.json({
+    hasCustomer: !!profile?.stripe_customer_id,
+  });
+}
+
 export async function POST(request: NextRequest) {
   const user = await getAuthUser();
   if (!user) {

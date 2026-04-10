@@ -458,14 +458,11 @@ async function createNotificationsForSubscriber(
 
   // Email notification (scheduled - waits for summary completion)
   if (allowedChannels.includes('email') && episodeId) {
-    // Get user's email
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('email')
-      .eq('id', userId)
-      .single();
+    // Email lives on auth.users, NOT user_profiles. Fetch via auth admin API.
+    const { data: authData } = await supabase.auth.admin.getUserById(userId);
+    const userEmail = authData?.user?.email;
 
-    if (profile?.email) {
+    if (userEmail) {
       // upsert w/ ON CONFLICT — dedupe_key guarantees one row per (user, episode, channel)
       // regardless of whether triggered by explicit share or subscription fanout.
       const { error } = await supabase.from('notification_requests').upsert(
@@ -473,7 +470,7 @@ async function createNotificationsForSubscriber(
           user_id: userId,
           episode_id: episodeId,
           channel: 'email',
-          recipient: profile.email,
+          recipient: userEmail,
           status: 'pending',
           scheduled: deliveryPlan.scheduled,
           next_retry_at: deliveryPlan.nextRetryAt?.toISOString() ?? null,
@@ -483,6 +480,9 @@ async function createNotificationsForSubscriber(
         { onConflict: 'dedupe_key', ignoreDuplicates: true }
       );
       if (!error) count++;
+      else log.error('Failed to insert email notification_request', { userId: userId.slice(0, 8), error: error.message });
+    } else {
+      log.warn('User has no email in auth.users, skipping email notification', { userId: userId.slice(0, 8) });
     }
   }
 

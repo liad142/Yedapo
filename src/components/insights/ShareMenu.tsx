@@ -16,6 +16,9 @@ import {
   Link as LinkIcon,
   Crown,
   Lock,
+  BookOpen,
+  NotebookPen,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +35,7 @@ import { useUserPlan } from "@/hooks/useUserPlan";
 import { TelegramConnectFlow } from "./TelegramConnectFlow";
 import { cn } from "@/lib/utils";
 import { elevation } from "@/lib/elevation";
+import { buildObsidianUri, sanitizeObsidianFileName } from "@/lib/obsidian";
 import Link from "next/link";
 import type { SendNotificationPayload } from "@/types/notifications";
 
@@ -63,12 +67,21 @@ export function ShareMenu({
   const [isSending, setIsSending] = useState(false);
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [toastAction, setToastAction] = useState<{
+    label: string;
+    href: string;
+    external?: boolean;
+  } | null>(null);
   const [isScheduled, setIsScheduled] = useState(false);
 
   // Telegram connect flow state
   const [showTelegramConnect, setShowTelegramConnect] = useState(false);
   const [telegramConnected, setTelegramConnected] = useState(false);
   const [isSendingTelegram, setIsSendingTelegram] = useState(false);
+
+  // Notion / Obsidian state
+  const [isSendingNotion, setIsSendingNotion] = useState(false);
+  const [isOpeningObsidian, setIsOpeningObsidian] = useState(false);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -102,11 +115,19 @@ export function ShareMenu({
     };
   }, [open]);
 
-  const showToast = useCallback((message: string) => {
-    setToastMessage(message);
-    setToastOpen(true);
-    setTimeout(() => setToastOpen(false), 3000);
-  }, []);
+  const showToast = useCallback(
+    (
+      message: string,
+      action?: { label: string; href: string; external?: boolean } | null,
+      durationMs: number = 3000
+    ) => {
+      setToastMessage(message);
+      setToastAction(action ?? null);
+      setToastOpen(true);
+      setTimeout(() => setToastOpen(false), durationMs);
+    },
+    []
+  );
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(currentUrl);
@@ -326,6 +347,101 @@ export function ShareMenu({
     setTimeout(() => setCopiedMarkdown(false), 2000);
   };
 
+  const handleSendToNotion = async () => {
+    setIsSendingNotion(true);
+    try {
+      const res = await fetch(`/api/episodes/${episodeId}/export/notion`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (res.status === 403) {
+        setShowUpgradeDialog(true);
+        return;
+      }
+
+      if (res.status === 412) {
+        const data = await res.json().catch(() => null);
+        if (data?.code === "no_database") {
+          showToast(
+            "Share a Notion page with Yedapo first",
+            { label: "Open settings →", href: "/settings/connections" },
+            5000
+          );
+        } else {
+          showToast(
+            "Notion isn't connected yet",
+            { label: "Connect Notion in settings →", href: "/settings/connections" },
+            5000
+          );
+        }
+        return;
+      }
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Failed to send to Notion");
+      }
+
+      const data = (await res.json().catch(() => null)) as {
+        url?: string;
+      } | null;
+
+      posthog.capture("summary_exported", {
+        method: "notion",
+        episode_id: episodeId,
+      });
+
+      showToast(
+        "Sent to Notion",
+        data?.url
+          ? { label: "Open in Notion", href: data.url, external: true }
+          : null,
+        5000
+      );
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : "Failed to send to Notion"
+      );
+    } finally {
+      setIsSendingNotion(false);
+      setOpen(false);
+    }
+  };
+
+  const handleOpenInObsidian = () => {
+    if (!markdownContent) {
+      showToast("Summary content not available yet");
+      return;
+    }
+
+    setIsOpeningObsidian(true);
+    try {
+      const fileName = `${sanitizeObsidianFileName(episodeTitle) || "Episode"}.md`;
+      const uri = buildObsidianUri({
+        fileName,
+        content: markdownContent,
+      });
+
+      posthog.capture("summary_exported", {
+        method: "obsidian",
+        episode_id: episodeId,
+      });
+
+      // Assigning to window.location.href lets the OS hand off to Obsidian
+      // without the popup blocker warnings that `window.open` can trigger.
+      window.location.href = uri;
+      showToast("Opening Obsidian...");
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : "Failed to open Obsidian"
+      );
+    } finally {
+      setIsOpeningObsidian(false);
+      setOpen(false);
+    }
+  };
+
   // Truncated URL for display
   const displayUrl = currentUrl
     .replace(/^https?:\/\//, "")
@@ -436,6 +552,88 @@ export function ShareMenu({
                   </div>
 
                   <div className="space-y-1">
+                    {/* Send to Notion */}
+                    <button
+                      onClick={() => requirePro(handleSendToNotion)}
+                      disabled={isSendingNotion}
+                      className={cn(
+                        "w-full flex items-center gap-3 rounded-xl px-2.5 py-2.5",
+                        "transition-colors duration-150",
+                        "hover:bg-secondary/80",
+                        "group cursor-pointer",
+                        "disabled:opacity-50 disabled:cursor-not-allowed"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "flex-shrink-0 flex items-center justify-center",
+                          "h-9 w-9 rounded-lg",
+                          isPro
+                            ? "bg-foreground text-background dark:bg-white dark:text-black"
+                            : "bg-accent-amber-subtle text-accent-amber"
+                        )}
+                      >
+                        {isSendingNotion ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <NotebookPen className="h-4 w-4" />
+                        )}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-sm font-medium text-foreground">
+                          {isSendingNotion ? "Sending..." : "Send to Notion"}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Create a page in your workspace
+                        </p>
+                      </div>
+                      {!isPro && (
+                        <Sparkles className="h-3.5 w-3.5 text-accent-amber flex-shrink-0" />
+                      )}
+                    </button>
+
+                    {/* Open in Obsidian */}
+                    <button
+                      onClick={() => requirePro(handleOpenInObsidian)}
+                      disabled={isOpeningObsidian || !markdownContent}
+                      className={cn(
+                        "w-full flex items-center gap-3 rounded-xl px-2.5 py-2.5",
+                        "transition-colors duration-150",
+                        "hover:bg-secondary/80",
+                        "group cursor-pointer",
+                        "disabled:opacity-50 disabled:cursor-not-allowed"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "flex-shrink-0 flex items-center justify-center",
+                          "h-9 w-9 rounded-lg",
+                          isPro
+                            ? "bg-[#7C3AED]/10 text-[#7C3AED] dark:bg-[#A78BFA]/15 dark:text-[#A78BFA]"
+                            : "bg-accent-amber-subtle text-accent-amber"
+                        )}
+                      >
+                        {isOpeningObsidian ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <BookOpen className="h-4 w-4" />
+                        )}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-sm font-medium text-foreground">
+                          {isOpeningObsidian
+                            ? "Opening..."
+                            : "Open in Obsidian"}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Create a note in your vault
+                        </p>
+                      </div>
+                      {!isPro && (
+                        <Sparkles className="h-3.5 w-3.5 text-accent-amber flex-shrink-0" />
+                      )}
+                    </button>
+
                     {/* Download Markdown */}
                     <button
                       onClick={() => requirePro(handleDownloadMarkdown)}
@@ -678,9 +876,9 @@ export function ShareMenu({
           </DialogHeader>
           <div className="mt-3 space-y-4">
             <p className="text-sm text-muted-foreground">
-              Exporting summaries as Markdown is available on the Pro plan.
-              Upgrade to download and copy summaries for Obsidian, Notion, or
-              any markdown-based workflow.
+              Exporting summaries is available on the Pro plan. Upgrade to send
+              summaries to Notion, open them in Obsidian, or download as
+              Markdown for any knowledge workflow.
             </p>
             <div className="flex flex-col gap-2">
               <Button asChild className="w-full gap-2">
@@ -703,7 +901,29 @@ export function ShareMenu({
 
       {/* Toast feedback */}
       <Toast open={toastOpen} onOpenChange={setToastOpen}>
-        <p className="text-sm font-medium">{toastMessage}</p>
+        <div className="pr-6">
+          <p className="text-sm font-medium">{toastMessage}</p>
+          {toastAction &&
+            (toastAction.external ? (
+              <a
+                href={toastAction.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+              >
+                {toastAction.label}
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            ) : (
+              <Link
+                href={toastAction.href}
+                className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                onClick={() => setToastOpen(false)}
+              >
+                {toastAction.label}
+              </Link>
+            ))}
+        </div>
       </Toast>
     </>
   );

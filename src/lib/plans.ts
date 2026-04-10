@@ -154,7 +154,8 @@ export const FEATURE_COMPARISON: FeatureCategory[] = [
       { label: 'Full transcript with search', free: true, pro: true },
       { label: 'Highlights & counterpoints', free: true, pro: true },
       { label: 'Complete shownotes', free: true, pro: true },
-      { label: 'Export summaries', free: false, pro: true },
+      { label: 'Export to Notion & Obsidian', free: false, pro: true },
+      { label: 'Export as Markdown', free: false, pro: true },
     ],
   },
   {
@@ -210,7 +211,7 @@ export const PLAN_META: Record<UserPlan, PlanMeta> = {
       'Unlimited Ask AI',
       'Unlimited subscriptions & follows',
       'Email, Telegram & WhatsApp alerts',
-      'Export summaries (Markdown)',
+      'Export to Markdown, Notion, Obsidian',
       'Priority generation queue',
     ],
   },

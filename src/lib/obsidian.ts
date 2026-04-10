@@ -23,11 +23,14 @@ export interface BuildObsidianUriOptions {
  * or open in a new tab — the browser hands it off to Obsidian.
  */
 export function buildObsidianUri(opts: BuildObsidianUriOptions): string {
-  const params = new URLSearchParams();
-  if (opts.vault) params.set('vault', opts.vault);
-  params.set('file', opts.fileName);
-  params.set('content', opts.content);
-  return `obsidian://new?${params.toString()}`;
+  // Build URI manually with encodeURIComponent — URLSearchParams encodes
+  // spaces as "+" (form-urlencoded) which Obsidian renders literally.
+  // We need RFC 3986 percent-encoding (%20 for space).
+  const parts: string[] = [];
+  if (opts.vault) parts.push(`vault=${encodeURIComponent(opts.vault)}`);
+  parts.push(`file=${encodeURIComponent(opts.fileName)}`);
+  parts.push(`content=${encodeURIComponent(opts.content)}`);
+  return `obsidian://new?${parts.join('&')}`;
 }
 
 /**

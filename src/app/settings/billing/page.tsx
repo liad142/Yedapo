@@ -133,16 +133,11 @@ function BillingContent() {
           <h3 className="text-sm font-semibold text-foreground">Today&apos;s Usage</h3>
           <p className="text-xs text-muted-foreground">Resets daily at midnight</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <UsageMeter
             label="Summaries"
             used={usage?.summary?.used ?? 0}
             limit={usage?.summary?.limit ?? 3}
-          />
-          <UsageMeter
-            label="Ask AI"
-            used={usage?.askAi?.used ?? 0}
-            limit={usage?.askAi?.limit ?? 5}
           />
         </div>
       </div>

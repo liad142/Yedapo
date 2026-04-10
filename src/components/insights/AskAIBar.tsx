@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { useAskAI } from "@/contexts/AskAIContext";
 import { useAudioPlayerSafe } from "@/contexts/AudioPlayerContext";
 import type { Track } from "@/contexts/AudioPlayerContext";
-import { useUsage } from "@/contexts/UsageContext";
+import { useUserPlan } from "@/hooks/useUserPlan";
+import { UpgradeModal } from "@/components/UpgradeModal";
+import { useState } from "react";
 
 /**
  * Ask AI bar with two visual modes:
@@ -17,11 +19,16 @@ export function AskAIBar({ mode, track }: { mode: "standalone" | "integrated"; t
   const { active, openChat } = useAskAI();
   const player = useAudioPlayerSafe();
   const playerActive = !!(player && player.currentTrack);
-  const { usage } = useUsage();
+  const { isPro } = useUserPlan();
+  const [showUpgrade, setShowUpgrade] = useState(false);
 
-  const askAiRemaining = usage && usage.askAi.limit !== -1
-    ? Math.max(0, usage.askAi.limit - usage.askAi.used)
-    : null;
+  const handleAskClick = () => {
+    if (!isPro) {
+      setShowUpgrade(true);
+      return;
+    }
+    openChat();
+  };
 
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -59,21 +66,16 @@ export function AskAIBar({ mode, track }: { mode: "standalone" | "integrated"; t
             {/* Ask AI section */}
             <div
               className="flex-1 flex items-center gap-2.5 px-4 py-2.5 cursor-text"
-              onClick={() => openChat()}
+              onClick={handleAskClick}
             >
               <Sparkles className="h-5 w-5 text-primary shrink-0" />
               <div className="flex-1 text-muted-foreground text-body-sm truncate">
                 Ask about this episode...
               </div>
-              {askAiRemaining !== null && (
-                <span className="text-[11px] text-muted-foreground/60 shrink-0 tabular-nums">
-                  {askAiRemaining} left
-                </span>
-              )}
               <Button
                 size="icon"
                 className="rounded-full w-8 h-8 bg-primary text-primary-foreground hover:bg-primary/90 shrink-0"
-                onClick={(e) => { e.stopPropagation(); openChat(); }}
+                onClick={(e) => { e.stopPropagation(); handleAskClick(); }}
               >
                 <ArrowUp className="h-4 w-4" />
               </Button>
@@ -81,6 +83,12 @@ export function AskAIBar({ mode, track }: { mode: "standalone" | "integrated"; t
 
           </div>
         </div>
+        <UpgradeModal
+          open={showUpgrade}
+          onClose={() => setShowUpgrade(false)}
+          feature="askAi"
+          rateLimitInfo={{ used: 0, limit: 0 }}
+        />
       </div>
     );
   }
@@ -89,24 +97,27 @@ export function AskAIBar({ mode, track }: { mode: "standalone" | "integrated"; t
   if (!active) return null;
 
   return (
-    <div
-      className="px-4 py-2.5 border-b border-border cursor-text hover:bg-secondary/50 transition-colors"
-      onClick={() => openChat()}
-    >
-      <div className="flex items-center gap-2.5">
-        <div className="bg-primary rounded-full p-1 shrink-0">
-          <Sparkles className="h-3 w-3 text-white" />
+    <>
+      <div
+        className="px-4 py-2.5 border-b border-border cursor-text hover:bg-secondary/50 transition-colors"
+        onClick={handleAskClick}
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="bg-primary rounded-full p-1 shrink-0">
+            <Sparkles className="h-3 w-3 text-white" />
+          </div>
+          <div className="flex-1 text-muted-foreground text-sm truncate">
+            Ask anything...
+          </div>
+          <MessageSquare className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
         </div>
-        <div className="flex-1 text-muted-foreground text-sm truncate">
-          Ask anything...
-        </div>
-        {askAiRemaining !== null && (
-          <span className="text-[10px] text-muted-foreground/50 shrink-0 tabular-nums mr-1">
-            {askAiRemaining} left
-          </span>
-        )}
-        <MessageSquare className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
       </div>
-    </div>
+      <UpgradeModal
+        open={showUpgrade}
+        onOpenChange={setShowUpgrade}
+        feature="askAi"
+        usage={{ used: 0, limit: 0 }}
+      />
+    </>
   );
 }

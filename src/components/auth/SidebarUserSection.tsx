@@ -137,7 +137,6 @@ export function SidebarUserSection({ compact = false }: SidebarUserSectionProps)
       {usage && (
         <div className="mt-2 space-y-1.5 px-1">
           <UsageMeter label="Summaries" used={usage.summary.used} limit={usage.summary.limit} variant="sidebar" />
-          <UsageMeter label="Questions" used={usage.askAi.used} limit={usage.askAi.limit} variant="sidebar" />
           {!usage.isUnlimited && (
             <div className="flex items-center gap-1 text-[10px] text-muted-foreground/50 pt-0.5">
               <Clock className="h-2.5 w-2.5" />

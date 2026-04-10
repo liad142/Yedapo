@@ -184,11 +184,6 @@ export function AskAIChatPopup() {
                     <Sparkles className="h-3.5 w-3.5 text-white" />
                   </div>
                   <span className="font-semibold text-sm">Ask AI</span>
-                  {user && usage && usage.askAi.limit !== -1 && (
-                    <span className="text-[10px] text-muted-foreground/60 tabular-nums">
-                      {Math.max(0, usage.askAi.limit - usage.askAi.used)} left
-                    </span>
-                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   {user && messages.length > 0 && (

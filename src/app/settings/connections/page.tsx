@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Youtube,
@@ -28,6 +28,14 @@ interface ConnectionStatus {
 }
 
 export default function ConnectionsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-muted-foreground">Loading...</div>}>
+      <ConnectionsPageContent />
+    </Suspense>
+  );
+}
+
+function ConnectionsPageContent() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();

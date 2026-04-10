@@ -114,9 +114,9 @@ export function AskAIBar({ mode, track }: { mode: "standalone" | "integrated"; t
       </div>
       <UpgradeModal
         open={showUpgrade}
-        onOpenChange={setShowUpgrade}
+        onClose={() => setShowUpgrade(false)}
         feature="askAi"
-        usage={{ used: 0, limit: 0 }}
+        rateLimitInfo={{ used: 0, limit: 0 }}
       />
     </>
   );

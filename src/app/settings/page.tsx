@@ -5,7 +5,7 @@ import {
   Moon, Sun, Monitor, LogIn, LogOut, Loader2, Pencil, Check, X, Shield, ChevronDown, Search,
   Palette, Briefcase, Smile, GraduationCap, BookOpen, Landmark, Clock, Heart,
   Users, Music, Newspaper, Church, FlaskConical, Globe, Trophy, Cpu, Film,
-  Youtube, RefreshCw, Mail, Send, Bell, BellOff, Trash2, Unplug, AlertTriangle, Headphones, MessageCircle, Smartphone,
+  Youtube, RefreshCw, Mail, Send, Bell, BellOff, Trash2, Unplug, AlertTriangle, Headphones, MessageCircle, Smartphone, NotebookPen,
 } from 'lucide-react';
 import { Search as SearchIcon } from 'lucide-react';
 import Link from 'next/link';
@@ -140,6 +140,8 @@ export default function SettingsPage() {
   const channelPopoverRef = useRef<HTMLDivElement>(null);
   const [sendingTestEmail, setSendingTestEmail] = useState(false);
   const [testEmailResult, setTestEmailResult] = useState<'sent' | 'error' | null>(null);
+  const [notionStatus, setNotionStatus] = useState<{ connected: boolean; workspace_name?: string | null; has_database?: boolean } | null>(null);
+  const [notionLoading, setNotionLoading] = useState(false);
 
   // Account deletion & YouTube disconnect state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -168,6 +170,63 @@ export default function SettingsPage() {
   useEffect(() => {
     if (user) fetchNotifications();
   }, [user, fetchNotifications]);
+
+  // Fetch Notion connection status
+  const fetchNotionStatus = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await fetch('/api/integrations/notion/status');
+      if (res.ok) {
+        const data = await res.json();
+        setNotionStatus(data);
+      }
+    } catch { /* silent */ }
+  }, [user]);
+
+  useEffect(() => {
+    if (user) fetchNotionStatus();
+  }, [user, fetchNotionStatus]);
+
+  // Handle ?notion=connected / ?notion=needs_share / ?notion=error from OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const notionParam = params.get('notion');
+    if (!notionParam) return;
+    window.history.replaceState({}, '', '/settings');
+    if (notionParam === 'connected') {
+      fetchNotionStatus();
+    } else if (notionParam === 'needs_share') {
+      setErrorToast('Share a Notion page with Yedapo to enable exports.');
+      fetchNotionStatus();
+    } else if (notionParam === 'error') {
+      setErrorToast('Failed to connect Notion. Please try again.');
+    }
+  }, [fetchNotionStatus]);
+
+  const handleConnectNotion = async () => {
+    setNotionLoading(true);
+    try {
+      const res = await fetch('/api/integrations/notion/authorize', { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to start Notion OAuth');
+      const { url } = await res.json();
+      window.location.href = url;
+    } catch {
+      setErrorToast('Failed to connect Notion.');
+      setNotionLoading(false);
+    }
+  };
+
+  const handleDisconnectNotion = async () => {
+    setNotionLoading(true);
+    try {
+      await fetch('/api/integrations/notion/disconnect', { method: 'POST' });
+      setNotionStatus({ connected: false });
+    } catch {
+      setErrorToast('Failed to disconnect Notion.');
+    } finally {
+      setNotionLoading(false);
+    }
+  };
 
   const handleToggleNotification = async (sub: NotificationSub) => {
     setTogglingNotif(sub.podcastId);
@@ -1126,6 +1185,45 @@ export default function SettingsPage() {
                     className="shrink-0"
                   >
                     Connect
+                  </Button>
+                )}
+              </div>
+
+              {/* Notion */}
+              <div className="flex items-center gap-4 p-4 rounded-2xl bg-card border border-border">
+                <div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center shrink-0">
+                  <NotebookPen className="h-5 w-5 text-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Notion</p>
+                  {notionStatus?.connected ? (
+                    <p className="text-xs text-muted-foreground truncate">
+                      {notionStatus.workspace_name || 'Connected'}
+                      {notionStatus.has_database === false && ' — share a page to finish setup'}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Export summaries to your workspace</p>
+                  )}
+                </div>
+                {notionStatus?.connected ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDisconnectNotion}
+                    disabled={notionLoading}
+                    className="shrink-0 text-destructive hover:text-destructive"
+                  >
+                    {notionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Disconnect'}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleConnectNotion}
+                    disabled={notionLoading}
+                    className="shrink-0"
+                  >
+                    {notionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Connect'}
                   </Button>
                 )}
               </div>

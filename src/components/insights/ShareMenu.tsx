@@ -7,8 +7,6 @@ import {
   Copy,
   Check,
   Mail,
-  MessageCircle,
-  Send,
   Loader2,
   FileText,
   Download,
@@ -17,9 +15,13 @@ import {
   Crown,
   Lock,
   BookOpen,
-  NotebookPen,
   ExternalLink,
 } from "lucide-react";
+import {
+  TelegramIcon,
+  WhatsAppIcon,
+  NotionIcon,
+} from "@/components/icons/BrandIcons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -491,8 +493,8 @@ export function ShareMenu({
                   {/* Social share circles */}
                   <div className="flex items-center gap-2 mt-3">
                     {[
-                      { label: 'WhatsApp', icon: MessageCircle, color: 'bg-[#25D366]/10 text-[#25D366]', mutedColor: 'bg-[#25D366]/5 text-[#25D366]/50', hoverColor: 'group-hover:bg-[#25D366]/20', onClick: handleWhatsApp },
-                      { label: 'Telegram', icon: Send, color: 'bg-[#229ED9]/10 text-[#229ED9]', mutedColor: 'bg-[#229ED9]/5 text-[#229ED9]/50', hoverColor: 'group-hover:bg-[#229ED9]/20', onClick: handleTelegram },
+                      { label: 'WhatsApp', icon: WhatsAppIcon, color: 'bg-white ring-1 ring-black/5', mutedColor: 'bg-white/60 ring-1 ring-black/5 opacity-40', hoverColor: 'group-hover:bg-white', onClick: handleWhatsApp },
+                      { label: 'Telegram', icon: TelegramIcon, color: 'bg-white ring-1 ring-black/5', mutedColor: 'bg-white/60 ring-1 ring-black/5 opacity-40', hoverColor: 'group-hover:bg-white', onClick: handleTelegram },
                       { label: 'Email', icon: Mail, color: 'bg-primary/10 text-primary', mutedColor: 'bg-primary/5 text-primary/50', hoverColor: 'group-hover:bg-primary/20', onClick: () => openEmailDialog(false) },
                     ].map((channel) => (
                       <button
@@ -569,14 +571,14 @@ export function ShareMenu({
                           "flex-shrink-0 flex items-center justify-center",
                           "h-9 w-9 rounded-lg",
                           isPro
-                            ? "bg-foreground text-background dark:bg-white dark:text-black"
+                            ? "bg-white ring-1 ring-black/5 text-black"
                             : "bg-accent-amber-subtle text-accent-amber"
                         )}
                       >
                         {isSendingNotion ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
-                          <NotebookPen className="h-4 w-4" />
+                          <NotionIcon className="h-5 w-5" />
                         )}
                       </div>
                       <div className="flex-1 text-left">
@@ -780,14 +782,13 @@ export function ShareMenu({
                       <div
                         className={cn(
                           "flex-shrink-0 flex items-center justify-center",
-                          "h-10 w-10 rounded-xl",
-                          "bg-[#229ED9]/10 text-[#229ED9]"
+                          "h-10 w-10 rounded-xl bg-white ring-1 ring-black/5"
                         )}
                       >
                         {isSendingTelegram ? (
-                          <Loader2 className="h-[18px] w-[18px] animate-spin" />
+                          <Loader2 className="h-[18px] w-[18px] animate-spin text-[#229ED9]" />
                         ) : (
-                          <Send className="h-[18px] w-[18px]" />
+                          <TelegramIcon className="h-7 w-7" />
                         )}
                       </div>
                       <div className="flex-1 text-left">

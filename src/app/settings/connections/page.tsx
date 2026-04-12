@@ -4,16 +4,18 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
-  Youtube,
-  Send,
   Loader2,
   Unplug,
-  NotebookPen,
-  Mail,
   Check,
-  MessageCircle,
   AlertTriangle,
 } from 'lucide-react';
+import {
+  YouTubeIcon,
+  TelegramIcon,
+  NotionIcon,
+  WhatsAppIcon,
+  GmailIcon,
+} from '@/components/icons/BrandIcons';
 import posthog from 'posthog-js';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -268,8 +270,8 @@ function ConnectionsPageContent() {
       <div className="space-y-4">
         {/* Email */}
         <ConnectedAppCard
-          icon={<Mail className="h-6 w-6 text-blue-500" />}
-          iconBgClass="bg-blue-500/10"
+          icon={<GmailIcon className="h-7 w-7" />}
+          iconBgClass="bg-white dark:bg-white/95 ring-1 ring-black/5"
           title="Email"
           subtitle={user.email}
           badge={
@@ -309,8 +311,8 @@ function ConnectionsPageContent() {
 
         {/* YouTube */}
         <ConnectedAppCard
-          icon={<Youtube className="h-6 w-6 text-red-500" />}
-          iconBgClass="bg-red-500/10"
+          icon={<YouTubeIcon className="h-7 w-7" />}
+          iconBgClass="bg-white dark:bg-white/95 ring-1 ring-black/5"
           title="YouTube"
           statusDot={status?.youtube.connected}
           subtitle={
@@ -343,7 +345,7 @@ function ConnectionsPageContent() {
                 className="gap-2"
                 onClick={connectYouTube}
               >
-                <Youtube className="h-3.5 w-3.5" />
+                <YouTubeIcon className="h-4 w-4" />
                 Connect
               </Button>
             )
@@ -352,8 +354,8 @@ function ConnectionsPageContent() {
 
         {/* Telegram */}
         <ConnectedAppCard
-          icon={<Send className="h-6 w-6 text-sky-500" />}
-          iconBgClass="bg-sky-500/10"
+          icon={<TelegramIcon className="h-8 w-8" />}
+          iconBgClass="bg-transparent"
           title="Telegram"
           statusDot={status?.telegram.connected}
           subtitle={
@@ -377,7 +379,7 @@ function ConnectionsPageContent() {
                 className="gap-2"
                 onClick={() => setShowTelegramDialog(true)}
               >
-                <Send className="h-3.5 w-3.5" />
+                <TelegramIcon className="h-4 w-4" />
                 Connect
               </Button>
             )
@@ -386,8 +388,8 @@ function ConnectionsPageContent() {
 
         {/* Notion */}
         <ConnectedAppCard
-          icon={<NotebookPen className="h-6 w-6 text-foreground" />}
-          iconBgClass="bg-foreground/5 dark:bg-white/10"
+          icon={<NotionIcon className="h-7 w-7 text-foreground" />}
+          iconBgClass="bg-white dark:bg-white/95 ring-1 ring-black/5 text-black"
           title="Notion"
           statusDot={status?.notion.connected}
           subtitle={
@@ -426,7 +428,7 @@ function ConnectionsPageContent() {
                 {isConnectingNotion ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <NotebookPen className="h-3.5 w-3.5" />
+                  <NotionIcon className="h-4 w-4 text-foreground" />
                 )}
                 Connect
               </Button>
@@ -436,8 +438,8 @@ function ConnectionsPageContent() {
 
         {/* WhatsApp — coming soon */}
         <ConnectedAppCard
-          icon={<MessageCircle className="h-6 w-6 text-green-500" />}
-          iconBgClass="bg-green-500/10"
+          icon={<WhatsAppIcon className="h-7 w-7" />}
+          iconBgClass="bg-white dark:bg-white/95 ring-1 ring-black/5"
           title="WhatsApp"
           subtitle="Receive summaries via WhatsApp messages"
           disabled

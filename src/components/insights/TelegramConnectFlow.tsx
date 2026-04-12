@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Send, Loader2, CheckCircle2, ExternalLink } from "lucide-react";
+import { Loader2, CheckCircle2, ExternalLink } from "lucide-react";
+import { TelegramIcon } from "@/components/icons/BrandIcons";
 import { Button } from "@/components/ui/button";
 
 interface TelegramConnectFlowProps {
@@ -75,7 +76,7 @@ export function TelegramConnectFlow({ onConnected }: TelegramConnectFlowProps) {
           <p className="text-sm text-red-600">{error}</p>
         )}
         <Button onClick={handleConnect} className="w-full gap-2">
-          <Send className="h-4 w-4" />
+          <TelegramIcon className="h-4 w-4" />
           Connect Telegram
         </Button>
       </div>

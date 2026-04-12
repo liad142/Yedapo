@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
-  Brain, Mic, Youtube, Database, Server, Mail,
+  Brain, Mic, Database, Server, Mail,
   Layers, ExternalLink, CheckCircle2, AlertTriangle,
   XCircle, MinusCircle, BarChart3, Globe, DollarSign,
 } from 'lucide-react';
+import { YouTubeIcon } from '@/components/icons/BrandIcons';
 import { cn } from '@/lib/utils';
 import { elevation } from '@/lib/elevation';
 import { RefreshButton } from '@/components/admin/RefreshButton';
@@ -70,11 +71,11 @@ const PROVIDER_META = {
   gemini:   { name: 'Gemini',          icon: <Brain className="h-5 w-5 text-teal-600" /> },
   deepgram: { name: 'Deepgram',        icon: <Mic className="h-5 w-5 text-indigo-600" /> },
   voxtral:  { name: 'Voxtral (Mistral)', icon: <Mic className="h-5 w-5 text-orange-500" /> },
-  supadata: { name: 'Supadata',        icon: <Youtube className="h-5 w-5 text-red-600" /> },
+  supadata: { name: 'Supadata',        icon: <YouTubeIcon className="h-5 w-5" /> },
   posthog:  { name: 'PostHog',         icon: <BarChart3 className="h-5 w-5 text-orange-600" /> },
   supabase: { name: 'Supabase',        icon: <Database className="h-5 w-5 text-emerald-600" /> },
   redis:    { name: 'Redis (Upstash)', icon: <Server className="h-5 w-5 text-purple-600" /> },
-  youtube:  { name: 'YouTube Data API', icon: <Youtube className="h-5 w-5 text-red-600" /> },
+  youtube:  { name: 'YouTube Data API', icon: <YouTubeIcon className="h-5 w-5" /> },
   qstash:   { name: 'QStash (Upstash)', icon: <Layers className="h-5 w-5 text-violet-600" /> },
   resend:   { name: 'Resend',          icon: <Mail className="h-5 w-5 text-blue-600" /> },
   vercel:   { name: 'Vercel',          icon: <Globe className="h-5 w-5 text-foreground" /> },

@@ -11,10 +11,13 @@ import {
   Check,
   Pencil,
   Mail,
-  Send,
-  MessageCircle,
   Smartphone,
 } from 'lucide-react';
+import {
+  TelegramIcon,
+  WhatsAppIcon,
+  YouTubeIcon,
+} from '@/components/icons/BrandIcons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -44,8 +47,8 @@ interface ChannelOption {
 const CHANNEL_OPTIONS: readonly ChannelOption[] = [
   { id: 'in_app', label: 'In-app', icon: Smartphone },
   { id: 'email', label: 'Email', icon: Mail },
-  { id: 'telegram', label: 'Telegram', icon: Send },
-  { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, comingSoon: true },
+  { id: 'telegram', label: 'Telegram', icon: TelegramIcon },
+  { id: 'whatsapp', label: 'WhatsApp', icon: WhatsAppIcon, comingSoon: true },
 ];
 
 interface NotificationSubscriptionsSectionProps {
@@ -429,7 +432,7 @@ export function NotificationSubscriptionsSection({
             <div className="mt-2 py-8 text-center rounded-2xl border border-dashed border-border bg-card/50">
               <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center mx-auto mb-3">
                 {notifTab === 'youtube' ? (
-                  <Youtube className="h-5 w-5 text-muted-foreground/50" />
+                  <YouTubeIcon className="h-5 w-5 opacity-50" />
                 ) : (
                   <BellOff className="h-5 w-5 text-muted-foreground/50" />
                 )}
@@ -483,7 +486,7 @@ export function NotificationSubscriptionsSection({
                                 )}
                               >
                                 {sub.type === 'youtube' ? (
-                                  <Youtube className="h-4 w-4 text-muted-foreground" />
+                                  <YouTubeIcon className="h-5 w-5" />
                                 ) : (
                                   <Headphones className="h-4 w-4 text-muted-foreground" />
                                 )}

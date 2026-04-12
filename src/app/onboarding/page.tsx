@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import posthog from 'posthog-js';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Headphones, Sparkles, ArrowRight, ArrowLeft, Check, Youtube, Loader2 } from 'lucide-react';
+import { Headphones, Sparkles, ArrowRight, ArrowLeft, Check, Loader2 } from 'lucide-react';
+import { YouTubeIcon } from '@/components/icons/BrandIcons';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { GenreCard } from '@/components/onboarding/GenreCard';
@@ -298,8 +299,8 @@ export default function OnboardingPage() {
             >
               <Card className="p-4 sm:p-8">
                 <div className="text-center mb-6">
-                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-500/10 mb-4">
-                    <Youtube className="h-6 w-6 text-red-500" />
+                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white ring-1 ring-black/5 shadow-sm mb-4">
+                    <YouTubeIcon className="h-8 w-8" />
                   </div>
                   <h2 className="text-2xl font-bold mb-2">Import YouTube Channels</h2>
                   {!isLoadingYt && ytChannels.length > 0 && (
